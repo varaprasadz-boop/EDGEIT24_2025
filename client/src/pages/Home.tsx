@@ -27,7 +27,7 @@ export default function Home() {
       <Header />
 
       <main className="flex-1">
-        <section className="relative overflow-hidden bg-gradient-to-b from-[#0A0E27] via-[#0D1421] to-background py-20 md:py-32">
+        <section className="relative overflow-hidden bg-[#0A0E27] py-20 md:py-32 border-b-2 border-primary/30">
           <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:50px_50px]" />
           <div className="container mx-auto px-4 md:px-6 relative">
             <div className="max-w-4xl mx-auto text-center space-y-8">
@@ -119,6 +119,146 @@ export default function Home() {
                   <CardDescription className="text-base" data-testid="text-step-3-desc">
                     Select the best vendor, collaborate seamlessly, and get your project completed successfully.
                   </CardDescription>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-20 bg-background">
+          <div className="container mx-auto px-4 md:px-6">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-engagement-title">Engagement Models</h2>
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto" data-testid="text-engagement-subtitle">
+                Choose the perfect plan for your business needs
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              <Card className="hover-elevate" data-testid="card-tier-basic">
+                <CardHeader>
+                  <div className="flex items-center justify-between mb-2">
+                    <CardTitle className="text-2xl" data-testid="text-tier-basic-name">Basic</CardTitle>
+                    <Badge variant="outline" data-testid="badge-tier-basic">Free</Badge>
+                  </div>
+                  <CardDescription data-testid="text-tier-basic-desc">
+                    Perfect for getting started
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-3xl font-bold" data-testid="text-tier-basic-price">₹0<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                  <ul className="space-y-3">
+                    <li className="flex items-start gap-2" data-testid="text-tier-basic-feature-1">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Post up to 3 projects/month</span>
+                    </li>
+                    <li className="flex items-start gap-2" data-testid="text-tier-basic-feature-2">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Receive up to 10 bids per project</span>
+                    </li>
+                    <li className="flex items-start gap-2" data-testid="text-tier-basic-feature-3">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Basic vendor profiles</span>
+                    </li>
+                    <li className="flex items-start gap-2" data-testid="text-tier-basic-feature-4">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Email support</span>
+                    </li>
+                  </ul>
+                  <Button className="w-full" variant="outline" data-testid="button-tier-basic">
+                    Get Started
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="hover-elevate border-primary shadow-lg shadow-primary/10" data-testid="card-tier-advanced">
+                <CardHeader>
+                  <div className="flex items-center justify-between mb-2">
+                    <CardTitle className="text-2xl" data-testid="text-tier-advanced-name">Advanced</CardTitle>
+                    <Badge className="bg-primary text-primary-foreground" data-testid="badge-tier-advanced">Popular</Badge>
+                  </div>
+                  <CardDescription data-testid="text-tier-advanced-desc">
+                    For growing businesses
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-3xl font-bold" data-testid="text-tier-advanced-price">₹4,999<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                  <ul className="space-y-3">
+                    <li className="flex items-start gap-2" data-testid="text-tier-advanced-feature-1">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Post up to 15 projects/month</span>
+                    </li>
+                    <li className="flex items-start gap-2" data-testid="text-tier-advanced-feature-2">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Receive unlimited bids</span>
+                    </li>
+                    <li className="flex items-start gap-2" data-testid="text-tier-advanced-feature-3">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Featured vendor profiles</span>
+                    </li>
+                    <li className="flex items-start gap-2" data-testid="text-tier-advanced-feature-4">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Priority support (24-48hrs)</span>
+                    </li>
+                    <li className="flex items-start gap-2" data-testid="text-tier-advanced-feature-5">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Advanced analytics dashboard</span>
+                    </li>
+                    <li className="flex items-start gap-2" data-testid="text-tier-advanced-feature-6">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Project milestones & escrow</span>
+                    </li>
+                  </ul>
+                  <Button className="w-full bg-primary text-primary-foreground" data-testid="button-tier-advanced">
+                    Choose Advanced
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="hover-elevate" data-testid="card-tier-pro">
+                <CardHeader>
+                  <div className="flex items-center justify-between mb-2">
+                    <CardTitle className="text-2xl" data-testid="text-tier-pro-name">Pro</CardTitle>
+                    <Badge variant="outline" data-testid="badge-tier-pro">Enterprise</Badge>
+                  </div>
+                  <CardDescription data-testid="text-tier-pro-desc">
+                    For large-scale operations
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-3xl font-bold" data-testid="text-tier-pro-price">₹14,999<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                  <ul className="space-y-3">
+                    <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-1">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Unlimited projects & bids</span>
+                    </li>
+                    <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-2">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Premium vendor profiles</span>
+                    </li>
+                    <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-3">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Dedicated account manager</span>
+                    </li>
+                    <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-4">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">24/7 priority support</span>
+                    </li>
+                    <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-5">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">Custom integrations & API access</span>
+                    </li>
+                    <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-6">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">White-label solutions</span>
+                    </li>
+                    <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-7">
+                      <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">SLA guarantee</span>
+                    </li>
+                  </ul>
+                  <Button className="w-full" variant="outline" data-testid="button-tier-pro">
+                    Contact Sales
+                  </Button>
                 </CardContent>
               </Card>
             </div>
