@@ -41,13 +41,13 @@ export default function Home() {
                 Post Requirements • Receive Competitive Bids • Get Your IT Projects Done
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-                <Button size="lg" asChild className="bg-primary text-primary-foreground hover:bg-primary/90 text-lg" data-testid="button-hero-client">
+                <Button size="lg" asChild className="bg-primary text-primary-foreground text-lg" data-testid="button-hero-client">
                   <Link href="/post-requirement">
                     I Need IT Services
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
-                <Button size="lg" variant="outline" asChild className="border-white/20 text-white hover:bg-white/10 text-lg" data-testid="button-hero-vendor">
+                <Button size="lg" variant="outline" asChild className="border-white/20 text-white text-lg" data-testid="button-hero-vendor">
                   <Link href="/signup-vendor">
                     I'm a Service Provider
                   </Link>
@@ -75,7 +75,7 @@ export default function Home() {
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-how-title">How It Works</h2>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto" data-testid="text-how-subtitle">
                 Simple, transparent process to connect with the right IT professionals
               </p>
             </div>
@@ -85,10 +85,10 @@ export default function Home() {
                   <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                     <Upload className="h-8 w-8 text-primary" />
                   </div>
-                  <CardTitle>1. Post Your Requirement</CardTitle>
+                  <CardTitle data-testid="text-step-1-title">1. Post Your Requirement</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="text-base">
+                  <CardDescription className="text-base" data-testid="text-step-1-desc">
                     Describe your IT project needs, budget, and timeline. Our platform guides you through the process.
                   </CardDescription>
                 </CardContent>
@@ -99,10 +99,10 @@ export default function Home() {
                   <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                     <MessageSquare className="h-8 w-8 text-primary" />
                   </div>
-                  <CardTitle>2. Review Competitive Bids</CardTitle>
+                  <CardTitle data-testid="text-step-2-title">2. Review Competitive Bids</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="text-base">
+                  <CardDescription className="text-base" data-testid="text-step-2-desc">
                     Receive proposals from qualified vendors. Compare pricing, timelines, and expertise.
                   </CardDescription>
                 </CardContent>
@@ -113,10 +113,10 @@ export default function Home() {
                   <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                     <CheckCircle2 className="h-8 w-8 text-primary" />
                   </div>
-                  <CardTitle>3. Award & Deliver</CardTitle>
+                  <CardTitle data-testid="text-step-3-title">3. Award & Deliver</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="text-base">
+                  <CardDescription className="text-base" data-testid="text-step-3-desc">
                     Select the best vendor, collaborate seamlessly, and get your project completed successfully.
                   </CardDescription>
                 </CardContent>
@@ -129,7 +129,7 @@ export default function Home() {
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-services-title">IT Services We Offer</h2>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto" data-testid="text-services-subtitle">
                 Comprehensive IT solutions across all major technology domains
               </p>
             </div>
@@ -139,13 +139,13 @@ export default function Home() {
                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
                     <Users className="h-6 w-6 text-primary" />
                   </div>
-                  <CardTitle className="text-xl">Human Resources</CardTitle>
+                  <CardTitle className="text-xl" data-testid="text-service-human-title">Human Resources</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription>
+                  <CardDescription data-testid="text-service-human-desc">
                     IT consultants, developers, designers, and project managers on demand.
                   </CardDescription>
-                  <Button variant="link" className="p-0 mt-4 text-primary" data-testid="button-explore-human">
+                  <Button variant="ghost" className="mt-4 text-primary" data-testid="button-explore-human">
                     Explore <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </CardContent>
@@ -156,13 +156,13 @@ export default function Home() {
                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
                     <Code className="h-6 w-6 text-primary" />
                   </div>
-                  <CardTitle className="text-xl">Software Services</CardTitle>
+                  <CardTitle className="text-xl" data-testid="text-service-software-title">Software Services</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription>
+                  <CardDescription data-testid="text-service-software-desc">
                     Custom software development, ERP implementation, and SaaS solutions.
                   </CardDescription>
-                  <Button variant="link" className="p-0 mt-4 text-primary" data-testid="button-explore-software">
+                  <Button variant="ghost" className="mt-4 text-primary" data-testid="button-explore-software">
                     Explore <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </CardContent>
@@ -173,13 +173,13 @@ export default function Home() {
                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
                     <Megaphone className="h-6 w-6 text-primary" />
                   </div>
-                  <CardTitle className="text-xl">Digital Marketing</CardTitle>
+                  <CardTitle className="text-xl" data-testid="text-service-marketing-title">Digital Marketing</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription>
+                  <CardDescription data-testid="text-service-marketing-desc">
                     SEO, PPC, content marketing, and social media management services.
                   </CardDescription>
-                  <Button variant="link" className="p-0 mt-4 text-primary" data-testid="button-explore-marketing">
+                  <Button variant="ghost" className="mt-4 text-primary" data-testid="button-explore-marketing">
                     Explore <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </CardContent>
@@ -190,13 +190,13 @@ export default function Home() {
                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
                     <HardDrive className="h-6 w-6 text-primary" />
                   </div>
-                  <CardTitle className="text-xl">Hardware Supply</CardTitle>
+                  <CardTitle className="text-xl" data-testid="text-service-hardware-title">Hardware Supply</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription>
+                  <CardDescription data-testid="text-service-hardware-desc">
                     Servers, networking equipment, workstations, and IT infrastructure.
                   </CardDescription>
-                  <Button variant="link" className="p-0 mt-4 text-primary" data-testid="button-explore-hardware">
+                  <Button variant="ghost" className="mt-4 text-primary" data-testid="button-explore-hardware">
                     Explore <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </CardContent>
@@ -209,7 +209,7 @@ export default function Home() {
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-vendors-title">Top-Rated Service Providers</h2>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto" data-testid="text-vendors-subtitle">
                 Connect with experienced professionals who deliver excellence
               </p>
             </div>
@@ -227,12 +227,12 @@ export default function Home() {
                         <AvatarFallback>{vendor.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <CardTitle className="text-lg">{vendor.name}</CardTitle>
-                        <p className="text-sm text-muted-foreground">{vendor.title}</p>
+                        <CardTitle className="text-lg" data-testid={`text-vendor-name-${idx}`}>{vendor.name}</CardTitle>
+                        <p className="text-sm text-muted-foreground" data-testid={`text-vendor-title-${idx}`}>{vendor.title}</p>
                         <div className="flex items-center gap-1 mt-1">
                           <Star className="h-4 w-4 fill-primary text-primary" />
                           <span className="text-sm font-medium" data-testid={`text-rating-${idx}`}>{vendor.rating}</span>
-                          <span className="text-sm text-muted-foreground">({vendor.projects} projects)</span>
+                          <span className="text-sm text-muted-foreground" data-testid={`text-projects-${idx}`}>({vendor.projects} projects)</span>
                         </div>
                       </div>
                     </div>
@@ -266,30 +266,30 @@ export default function Home() {
               <div data-testid="stat-projects">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <TrendingUp className="h-6 w-6 text-primary" />
-                  <div className="text-4xl font-bold text-primary">5000+</div>
+                  <div className="text-4xl font-bold text-primary" data-testid="text-stat-projects-value">5000+</div>
                 </div>
-                <p className="text-muted-foreground">Projects Completed</p>
+                <p className="text-muted-foreground" data-testid="text-stat-projects-label">Projects Completed</p>
               </div>
               <div data-testid="stat-vendors">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Users className="h-6 w-6 text-primary" />
-                  <div className="text-4xl font-bold text-primary">1200+</div>
+                  <div className="text-4xl font-bold text-primary" data-testid="text-stat-vendors-value">1200+</div>
                 </div>
-                <p className="text-muted-foreground">Active Vendors</p>
+                <p className="text-muted-foreground" data-testid="text-stat-vendors-label">Active Vendors</p>
               </div>
               <div data-testid="stat-success">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Shield className="h-6 w-6 text-primary" />
-                  <div className="text-4xl font-bold text-primary">98%</div>
+                  <div className="text-4xl font-bold text-primary" data-testid="text-stat-success-value">98%</div>
                 </div>
-                <p className="text-muted-foreground">Success Rate</p>
+                <p className="text-muted-foreground" data-testid="text-stat-success-label">Success Rate</p>
               </div>
               <div data-testid="stat-transactions">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Zap className="h-6 w-6 text-primary" />
-                  <div className="text-4xl font-bold text-primary">$2M+</div>
+                  <div className="text-4xl font-bold text-primary" data-testid="text-stat-transactions-value">$2M+</div>
                 </div>
-                <p className="text-muted-foreground">Total Transactions</p>
+                <p className="text-muted-foreground" data-testid="text-stat-transactions-label">Total Transactions</p>
               </div>
             </div>
           </div>
@@ -299,7 +299,7 @@ export default function Home() {
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-testimonials-title">What Our Clients Say</h2>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto" data-testid="text-testimonials-subtitle">
                 Trusted by businesses worldwide for quality IT solutions
               </p>
             </div>
@@ -331,7 +331,7 @@ export default function Home() {
                         <Star key={i} className="h-4 w-4 fill-primary text-primary" />
                       ))}
                     </div>
-                    <CardDescription className="text-base italic">
+                    <CardDescription className="text-base italic" data-testid={`text-testimonial-quote-${idx}`}>
                       "{testimonial.quote}"
                     </CardDescription>
                   </CardHeader>
@@ -342,8 +342,8 @@ export default function Home() {
                         <AvatarFallback>{testimonial.author.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-semibold text-sm">{testimonial.author}</p>
-                        <p className="text-xs text-muted-foreground">{testimonial.role}</p>
+                        <p className="font-semibold text-sm" data-testid={`text-testimonial-author-${idx}`}>{testimonial.author}</p>
+                        <p className="text-xs text-muted-foreground" data-testid={`text-testimonial-role-${idx}`}>{testimonial.role}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -359,17 +359,17 @@ export default function Home() {
               <h2 className="text-3xl md:text-4xl font-bold" data-testid="text-cta-title">
                 Ready to Start Your Next IT Project?
               </h2>
-              <p className="text-xl text-white/60">
+              <p className="text-xl text-white/60" data-testid="text-cta-subtitle">
                 Join thousands of satisfied clients and vendors on EDGEIT24
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-                <Button size="lg" asChild className="bg-primary text-primary-foreground hover:bg-primary/90 text-lg" data-testid="button-cta-post">
+                <Button size="lg" asChild className="bg-primary text-primary-foreground text-lg" data-testid="button-cta-post">
                   <Link href="/post-requirement">
                     Post Your Requirement Now
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
-                <Button size="lg" variant="outline" asChild className="border-white/20 text-white hover:bg-white/10 text-lg" data-testid="button-cta-browse">
+                <Button size="lg" variant="outline" asChild className="border-white/20 text-white text-lg" data-testid="button-cta-browse">
                   <Link href="/browse">
                     Browse Available Projects
                   </Link>

@@ -30,10 +30,10 @@ export function Header() {
         </nav>
 
         <div className="hidden md:flex items-center space-x-4">
-          <Button variant="outline" asChild className="border-white/20 text-white hover:bg-white/10" data-testid="button-signin">
+          <Button variant="outline" asChild className="border-white/20 text-white" data-testid="button-signin">
             <Link href="/signin">Sign In</Link>
           </Button>
-          <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90" data-testid="button-post-requirement">
+          <Button asChild className="bg-primary text-primary-foreground" data-testid="button-post-requirement">
             <Link href="/post-requirement">Post Requirement</Link>
           </Button>
         </div>
@@ -52,23 +52,23 @@ export function Header() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-border/40 bg-[#0A0E27] px-4 py-4" data-testid="mobile-menu">
           <nav className="flex flex-col space-y-4">
-            <Link href="/" className="text-sm font-medium text-white hover:text-primary transition-colors">
+            <Link href="/" className="text-sm font-medium text-white hover:text-primary transition-colors" data-testid="link-mobile-home">
               Home
             </Link>
-            <Link href="/browse" className="text-sm font-medium text-white/80 hover:text-primary transition-colors">
+            <Link href="/browse" className="text-sm font-medium text-white/80 hover:text-primary transition-colors" data-testid="link-mobile-browse">
               Browse Services
             </Link>
-            <Link href="/how-it-works" className="text-sm font-medium text-white/80 hover:text-primary transition-colors">
+            <Link href="/how-it-works" className="text-sm font-medium text-white/80 hover:text-primary transition-colors" data-testid="link-mobile-how">
               How It Works
             </Link>
-            <Link href="/about" className="text-sm font-medium text-white/80 hover:text-primary transition-colors">
+            <Link href="/about" className="text-sm font-medium text-white/80 hover:text-primary transition-colors" data-testid="link-mobile-about">
               About
             </Link>
             <div className="flex flex-col space-y-2 pt-4 border-t border-border/40">
-              <Button variant="outline" asChild className="border-white/20 text-white hover:bg-white/10 w-full">
+              <Button variant="outline" asChild className="border-white/20 text-white w-full" data-testid="button-mobile-signin">
                 <Link href="/signin">Sign In</Link>
               </Button>
-              <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90 w-full">
+              <Button asChild className="bg-primary text-primary-foreground w-full" data-testid="button-mobile-post-requirement">
                 <Link href="/post-requirement">Post Requirement</Link>
               </Button>
             </div>
