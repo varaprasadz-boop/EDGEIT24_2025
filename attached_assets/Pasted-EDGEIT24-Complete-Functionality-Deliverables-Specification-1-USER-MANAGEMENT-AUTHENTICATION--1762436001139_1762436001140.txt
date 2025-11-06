@@ -1,0 +1,474 @@
+EDGEIT24 - Complete Functionality & Deliverables Specification
+1. USER MANAGEMENT & AUTHENTICATION
+1.1 User Registration
+Sign-up form with:
+Email and password
+Full name
+Role selection (Freelancer/Client/Both)
+Profile photo upload (optional)
+Email verification flow
+Terms of service acceptance
+1.2 User Login & Authentication
+Secure login with Replit Auth
+Session management
+"Remember me" functionality
+Password reset/recovery flow
+Logout functionality
+1.3 User Profiles
+Freelancer Profile:
+
+Personal information (name, location, profile photo)
+Professional title/headline
+Detailed bio/overview
+Skills list with proficiency levels
+Hourly rate setting
+Portfolio section:
+Project titles
+Project descriptions
+Project images/screenshots
+Project links
+Work history/experience
+Education background
+Certifications
+Languages spoken
+Availability status (available/busy)
+Client Profile:
+
+Company/individual name
+Profile photo/logo
+Company description
+Location
+Verification badge (mock)
+Jobs posted history
+Reviews received
+2. JOB MANAGEMENT SYSTEM
+2.1 Job Posting (Client Side)
+Create new job form with:
+Job title
+Job category/field (e.g., Web Development, Design, Writing)
+Detailed job description (rich text editor)
+Required skills (multi-select tags)
+Experience level (Entry, Intermediate, Expert)
+Budget type (Fixed price / Hourly)
+Budget amount/range
+Project duration estimate
+Number of proposals allowed
+Attachment support for project briefs
+Visibility settings (public/private/invite-only)
+2.2 Job Browsing & Search (Freelancer Side)
+Job listing page with:
+Grid/list view toggle
+Job cards showing:
+Job title
+Client name and rating
+Budget and type
+Posted date
+Number of proposals
+Required skills
+Brief description preview
+Pagination
+Search & Filter Options:
+
+Search by keywords
+Filter by:
+Category
+Budget range
+Experience level
+Project duration
+Job type (fixed/hourly)
+Date posted
+Number of proposals
+Sort by:
+Most recent
+Budget (high to low / low to high)
+Relevance
+Number of proposals
+2.3 Job Details Page
+Complete job information display
+Client profile summary
+Similar jobs suggestions
+"Submit Proposal" button
+"Save Job" bookmark functionality
+Share job option
+Report/flag inappropriate job
+2.4 Job Management (Client Dashboard)
+View all posted jobs
+Job status tracking:
+Open (accepting proposals)
+In Progress
+Completed
+Cancelled
+Closed
+Edit job details
+Close/reopen job postings
+Delete draft jobs
+View proposals received count
+Quick actions (view proposals, message applicants)
+3. PROPOSAL SYSTEM
+3.1 Submit Proposal (Freelancer)
+Proposal form containing:
+Cover letter (rich text)
+Bid amount
+Estimated delivery time
+Milestone breakdown (optional)
+Relevant portfolio samples selection
+Attachment upload (resume, samples)
+Questions for client (optional)
+Proposal preview before submission
+Edit proposal (if job still open and not yet reviewed)
+Withdraw proposal option
+3.2 View Proposals (Client)
+Proposals listing page for each job
+Proposal cards showing:
+Freelancer name and photo
+Freelancer rating and reviews
+Bid amount
+Delivery time
+Cover letter preview
+Date submitted
+Filter proposals by:
+Bid amount
+Freelancer rating
+Date submitted
+Sort proposals
+Shortlist proposals
+Decline proposals with optional message
+Accept proposal and hire freelancer
+3.3 Proposal Management (Freelancer Dashboard)
+View all submitted proposals
+Proposal status:
+Pending
+Shortlisted
+Accepted
+Declined
+Filter by status
+Track proposal views by clients
+4. MESSAGING SYSTEM
+4.1 Real-Time Chat
+One-on-one messaging between client and freelancer
+Message thread interface with:
+Contact list sidebar
+Active conversation view
+Message input field
+Send button
+Real-time message delivery (WebSocket)
+Message timestamps
+Read/unread indicators
+Typing indicators ("User is typing...")
+Message history scrolling
+Online/offline status indicators
+4.2 Message Features
+Send text messages
+File attachment sharing
+Emoji support
+Message search within conversation
+Delete messages
+Archive conversations
+Unread message counter
+Desktop notifications for new messages
+4.3 Message Organization
+Inbox view with all conversations
+Filter by:
+Unread messages
+Active projects
+All conversations
+Search conversations by contact name
+Pin important conversations
+5. PROJECT/CONTRACT MANAGEMENT
+5.1 Contract Creation (After Proposal Acceptance)
+Automatic contract generation when proposal is accepted
+Contract details:
+Project title
+Scope of work
+Agreed budget
+Payment terms
+Delivery timeline
+Milestones (if applicable)
+Start date
+End date (estimated)
+5.2 Active Projects Dashboard
+Freelancer View:
+
+List of active contracts
+Project status
+Budget and payment tracking
+Deadline tracking
+Client contact info
+Submit deliverables option
+Request payment option
+Client View:
+
+List of active projects
+Freelancer details
+Progress tracking
+Payment status
+Release payment option (mocked)
+Close project option
+5.3 Project Status Management
+Status options:
+Not Started
+In Progress
+Awaiting Review
+Revision Requested
+Completed
+Cancelled
+Status change notifications
+Project timeline view
+6. PAYMENT SYSTEM (MOCKED)
+6.1 Escrow Simulation
+Mock payment deposit by client
+Visual representation of funds in escrow
+Payment milestones setup
+Payment status indicators:
+Pending deposit
+In escrow
+Released
+Refunded
+6.2 Payment Actions (Mocked)
+Client Actions:
+
+Deposit funds (mock transaction)
+Release payment to freelancer
+Request refund (with reason)
+Set up milestone payments
+Freelancer Actions:
+
+Request payment
+View payment history
+Track pending payments
+View available balance
+Withdraw funds (mock)
+6.3 Transaction History
+Complete payment history
+Transaction details:
+Date
+Amount
+Project name
+Client/Freelancer name
+Transaction type
+Status
+Download invoice (PDF generation - mocked)
+Filter by date range, project, status
+6.4 Payment Dashboard
+Freelancer:
+
+Total earnings
+Pending payments
+Available balance
+Earnings chart (by month)
+Client:
+
+Total spent
+In escrow amount
+Payment history
+Spending chart (by month)
+7. REVIEW & RATING SYSTEM
+7.1 Leave Review (Post-Project)
+Review form triggered after project completion
+Rating components:
+Overall rating (1-5 stars)
+Specific criteria ratings:
+For Freelancers: Quality, Communication, Deadline adherence, Professionalism
+For Clients: Communication, Clarity, Payment promptness, Professionalism
+Written review (text area)
+Public/private feedback toggle
+Recommendation checkbox ("Would you work with them again?")
+7.2 Review Display
+On Profiles:
+
+Overall rating score (average)
+Total number of reviews
+Rating distribution chart (5★: X, 4★: Y, etc.)
+Individual reviews list with:
+Reviewer name and photo
+Project title
+Star rating
+Written review
+Date posted
+Filter reviews by rating
+Sort by most recent/most helpful
+7.3 Review Management
+Edit review within 48 hours
+Report inappropriate reviews
+Reply to reviews (one response per review)
+Review verification badge (confirmed completed project)
+8. SEARCH & DISCOVERY
+8.1 Job Search (Freelancer)
+Global search bar
+Advanced search filters (as detailed in Section 2.2)
+Search suggestions/autocomplete
+Recent searches history
+Saved searches with email alerts
+"Jobs you might like" recommendations
+8.2 Freelancer Search (Client)
+Search freelancers by:
+Skills
+Keywords
+Category
+Location
+Hourly rate range
+Rating
+Availability
+Languages
+Freelancer cards in results showing:
+Name and photo
+Title
+Rating and reviews count
+Hourly rate
+Top skills
+Success rate
+Location
+Invite to job option
+Save freelancer to list
+9. NOTIFICATIONS SYSTEM
+9.1 Notification Types
+New proposal received (Client)
+Proposal status update (Freelancer)
+New message received
+Payment deposited/released
+Project status change
+New review received
+Job recommendation
+Deadline reminders
+System announcements
+9.2 Notification Delivery
+In-app notification bell with counter
+Notification dropdown list
+Mark as read/unread
+Clear all notifications
+Email notifications (toggleable in settings)
+9.3 Notification Preferences
+Settings page to control:
+Email notifications on/off per type
+In-app notifications on/off per type
+Notification frequency (instant/daily digest)
+10. DASHBOARD VIEWS
+10.1 Freelancer Dashboard
+Overview section:
+Total earnings
+Active projects count
+Pending proposals count
+Profile views
+Success rate
+Quick actions:
+Browse jobs
+View proposals
+Check messages
+Update profile
+Recent activities feed
+Earnings chart
+Active projects list
+Recommended jobs
+10.2 Client Dashboard
+Overview section:
+Active jobs count
+Total spent
+Proposals received count
+Hires made
+Quick actions:
+Post a job
+View active projects
+Find freelancers
+Check messages
+Recent activities feed
+Spending chart
+Active jobs list
+Recommended freelancers
+11. USER SETTINGS & PREFERENCES
+11.1 Account Settings
+Change email
+Change password
+Two-factor authentication setup (mock)
+Account verification (mock)
+Close account option
+11.2 Profile Settings
+Edit profile information
+Upload/change profile photo
+Update professional details
+Manage portfolio items
+Set availability status
+Update hourly rate
+11.3 Notification Preferences
+Configure notification types
+Email preferences
+SMS preferences (mock)
+11.4 Privacy Settings
+Profile visibility (public/private)
+Show/hide contact information
+Block users
+Data download request
+Privacy policy review
+12. ADDITIONAL FEATURES
+12.1 Saved Items
+Freelancer:
+
+Saved jobs list
+Save/unsave jobs
+Organize saved jobs
+Client:
+
+Saved freelancers list
+Save/unsave freelancers
+Create freelancer collections/lists
+12.2 Reports & Analytics
+Freelancer:
+
+Earnings report
+Project completion rate
+Response time analytics
+Profile view statistics
+Client:
+
+Spending report
+Hiring statistics
+Project success rate
+Average time to hire
+12.3 Help & Support
+FAQ page
+Help center/knowledge base
+Contact support form
+Live chat support (mock)
+Report a problem
+13. ADMIN/MODERATION (Optional for MVP)
+Flag content review
+User suspension/ban
+Platform statistics
+Payment monitoring (mock)
+DELIVERABLES CHECKLIST
+Core Pages/Views:
+✅ Landing/Home Page
+✅ Sign Up Page
+✅ Login Page
+✅ Freelancer Dashboard
+✅ Client Dashboard
+✅ Freelancer Profile Page (View & Edit)
+✅ Client Profile Page (View & Edit)
+✅ Post Job Page
+✅ Browse Jobs Page
+✅ Job Details Page
+✅ Submit Proposal Page
+✅ View Proposals Page
+✅ Search Freelancers Page
+✅ Freelancer Profile View (Public)
+✅ Messaging/Inbox Page
+✅ Active Projects Page
+✅ Project Details Page
+✅ Payment Dashboard
+✅ Transaction History Page
+✅ Reviews Page
+✅ Leave Review Page
+✅ Settings Page
+✅ Notifications Page
+✅ Saved Items Page
+✅ Help/Support Page
+Technical Deliverables:
+✅ User authentication system
+✅ PostgreSQL database schema
+✅ RESTful API endpoints
+✅ WebSocket implementation for messaging
+✅ Responsive UI components
+✅ Search and filter logic
+✅ Notification system
+✅ File upload system
+✅ Mock payment processing
+✅ Rating and review system
