@@ -10,6 +10,26 @@ const queryLimitSchema = z.object({
     .refine(val => val > 0 && val <= 100, "Limit must be between 1 and 100"),
 });
 
+// Helper to get userId from authenticated request
+async function getUserIdFromRequest(req: any): Promise<string | null> {
+  const email = req.user?.claims?.email;
+  const replitSub = req.user?.claims?.sub;
+  
+  // Look up user by replitSub first, then email
+  let user = replitSub ? await storage.getUserByReplitSub(replitSub) : null;
+  
+  if (!user && email) {
+    user = await storage.getUserByEmail(email);
+  }
+  
+  if (!user && replitSub) {
+    // Fallback for users created with sub as ID (legacy)
+    user = await storage.getUser(replitSub);
+  }
+  
+  return user?.id || null;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
   await setupAuth(app);
@@ -59,7 +79,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard endpoints
   app.get('/api/dashboard/client/stats', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const userId = await getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
       
       // Verify user has client profile
       const clientProfile = await storage.getClientProfile(userId);
@@ -77,7 +100,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/dashboard/consultant/stats', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const userId = await getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
       
       // Verify user has consultant profile
       const consultantProfile = await storage.getConsultantProfile(userId);
@@ -96,7 +122,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Job endpoints
   app.get('/api/jobs', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const userId = await getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
       
       // Validate query params
       const validation = queryLimitSchema.safeParse(req.query);
@@ -116,7 +145,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bid endpoints
   app.get('/api/bids', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const userId = await getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
       
       // Validate query params
       const validation = queryLimitSchema.safeParse(req.query);
@@ -136,7 +168,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Client Profile endpoints
   app.get('/api/profile/client', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const userId = await getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
       
       const profile = await storage.getClientProfile(userId);
       if (!profile) {
@@ -152,7 +187,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/profile/client', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const userId = await getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
       
       // Validate request body using the insert schema (omit fields not user-editable)
       const updateSchema = insertClientProfileSchema.omit({ id: true, userId: true, createdAt: true, updatedAt: true });
@@ -179,7 +217,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Consultant Profile endpoints
   app.get('/api/profile/consultant', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const userId = await getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
       
       const profile = await storage.getConsultantProfile(userId);
       if (!profile) {
@@ -195,7 +236,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/profile/consultant', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const userId = await getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
       
       // Validate request body (omit read-only fields: id, userId, verified, rating, totalReviews, completedProjects, createdAt, updatedAt)
       const updateSchema = insertConsultantProfileSchema.omit({ 
@@ -214,12 +258,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid profile data", errors: validation.error });
       }
       
-      // Check if profile exists
+      // Check if profile exists - create if not, update if yes (upsert)
       const existingProfile = await storage.getConsultantProfile(userId);
+      
       if (!existingProfile) {
-        return res.status(404).json({ message: "Consultant profile not found" });
+        // Create new consultant profile
+        const newProfile = await storage.createConsultantProfile({ userId, ...validation.data });
+        return res.status(201).json(newProfile);
       }
       
+      // Update existing profile
       const updatedProfile = await storage.updateConsultantProfile(userId, validation.data);
       res.json(updatedProfile);
     } catch (error) {

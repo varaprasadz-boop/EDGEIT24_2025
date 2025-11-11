@@ -152,6 +152,56 @@ These accounts should be pre-seeded in the database and used for all automated t
   - Success toast notifications on update
 - **Navigation**: Accessible from Dashboard Quick Actions
 
+### Consultant Profile Management
+- **Page**: `/profile/consultant` - Create, view, and edit consultant profile
+- **API Endpoints**:
+  - GET `/api/profile/consultant` - Fetches profile (returns 404 if not exists)
+  - PUT `/api/profile/consultant` - Upsert profile (create or update)
+- **Core Fields**: Full name (required), title, bio, skills[], hourly rate, experience level, location, availability status
+- **Advanced Features**:
+  - **Skills Tag Manager**: Add/remove skills with comma-separated input
+  - **Portfolio Showcase**: CRUD for portfolio items (title, description, URL)
+  - **Service Packages**: CRUD for service offerings (name, description, price in SAR, delivery time)
+  - **Weekly Availability Calendar**: Grid-based time slot selection (morning/afternoon/evening per weekday)
+- **Data Structures**:
+  - portfolio: JSONB array `[{title, description, url}]`
+  - servicePackages: JSONB array `[{name, description, price, deliveryTime}]`
+  - weeklySchedule: JSONB object `{monday: ["morning"], wednesday: ["afternoon"]}`
+- **Create Profile Flow**:
+  1. New consultant navigates to `/profile/consultant`
+  2. Query enabled when user authenticated (enabled: !!user)
+  3. GET returns 404 → query returns null (not error)
+  4. Shows "Create Profile" button when `!profile && !isEditing`
+  5. Click "Create Profile" → setIsEditing(true) → form renders
+  6. User fills form, clicks Save → PUT creates profile (201 status)
+  7. Query invalidates/refetches → profile displays in view mode
+- **State Management**: useEffect initializes portfolio/servicePackages/weeklySchedule from profile data
+- **Validation**: react-hook-form + Zod with fullName required
+
+### Critical Authentication Bug Fix (November 11, 2025)
+- **Issue**: All authenticated endpoints were attempting to access `req.user.id` which doesn't exist
+  - `req.user` only contains OIDC claims (`.claims.sub`, `.claims.email`)
+  - Resulted in null userId being passed to database operations
+  - Database rejected inserts with "NOT NULL constraint violation" errors
+- **Root Cause**: Confusion between session user object (has claims) and database user object (has id)
+- **Solution**: Created `getUserIdFromRequest()` helper function in routes.ts
+  - Looks up user from database using OIDC claims (replitSub, email, legacy sub)
+  - Returns userId or null
+  - Applied consistently to all authenticated endpoints:
+    - `/api/dashboard/client/stats`
+    - `/api/dashboard/consultant/stats`
+    - `/api/jobs`
+    - `/api/bids`
+    - `/api/profile/client` (GET and PUT)
+    - `/api/profile/consultant` (GET and PUT)
+- **Pattern**: All endpoints now include:
+  ```typescript
+  const userId = await getUserIdFromRequest(req);
+  if (!userId) {
+    return res.status(401).json({ message: "User not found" });
+  }
+  ```
+
 **Planned Integrations** (based on design documents)
 - Payment processing system
 - File upload/storage service

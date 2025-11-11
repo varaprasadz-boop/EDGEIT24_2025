@@ -75,19 +75,23 @@ export default function ConsultantProfile() {
   const [servicePackages, setServicePackages] = useReactState<ServicePackage[]>([]);
   const [weeklySchedule, setWeeklySchedule] = useReactState<WeeklySchedule>({});
 
-  // Fetch consultant profile
-  const { data: profile, isLoading, isError, refetch } = useQuery<ConsultantProfile>({
+  // Fetch consultant profile - treat 404 as "no profile yet" rather than error
+  const { data: profile, isLoading, isError, refetch } = useQuery<ConsultantProfile | null>({
     queryKey: ['/api/profile/consultant'],
     queryFn: async () => {
       const response = await fetch('/api/profile/consultant', { 
         credentials: 'include' 
       });
+      if (response.status === 404) {
+        // No profile exists yet - return null instead of throwing
+        return null;
+      }
       if (!response.ok) {
         throw new Error(`Failed to fetch profile: ${response.statusText}`);
       }
       return response.json();
     },
-    enabled: !!user?.consultantProfile,
+    enabled: !!user,
     retry: false,
   });
 
@@ -281,17 +285,29 @@ export default function ConsultantProfile() {
     );
   }
 
-  if (!user?.consultantProfile) {
+  // Show Create Profile button when no profile exists (and not in edit mode)
+  if (!profile && !isLoading && !isError && !isEditing) {
     return (
-      <div className="flex items-center justify-center min-h-[600px]">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>No Consultant Profile</CardTitle>
-            <CardDescription>
-              You don't have a consultant profile yet. Please contact support.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="container max-w-4xl mx-auto p-6">
+        <div className="flex items-center justify-center min-h-[600px]">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle>No Consultant Profile</CardTitle>
+              <CardDescription>
+                You don't have a consultant profile yet. Create one to showcase your expertise and start receiving job opportunities.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={() => setIsEditing(true)}
+                className="w-full"
+                data-testid="button-create-profile"
+              >
+                Create Profile
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
