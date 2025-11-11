@@ -124,7 +124,33 @@ These accounts should be pre-seeded in the database and used for all automated t
 - **nanoid**: Unique ID generation for client-side resources
 
 **Session Management**
-- **connect-pg-simple**: PostgreSQL-backed session store (configured but not yet integrated with authentication flow)
+- **connect-pg-simple**: PostgreSQL-backed session store for Replit Auth sessions
+
+## Recent Changes (November 11, 2025)
+
+### Dashboard Implementation
+- **Client Dashboard**: Displays active jobs, total bids received, spending stats, and message count using real database queries
+- **Consultant Dashboard**: Shows available jobs (excluding own posts), active bids, earnings, and rating
+- **API Endpoints**:
+  - `/api/dashboard/client/stats` - Aggregates client dashboard metrics
+  - `/api/dashboard/consultant/stats` - Aggregates consultant dashboard metrics
+  - `/api/jobs?limit=N` - Lists client's jobs with pagination
+  - `/api/bids?limit=N` - Lists bids on client's jobs with pagination
+- **Features**: Loading states, error handling with retry buttons, React Query integration
+
+### Client Profile Management
+- **Page**: `/profile/client` - View and edit client profile information
+- **API Endpoints**:
+  - GET `/api/profile/client` - Fetches authenticated user's client profile
+  - PUT `/api/profile/client` - Updates client profile with Zod validation
+- **Fields**: Company name, industry, company size, website, location, description
+- **Features**:
+  - View mode displaying profile in organized cards (Company Info, Contact Details, About)
+  - Edit mode with validated form (react-hook-form + Zod)
+  - Proper handling of nullable database fields
+  - Loading and error states with retry functionality
+  - Success toast notifications on update
+- **Navigation**: Accessible from Dashboard Quick Actions
 
 **Planned Integrations** (based on design documents)
 - Payment processing system

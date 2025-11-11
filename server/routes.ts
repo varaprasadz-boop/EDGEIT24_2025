@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
-import { insertClientProfileSchema } from "@shared/schema";
+import { insertClientProfileSchema, insertConsultantProfileSchema } from "@shared/schema";
 
 const queryLimitSchema = z.object({
   limit: z.string().optional().transform(val => val ? parseInt(val) : 10)
@@ -173,6 +173,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating client profile:", error);
       res.status(500).json({ message: "Failed to update client profile" });
+    }
+  });
+
+  // Consultant Profile endpoints
+  app.get('/api/profile/consultant', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      const profile = await storage.getConsultantProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Consultant profile not found" });
+      }
+      
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching consultant profile:", error);
+      res.status(500).json({ message: "Failed to fetch consultant profile" });
+    }
+  });
+
+  app.put('/api/profile/consultant', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Validate request body (omit read-only fields: id, userId, verified, rating, totalReviews, completedProjects, createdAt, updatedAt)
+      const updateSchema = insertConsultantProfileSchema.omit({ 
+        id: true, 
+        userId: true, 
+        verified: true,
+        rating: true,
+        totalReviews: true,
+        completedProjects: true,
+        createdAt: true, 
+        updatedAt: true 
+      });
+      const validation = updateSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid profile data", errors: validation.error });
+      }
+      
+      // Check if profile exists
+      const existingProfile = await storage.getConsultantProfile(userId);
+      if (!existingProfile) {
+        return res.status(404).json({ message: "Consultant profile not found" });
+      }
+      
+      const updatedProfile = await storage.updateConsultantProfile(userId, validation.data);
+      res.json(updatedProfile);
+    } catch (error) {
+      console.error("Error updating consultant profile:", error);
+      res.status(500).json({ message: "Failed to update consultant profile" });
     }
   });
 
