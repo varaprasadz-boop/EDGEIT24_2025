@@ -155,7 +155,7 @@ export default function Home() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="text-3xl font-bold" data-testid="text-client-basic-price">ر.س 0<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                  <div className="text-3xl font-bold" data-testid="text-client-basic-price">SAR 0<span className="text-base font-normal text-muted-foreground">/month</span></div>
                   <ul className="space-y-3">
                     <li className="flex items-start gap-2" data-testid="text-client-basic-feature-1">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -191,7 +191,7 @@ export default function Home() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="text-3xl font-bold" data-testid="text-client-advanced-price">ر.س 1,499<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                  <div className="text-3xl font-bold" data-testid="text-client-advanced-price">SAR 1,499<span className="text-base font-normal text-muted-foreground">/month</span></div>
                   <ul className="space-y-3">
                     <li className="flex items-start gap-2" data-testid="text-client-advanced-feature-1">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -235,7 +235,7 @@ export default function Home() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="text-3xl font-bold" data-testid="text-client-pro-price">ر.س 4,499<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                  <div className="text-3xl font-bold" data-testid="text-client-pro-price">SAR 4,499<span className="text-base font-normal text-muted-foreground">/month</span></div>
                   <ul className="space-y-3">
                     <li className="flex items-start gap-2" data-testid="text-client-pro-feature-1">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -287,7 +287,7 @@ export default function Home() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="text-3xl font-bold" data-testid="text-consultant-basic-price">ر.س 0<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                      <div className="text-3xl font-bold" data-testid="text-consultant-basic-price">SAR 0<span className="text-base font-normal text-muted-foreground">/month</span></div>
                       <ul className="space-y-3">
                         <li className="flex items-start gap-2" data-testid="text-consultant-basic-feature-1">
                           <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -323,7 +323,7 @@ export default function Home() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="text-3xl font-bold" data-testid="text-consultant-advanced-price">ر.س 299<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                      <div className="text-3xl font-bold" data-testid="text-consultant-advanced-price">SAR 299<span className="text-base font-normal text-muted-foreground">/month</span></div>
                       <ul className="space-y-3">
                         <li className="flex items-start gap-2" data-testid="text-consultant-advanced-feature-1">
                           <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -367,7 +367,7 @@ export default function Home() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="text-3xl font-bold" data-testid="text-consultant-pro-price">ر.س 899<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                      <div className="text-3xl font-bold" data-testid="text-consultant-pro-price">SAR 899<span className="text-base font-normal text-muted-foreground">/month</span></div>
                       <ul className="space-y-3">
                         <li className="flex items-start gap-2" data-testid="text-consultant-pro-feature-1">
                           <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
