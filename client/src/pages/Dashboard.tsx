@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { useQuery } from "@tanstack/react-query";
 import {
   Briefcase,
   FileText,
@@ -17,6 +18,20 @@ import {
   Star,
   AlertCircle
 } from "lucide-react";
+
+interface DashboardStats {
+  activeJobs: number;
+  totalBids: number;
+  totalSpending: string;
+  messagesCount: number;
+}
+
+interface ConsultantDashboardStats {
+  availableJobs: number;
+  activeBids: number;
+  totalEarnings: string;
+  rating: string;
+}
 
 export default function Dashboard() {
   const { user, isLoading, getActiveRole } = useAuthContext();
@@ -46,60 +61,113 @@ export default function Dashboard() {
     );
   }
 
-  const renderClientDashboard = () => (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">Client Dashboard</h1>
-        <p className="text-muted-foreground" data-testid="text-dashboard-subtitle">
-          Manage your projects and find the right IT professionals
-        </p>
-      </div>
+  const renderClientDashboard = () => {
+    const { data: stats, isLoading: statsLoading, isError, refetch } = useQuery<DashboardStats>({
+      queryKey: ['/api/dashboard/client/stats'],
+      enabled: !!user?.clientProfile,
+    });
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card data-testid="card-stat-active-jobs">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Jobs</CardTitle>
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-active-jobs">0</div>
-            <p className="text-xs text-muted-foreground">No active postings</p>
-          </CardContent>
-        </Card>
+    if (statsLoading) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      );
+    }
 
-        <Card data-testid="card-stat-proposals">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Proposals Received</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-proposals">0</div>
-            <p className="text-xs text-muted-foreground">Awaiting your review</p>
-          </CardContent>
-        </Card>
+    if (isError) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-5 w-5" />
+                Failed to Load Dashboard
+              </CardTitle>
+              <CardDescription>
+                Unable to fetch your dashboard statistics. Please try refreshing.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => refetch()} 
+                className="w-full bg-primary text-primary-foreground"
+                data-testid="button-retry-dashboard"
+              >
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
 
-        <Card data-testid="card-stat-messages">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Messages</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-messages">0</div>
-            <p className="text-xs text-muted-foreground">No unread messages</p>
-          </CardContent>
-        </Card>
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">Client Dashboard</h1>
+          <p className="text-muted-foreground" data-testid="text-dashboard-subtitle">
+            Manage your projects and find the right IT professionals
+          </p>
+        </div>
 
-        <Card data-testid="card-stat-spending">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Spending</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-spending">﷼ 0</div>
-            <p className="text-xs text-muted-foreground">This month</p>
-          </CardContent>
-        </Card>
-      </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card data-testid="card-stat-active-jobs">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Jobs</CardTitle>
+              <Briefcase className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-active-jobs">
+                {stats?.activeJobs || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {stats?.activeJobs ? 'Currently open' : 'No active postings'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-stat-proposals">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Proposals Received</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-proposals">
+                {stats?.totalBids || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {stats?.totalBids ? 'Awaiting your review' : 'No proposals yet'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-stat-messages">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Messages</CardTitle>
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-messages">
+                {stats?.messagesCount || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">No unread messages</p>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-stat-spending">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Spending</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-spending">
+                ﷼ {parseFloat(stats?.totalSpending || "0").toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground">All time</p>
+            </CardContent>
+          </Card>
+        </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card data-testid="card-quick-actions">
@@ -141,62 +209,118 @@ export default function Dashboard() {
         </Card>
       </div>
     </div>
-  );
+    );
+  };
 
-  const renderConsultantDashboard = () => (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">Consultant Dashboard</h1>
-        <p className="text-muted-foreground" data-testid="text-dashboard-subtitle">
-          Find opportunities and manage your bids
-        </p>
-      </div>
+  const renderConsultantDashboard = () => {
+    const { data: stats, isLoading: statsLoading, isError, refetch } = useQuery<ConsultantDashboardStats>({
+      queryKey: ['/api/dashboard/consultant/stats'],
+      enabled: !!user?.consultantProfile,
+    });
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card data-testid="card-stat-available-jobs">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Available Jobs</CardTitle>
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-available-jobs">0</div>
-            <p className="text-xs text-muted-foreground">Matching your skills</p>
-          </CardContent>
-        </Card>
+    if (statsLoading) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      );
+    }
 
-        <Card data-testid="card-stat-active-bids">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Bids</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-active-bids">0</div>
-            <p className="text-xs text-muted-foreground">Awaiting client review</p>
-          </CardContent>
-        </Card>
+    if (isError) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-5 w-5" />
+                Failed to Load Dashboard
+              </CardTitle>
+              <CardDescription>
+                Unable to fetch your dashboard statistics. Please try refreshing.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => refetch()} 
+                className="w-full bg-primary text-primary-foreground"
+                data-testid="button-retry-dashboard"
+              >
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
 
-        <Card data-testid="card-stat-earnings">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-earnings">﷼ 0</div>
-            <p className="text-xs text-muted-foreground">This month</p>
-          </CardContent>
-        </Card>
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">Consultant Dashboard</h1>
+          <p className="text-muted-foreground" data-testid="text-dashboard-subtitle">
+            Find opportunities and manage your bids
+          </p>
+        </div>
 
-        <Card data-testid="card-stat-rating">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rating</CardTitle>
-            <Star className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-rating">-</div>
-            <p className="text-xs text-muted-foreground">No reviews yet</p>
-          </CardContent>
-        </Card>
-      </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card data-testid="card-stat-available-jobs">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Available Jobs</CardTitle>
+              <Briefcase className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-available-jobs">
+                {stats?.availableJobs || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {stats?.availableJobs ? 'Matching your skills' : 'No jobs available'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-stat-active-bids">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Bids</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-active-bids">
+                {stats?.activeBids || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {stats?.activeBids ? 'Awaiting client review' : 'No active bids'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-stat-earnings">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-earnings">
+                ﷼ {parseFloat(stats?.totalEarnings || "0").toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground">All time</p>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-stat-rating">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Rating</CardTitle>
+              <Star className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-rating">
+                {parseFloat(stats?.rating || "0").toFixed(1) || '-'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {stats && parseFloat(stats.rating) > 0 ? 'Average rating' : 'No reviews yet'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card data-testid="card-profile-completion">
@@ -262,7 +386,8 @@ export default function Dashboard() {
         </Card>
       </div>
     </div>
-  );
+    );
+  };
 
   const renderDualRoleDashboard = () => (
     <div className="space-y-6">

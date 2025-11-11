@@ -5,6 +5,7 @@ import {
   jobs,
   bids,
   projects,
+  payments,
   type User,
   type InsertUser,
   type UpsertUser,
@@ -12,9 +13,25 @@ import {
   type InsertClientProfile,
   type ConsultantProfile,
   type InsertConsultantProfile,
+  type Job,
+  type Bid,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
+
+export interface DashboardStats {
+  activeJobs: number;
+  totalBids: number;
+  totalSpending: string;
+  messagesCount: number;
+}
+
+export interface ConsultantDashboardStats {
+  availableJobs: number;
+  activeBids: number;
+  totalEarnings: string;
+  rating: string;
+}
 
 export interface IStorage {
   // User operations - Required for Replit Auth and local auth
@@ -33,6 +50,12 @@ export interface IStorage {
   getConsultantProfile(userId: string): Promise<ConsultantProfile | undefined>;
   createConsultantProfile(profile: InsertConsultantProfile): Promise<ConsultantProfile>;
   updateConsultantProfile(userId: string, profile: Partial<InsertConsultantProfile>): Promise<ConsultantProfile>;
+  
+  // Dashboard operations
+  getClientDashboardStats(userId: string): Promise<DashboardStats>;
+  getConsultantDashboardStats(userId: string): Promise<ConsultantDashboardStats>;
+  listClientJobs(userId: string, limit?: number): Promise<Job[]>;
+  listClientBids(userId: string, limit?: number): Promise<Bid[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -137,6 +160,112 @@ export class DatabaseStorage implements IStorage {
       .where(eq(consultantProfiles.userId, userId))
       .returning();
     return updated;
+  }
+
+  // Dashboard operations
+  async getClientDashboardStats(userId: string): Promise<DashboardStats> {
+    // Count active jobs posted by client
+    const [jobStats] = await db
+      .select({
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(jobs)
+      .where(
+        and(
+          eq(jobs.clientId, userId),
+          sql`${jobs.status} IN ('open', 'in_progress')`
+        )
+      );
+
+    // Count total bids received on client's jobs
+    const [bidStats] = await db
+      .select({
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(bids)
+      .innerJoin(jobs, eq(bids.jobId, jobs.id))
+      .where(eq(jobs.clientId, userId));
+
+    // Sum total spending from payments
+    const [spendingStats] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${payments.amount}), 0)`,
+      })
+      .from(payments)
+      .where(eq(payments.fromUserId, userId));
+
+    return {
+      activeJobs: jobStats?.count || 0,
+      totalBids: bidStats?.count || 0,
+      totalSpending: spendingStats?.total || "0",
+      messagesCount: 0, // TODO: Implement when messages are added
+    };
+  }
+
+  async getConsultantDashboardStats(userId: string): Promise<ConsultantDashboardStats> {
+    // Count available open jobs (excluding consultant's own jobs if they're also a client)
+    const [jobStats] = await db
+      .select({
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(jobs)
+      .where(
+        and(
+          eq(jobs.status, 'open'),
+          sql`${jobs.clientId} != ${userId}` // Exclude own jobs
+        )
+      );
+
+    // Count active bids by consultant
+    const [bidStats] = await db
+      .select({
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(bids)
+      .where(
+        and(
+          eq(bids.consultantId, userId),
+          sql`${bids.status} IN ('pending', 'shortlisted', 'accepted')`
+        )
+      );
+
+    // Sum total earnings from payments
+    const [earningsStats] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${payments.amount}), 0)`,
+      })
+      .from(payments)
+      .where(eq(payments.toUserId, userId));
+
+    // Get consultant rating
+    const profile = await this.getConsultantProfile(userId);
+
+    return {
+      availableJobs: jobStats?.count || 0,
+      activeBids: bidStats?.count || 0,
+      totalEarnings: earningsStats?.total || "0",
+      rating: profile?.rating || "0",
+    };
+  }
+
+  async listClientJobs(userId: string, limit: number = 10): Promise<Job[]> {
+    return await db
+      .select()
+      .from(jobs)
+      .where(eq(jobs.clientId, userId))
+      .orderBy(desc(jobs.createdAt))
+      .limit(limit);
+  }
+
+  async listClientBids(userId: string, limit: number = 10): Promise<Bid[]> {
+    // Get bids on jobs posted by this client - select all bid fields
+    return await db
+      .select(bids)
+      .from(bids)
+      .innerJoin(jobs, eq(bids.jobId, jobs.id))
+      .where(eq(jobs.clientId, userId))
+      .orderBy(desc(bids.createdAt))
+      .limit(limit);
   }
 }
 

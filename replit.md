@@ -58,6 +58,27 @@ These accounts should be pre-seeded in the database and used for all automated t
 - **Logging**: Custom request/response logging middleware with duration tracking and response body capture (truncated at 80 chars)
 - **Error Handling**: Consistent error response format through middleware chain
 
+**Authentication System**
+- **Method**: Replit Auth (OIDC) exclusively - supports Google, GitHub, X, Apple, and email/password
+- **Session Storage**: PostgreSQL-backed sessions via express-session and connect-pg-simple
+- **Identity Linking**: Multi-lookup strategy prevents duplicate accounts:
+  1. Check for existing user by replitSub (OIDC identity)
+  2. Fall back to email lookup for local→OIDC migration
+  3. Create new user if neither exists
+- **User Lookup**: Added replitSub column to users table for seamless OIDC linking
+- **Routes**:
+  - `/api/login` - Initiates OIDC flow, redirects to Replit Auth
+  - `/api/callback` - Handles OIDC callback, creates/links user, establishes session
+  - `/api/logout` - Destroys session, redirects to home
+  - `/api/auth/user` - Returns current user + profiles (client/consultant)
+- **Frontend Integration**:
+  - AuthProvider/AuthContext manages user state globally
+  - useAuthContext hook provides: user, isLoading, isAuthenticated, login(), logout(), getActiveRole()
+  - Role detection: "client" | "consultant" | "both" | null based on profile data
+  - Auth-aware routing: Home page redirects authenticated users to /dashboard
+  - Loading states prevent flashing unauthenticated content
+  - Header component adapts menu based on auth state (avatar dropdown vs sign-in buttons)
+
 ### Database Schema
 
 **ORM: Drizzle ORM**
