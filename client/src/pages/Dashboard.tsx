@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import {
   Briefcase,
   FileText,
@@ -16,7 +17,8 @@ import {
   Clock,
   ArrowRight,
   Star,
-  AlertCircle
+  AlertCircle,
+  UserCircle
 } from "lucide-react";
 
 interface DashboardStats {

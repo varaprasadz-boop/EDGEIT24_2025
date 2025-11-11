@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
+import { insertClientProfileSchema } from "@shared/schema";
 
 const queryLimitSchema = z.object({
   limit: z.string().optional().transform(val => val ? parseInt(val) : 10)
@@ -129,6 +130,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching bids:", error);
       res.status(500).json({ message: "Failed to fetch bids" });
+    }
+  });
+
+  // Client Profile endpoints
+  app.get('/api/profile/client', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      const profile = await storage.getClientProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Client profile not found" });
+      }
+      
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching client profile:", error);
+      res.status(500).json({ message: "Failed to fetch client profile" });
+    }
+  });
+
+  app.put('/api/profile/client', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Validate request body using the insert schema (omit fields not user-editable)
+      const updateSchema = insertClientProfileSchema.omit({ id: true, userId: true, createdAt: true, updatedAt: true });
+      const validation = updateSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid profile data", errors: validation.error });
+      }
+      
+      // Check if profile exists
+      const existingProfile = await storage.getClientProfile(userId);
+      if (!existingProfile) {
+        return res.status(404).json({ message: "Client profile not found" });
+      }
+      
+      const updatedProfile = await storage.updateClientProfile(userId, validation.data);
+      res.json(updatedProfile);
+    } catch (error) {
+      console.error("Error updating client profile:", error);
+      res.status(500).json({ message: "Failed to update client profile" });
     }
   });
 
