@@ -8,6 +8,16 @@ EDGEIT24 is a B2B marketplace platform that connects businesses seeking IT servi
 
 Preferred communication style: Simple, everyday language.
 
+## Test Credentials
+
+**IMPORTANT: Use these credentials consistently for all testing and development:**
+
+- **Super Admin**: superadmin@edgeit24.com / 123456
+- **Client**: Client@mailinator.com / 123456
+- **Consultant**: consultant@mailinator.com / 123456
+
+These accounts should be pre-seeded in the database and used for all automated tests, manual testing, and development workflows. All test credentials use the password `123456`.
+
 ## System Architecture
 
 ### Frontend Architecture
