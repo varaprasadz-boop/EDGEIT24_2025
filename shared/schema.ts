@@ -3,14 +3,33 @@ import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, decimal, un
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Session storage table - Required for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => ({
+    expireIdx: index("IDX_session_expire").on(table.expire),
+  })
+);
+
 // Users table - Core authentication and role management
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
-  password: text("password"),
-  role: text("role").notNull(), // 'client', 'consultant', 'both', 'admin'
+  password: text("password"), // For local auth, nullable for OIDC users
+  role: text("role").notNull().default('client'), // 'client', 'consultant', 'both', 'admin'
   status: text("status").notNull().default('active'), // 'active', 'inactive', 'suspended'
   emailVerified: boolean("email_verified").default(false),
+  authProvider: text("auth_provider").default('local'), // 'local', 'replit', 'google', 'github'
+  replitSub: varchar("replit_sub").unique(), // OIDC subject ID for linking accounts
+  // Replit Auth fields
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -225,17 +244,29 @@ export const disputes = pgTable("disputes", {
 // =============================================================================
 
 // Users
+// For local registration - strict validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  authProvider: true,
+  firstName: true,
+  lastName: true,
+  profileImageUrl: true,
 }).extend({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   role: z.enum(['client', 'consultant', 'both', 'admin']),
 });
 
+// For Replit Auth upsert - flexible validation
+export const upsertUserSchema = createInsertSchema(users).partial().extend({
+  id: z.string(),
+  email: z.string().email().optional(),
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
 
 // Client Profiles
