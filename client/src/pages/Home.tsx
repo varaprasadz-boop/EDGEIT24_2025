@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import {
@@ -127,25 +129,33 @@ export default function Home() {
 
         <section className="py-20 bg-background">
           <div className="container mx-auto px-4 md:px-6">
-            <div className="text-center mb-12">
+            <div className="text-center mb-8">
               <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-engagement-title">Engagement Models</h2>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto" data-testid="text-engagement-subtitle">
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8" data-testid="text-engagement-subtitle">
                 Choose the perfect plan for your business needs
               </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-              <Card className="hover-elevate" data-testid="card-tier-basic">
+            
+            <Tabs defaultValue="clients" className="max-w-6xl mx-auto">
+              <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-12" data-testid="tabs-engagement">
+                <TabsTrigger value="clients" data-testid="tab-clients">For Clients</TabsTrigger>
+                <TabsTrigger value="consultants" data-testid="tab-consultants">For Consultants</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="clients" data-testid="content-clients">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <Card className="hover-elevate" data-testid="card-client-basic">
                 <CardHeader>
                   <div className="flex items-center justify-between mb-2">
-                    <CardTitle className="text-2xl" data-testid="text-tier-basic-name">Basic</CardTitle>
-                    <Badge variant="outline" data-testid="badge-tier-basic">Free</Badge>
+                    <CardTitle className="text-2xl" data-testid="text-client-basic-name">Basic</CardTitle>
+                    <Badge variant="outline" data-testid="badge-client-basic">Free</Badge>
                   </div>
-                  <CardDescription data-testid="text-tier-basic-desc">
+                  <CardDescription data-testid="text-client-basic-desc">
                     Perfect for getting started
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="text-3xl font-bold" data-testid="text-tier-basic-price">₹0<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                  <div className="text-3xl font-bold" data-testid="text-client-basic-price">ر.س 0<span className="text-base font-normal text-muted-foreground">/month</span></div>
                   <ul className="space-y-3">
                     <li className="flex items-start gap-2" data-testid="text-tier-basic-feature-1">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -164,24 +174,24 @@ export default function Home() {
                       <span className="text-sm">Email support</span>
                     </li>
                   </ul>
-                  <Button className="w-full" variant="outline" data-testid="button-tier-basic">
+                  <Button className="w-full" variant="outline" data-testid="button-client-basic">
                     Get Started
                   </Button>
                 </CardContent>
               </Card>
 
-              <Card className="hover-elevate border-primary shadow-lg shadow-primary/10" data-testid="card-tier-advanced">
+              <Card className="hover-elevate border-primary shadow-lg shadow-primary/10" data-testid="card-client-advanced">
                 <CardHeader>
                   <div className="flex items-center justify-between mb-2">
-                    <CardTitle className="text-2xl" data-testid="text-tier-advanced-name">Advanced</CardTitle>
-                    <Badge className="bg-primary text-primary-foreground" data-testid="badge-tier-advanced">Popular</Badge>
+                    <CardTitle className="text-2xl" data-testid="text-client-advanced-name">Advanced</CardTitle>
+                    <Badge className="bg-primary text-primary-foreground" data-testid="badge-client-advanced">Popular</Badge>
                   </div>
-                  <CardDescription data-testid="text-tier-advanced-desc">
+                  <CardDescription data-testid="text-client-advanced-desc">
                     For growing businesses
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="text-3xl font-bold" data-testid="text-tier-advanced-price">₹4,999<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                  <div className="text-3xl font-bold" data-testid="text-client-advanced-price">ر.س 1,499<span className="text-base font-normal text-muted-foreground">/month</span></div>
                   <ul className="space-y-3">
                     <li className="flex items-start gap-2" data-testid="text-tier-advanced-feature-1">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -208,24 +218,24 @@ export default function Home() {
                       <span className="text-sm">Project milestones & escrow</span>
                     </li>
                   </ul>
-                  <Button className="w-full bg-primary text-primary-foreground" data-testid="button-tier-advanced">
+                  <Button className="w-full bg-primary text-primary-foreground" data-testid="button-client-advanced">
                     Choose Advanced
                   </Button>
                 </CardContent>
               </Card>
 
-              <Card className="hover-elevate" data-testid="card-tier-pro">
+              <Card className="hover-elevate" data-testid="card-client-pro">
                 <CardHeader>
                   <div className="flex items-center justify-between mb-2">
-                    <CardTitle className="text-2xl" data-testid="text-tier-pro-name">Pro</CardTitle>
-                    <Badge variant="outline" data-testid="badge-tier-pro">Enterprise</Badge>
+                    <CardTitle className="text-2xl" data-testid="text-client-pro-name">Pro</CardTitle>
+                    <Badge variant="outline" data-testid="badge-client-pro">Enterprise</Badge>
                   </div>
-                  <CardDescription data-testid="text-tier-pro-desc">
+                  <CardDescription data-testid="text-client-pro-desc">
                     For large-scale operations
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="text-3xl font-bold" data-testid="text-tier-pro-price">₹14,999<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                  <div className="text-3xl font-bold" data-testid="text-client-pro-price">ر.س 4,499<span className="text-base font-normal text-muted-foreground">/month</span></div>
                   <ul className="space-y-3">
                     <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-1">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -256,12 +266,146 @@ export default function Home() {
                       <span className="text-sm">SLA guarantee</span>
                     </li>
                   </ul>
-                  <Button className="w-full" variant="outline" data-testid="button-tier-pro">
+                  <Button className="w-full" variant="outline" data-testid="button-client-pro">
                     Contact Sales
                   </Button>
                 </CardContent>
               </Card>
-            </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="consultants" data-testid="content-consultants">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <Card className="hover-elevate" data-testid="card-consultant-basic">
+                    <CardHeader>
+                      <div className="flex items-center justify-between mb-2">
+                        <CardTitle className="text-2xl" data-testid="text-consultant-basic-name">Basic</CardTitle>
+                        <Badge variant="outline" data-testid="badge-consultant-basic">Free</Badge>
+                      </div>
+                      <CardDescription data-testid="text-consultant-basic-desc">
+                        Start your consulting journey
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="text-3xl font-bold" data-testid="text-consultant-basic-price">ر.س 0<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                      <ul className="space-y-3">
+                        <li className="flex items-start gap-2" data-testid="text-consultant-basic-feature-1">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Submit up to 5 bids/month</span>
+                        </li>
+                        <li className="flex items-start gap-2" data-testid="text-consultant-basic-feature-2">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Basic portfolio showcase</span>
+                        </li>
+                        <li className="flex items-start gap-2" data-testid="text-consultant-basic-feature-3">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Standard profile visibility</span>
+                        </li>
+                        <li className="flex items-start gap-2" data-testid="text-consultant-basic-feature-4">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Email support</span>
+                        </li>
+                      </ul>
+                      <Button className="w-full" variant="outline" data-testid="button-consultant-basic">
+                        Get Started
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="hover-elevate border-primary shadow-lg shadow-primary/10" data-testid="card-consultant-advanced">
+                    <CardHeader>
+                      <div className="flex items-center justify-between mb-2">
+                        <CardTitle className="text-2xl" data-testid="text-consultant-advanced-name">Advanced</CardTitle>
+                        <Badge className="bg-primary text-primary-foreground" data-testid="badge-consultant-advanced">Popular</Badge>
+                      </div>
+                      <CardDescription data-testid="text-consultant-advanced-desc">
+                        For professional consultants
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="text-3xl font-bold" data-testid="text-consultant-advanced-price">ر.س 299<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                      <ul className="space-y-3">
+                        <li className="flex items-start gap-2" data-testid="text-consultant-advanced-feature-1">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Submit up to 30 bids/month</span>
+                        </li>
+                        <li className="flex items-start gap-2" data-testid="text-consultant-advanced-feature-2">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Featured portfolio showcase</span>
+                        </li>
+                        <li className="flex items-start gap-2" data-testid="text-consultant-advanced-feature-3">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Priority profile listing</span>
+                        </li>
+                        <li className="flex items-start gap-2" data-testid="text-consultant-advanced-feature-4">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Verified badge</span>
+                        </li>
+                        <li className="flex items-start gap-2" data-testid="text-consultant-advanced-feature-5">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Advanced analytics</span>
+                        </li>
+                        <li className="flex items-start gap-2" data-testid="text-consultant-advanced-feature-6">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Priority support</span>
+                        </li>
+                      </ul>
+                      <Button className="w-full bg-primary text-primary-foreground" data-testid="button-consultant-advanced">
+                        Choose Advanced
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="hover-elevate" data-testid="card-consultant-pro">
+                    <CardHeader>
+                      <div className="flex items-center justify-between mb-2">
+                        <CardTitle className="text-2xl" data-testid="text-consultant-pro-name">Pro</CardTitle>
+                        <Badge variant="outline" data-testid="badge-consultant-pro">Enterprise</Badge>
+                      </div>
+                      <CardDescription data-testid="text-consultant-pro-desc">
+                        For top-tier consultants & agencies
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="text-3xl font-bold" data-testid="text-consultant-pro-price">ر.س 899<span className="text-base font-normal text-muted-foreground">/month</span></div>
+                      <ul className="space-y-3">
+                        <li className="flex items-start gap-2" data-testid="text-consultant-pro-feature-1">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Unlimited bids</span>
+                        </li>
+                        <li className="flex items-start gap-2" data-testid="text-consultant-pro-feature-2">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Premium portfolio placement</span>
+                        </li>
+                        <li className="flex items-start gap-2" data-testid="text-consultant-pro-feature-3">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Top search ranking</span>
+                        </li>
+                        <li className="flex items-start gap-2" data-testid="text-consultant-pro-feature-4">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Dedicated account manager</span>
+                        </li>
+                        <li className="flex items-start gap-2" data-testid="text-consultant-pro-feature-5">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Featured in client searches</span>
+                        </li>
+                        <li className="flex items-start gap-2" data-testid="text-consultant-pro-feature-6">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">Custom branding options</span>
+                        </li>
+                        <li className="flex items-start gap-2" data-testid="text-consultant-pro-feature-7">
+                          <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">24/7 priority support</span>
+                        </li>
+                      </ul>
+                      <Button className="w-full" variant="outline" data-testid="button-consultant-pro">
+                        Contact Sales
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </section>
 
