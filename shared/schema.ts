@@ -63,6 +63,8 @@ export const consultantProfiles = pgTable("consultant_profiles", {
   certifications: text("certifications").array(),
   languages: text("languages").array(),
   availability: text("availability").default('available'), // 'available', 'busy', 'unavailable'
+  weeklySchedule: jsonb("weekly_schedule"), // Weekly availability: { "monday": ["morning", "afternoon", "evening"], ... }
+  servicePackages: jsonb("service_packages"), // Array of service package offerings with name, description, price, deliveryTime
   location: text("location"),
   timezone: text("timezone"),
   avatar: text("avatar"),

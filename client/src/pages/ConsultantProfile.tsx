@@ -13,8 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, MapPin, DollarSign, Star, AlertCircle, Edit, Save, X, Award, TrendingUp } from "lucide-react";
+import { Briefcase, MapPin, DollarSign, Star, AlertCircle, Edit, Save, X, Award, TrendingUp, Code, FolderOpen, Package, Calendar as CalendarIcon } from "lucide-react";
 import { z } from "zod";
+import { useState as useReactState, useEffect } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const updateProfileSchema = insertConsultantProfileSchema.omit({
   id: true,
@@ -31,10 +33,47 @@ const updateProfileSchema = insertConsultantProfileSchema.omit({
 
 type UpdateProfile = z.infer<typeof updateProfileSchema>;
 
+interface PortfolioItem {
+  title: string;
+  description: string;
+  url?: string;
+}
+
+interface ServicePackage {
+  name: string;
+  description: string;
+  price: string;
+  deliveryTime: string;
+}
+
+type WeeklySchedule = {
+  [key in 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday']?: ('morning' | 'afternoon' | 'evening')[];
+};
+
+const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
+const TIME_SLOTS = ['morning', 'afternoon', 'evening'] as const;
+const WEEKDAY_LABELS: Record<typeof WEEKDAYS[number], string> = {
+  monday: 'Mon',
+  tuesday: 'Tue',
+  wednesday: 'Wed',
+  thursday: 'Thu',
+  friday: 'Fri',
+  saturday: 'Sat',
+  sunday: 'Sun'
+};
+const TIME_SLOT_LABELS: Record<typeof TIME_SLOTS[number], string> = {
+  morning: 'Morning',
+  afternoon: 'Afternoon',
+  evening: 'Evening'
+};
+
 export default function ConsultantProfile() {
   const { user, isLoading: authLoading } = useAuthContext();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
+  const [portfolioItems, setPortfolioItems] = useReactState<PortfolioItem[]>([]);
+  const [servicePackages, setServicePackages] = useReactState<ServicePackage[]>([]);
+  const [weeklySchedule, setWeeklySchedule] = useReactState<WeeklySchedule>({});
 
   // Fetch consultant profile
   const { data: profile, isLoading, isError, refetch } = useQuery<ConsultantProfile>({
@@ -73,25 +112,107 @@ export default function ConsultantProfile() {
     },
   });
 
-  // Reset form when profile data loads
-  if (profile && !isEditing) {
-    form.reset({
-      fullName: profile.fullName ?? "",
-      title: profile.title ?? undefined,
-      bio: profile.bio ?? undefined,
-      skills: profile.skills ?? undefined,
-      hourlyRate: profile.hourlyRate ?? undefined,
-      experience: profile.experience ?? undefined,
-      portfolio: profile.portfolio ?? undefined,
-      certifications: profile.certifications ?? undefined,
-      languages: profile.languages ?? undefined,
-      availability: profile.availability ?? undefined,
-      location: profile.location ?? undefined,
-      timezone: profile.timezone ?? undefined,
-      avatar: profile.avatar ?? undefined,
-      responseTime: profile.responseTime ?? undefined,
+  // Reset form and initialize state when profile data loads
+  useEffect(() => {
+    if (profile && !isEditing) {
+      form.reset({
+        fullName: profile.fullName ?? "",
+        title: profile.title ?? undefined,
+        bio: profile.bio ?? undefined,
+        skills: profile.skills ?? undefined,
+        hourlyRate: profile.hourlyRate ?? undefined,
+        experience: profile.experience ?? undefined,
+        portfolio: profile.portfolio ?? undefined,
+        certifications: profile.certifications ?? undefined,
+        languages: profile.languages ?? undefined,
+        availability: profile.availability ?? undefined,
+        weeklySchedule: profile.weeklySchedule ?? undefined,
+        location: profile.location ?? undefined,
+        timezone: profile.timezone ?? undefined,
+        avatar: profile.avatar ?? undefined,
+        responseTime: profile.responseTime ?? undefined,
+      });
+      
+      // Initialize portfolio items from profile
+      if (profile.portfolio && Array.isArray(profile.portfolio)) {
+        setPortfolioItems(profile.portfolio as PortfolioItem[]);
+      } else {
+        setPortfolioItems([]);
+      }
+      
+      // Initialize service packages from profile
+      if (profile.servicePackages && Array.isArray(profile.servicePackages)) {
+        setServicePackages(profile.servicePackages as ServicePackage[]);
+      } else {
+        setServicePackages([]);
+      }
+      
+      // Initialize weekly schedule from profile
+      if (profile.weeklySchedule && typeof profile.weeklySchedule === 'object') {
+        setWeeklySchedule(profile.weeklySchedule as WeeklySchedule);
+      } else {
+        setWeeklySchedule({});
+      }
+    }
+  }, [profile, isEditing, form]);
+
+  const toggleScheduleSlot = (day: typeof WEEKDAYS[number], slot: typeof TIME_SLOTS[number]) => {
+    setWeeklySchedule(prev => {
+      const daySlots = prev[day] || [];
+      const updated = daySlots.includes(slot)
+        ? daySlots.filter(s => s !== slot)
+        : [...daySlots, slot];
+      
+      const newSchedule = {
+        ...prev,
+        [day]: updated.length > 0 ? updated : undefined
+      };
+      
+      // Remove undefined values
+      Object.keys(newSchedule).forEach(key => {
+        if (newSchedule[key as typeof WEEKDAYS[number]] === undefined) {
+          delete newSchedule[key as typeof WEEKDAYS[number]];
+        }
+      });
+      
+      form.setValue('weeklySchedule', Object.keys(newSchedule).length > 0 ? newSchedule as any : undefined);
+      return newSchedule;
     });
-  }
+  };
+
+  const addPortfolioItem = () => {
+    setPortfolioItems([...portfolioItems, { title: "", description: "" }]);
+  };
+
+  const updatePortfolioItem = (index: number, field: keyof PortfolioItem, value: string) => {
+    const updated = [...portfolioItems];
+    updated[index] = { ...updated[index], [field]: value };
+    setPortfolioItems(updated);
+    form.setValue('portfolio', updated as any);
+  };
+
+  const removePortfolioItem = (index: number) => {
+    const updated = portfolioItems.filter((_, i) => i !== index);
+    setPortfolioItems(updated);
+    form.setValue('portfolio', updated.length > 0 ? updated as any : undefined);
+  };
+
+  const addServicePackage = () => {
+    setServicePackages([...servicePackages, { name: "", description: "", price: "", deliveryTime: "" }]);
+  };
+
+  const updateServicePackage = (index: number, field: keyof ServicePackage, value: string) => {
+    const updated = [...servicePackages];
+    updated[index] = { ...updated[index], [field]: value };
+    setServicePackages(updated);
+    form.setValue('servicePackages', updated as any);
+  };
+
+  const removeServicePackage = (index: number) => {
+    const updated = servicePackages.filter((_, i) => i !== index);
+    setServicePackages(updated);
+    form.setValue('servicePackages', updated.length > 0 ? updated as any : undefined);
+  };
 
   // Update mutation
   const updateMutation = useMutation({
@@ -301,6 +422,31 @@ export default function ConsultantProfile() {
                   />
                 </div>
 
+                <FormField
+                  control={form.control}
+                  name="skills"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Skills</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="React, Node.js, PostgreSQL, AWS (comma-separated)" 
+                          value={field.value?.join(', ') ?? ""} 
+                          onChange={(e) => {
+                            const skills = e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                            field.onChange(skills.length > 0 ? skills : undefined);
+                          }}
+                          data-testid="input-skills" 
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Enter your technical skills separated by commas.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -321,7 +467,7 @@ export default function ConsultantProfile() {
                     name="availability"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Availability</FormLabel>
+                        <FormLabel>Availability Status</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value ?? ""}>
                           <FormControl>
                             <SelectTrigger data-testid="select-availability">
@@ -338,6 +484,181 @@ export default function ConsultantProfile() {
                       </FormItem>
                     )}
                   />
+                </div>
+
+                <div>
+                  <FormLabel className="flex items-center gap-2 mb-3">
+                    <CalendarIcon className="h-4 w-4" />
+                    Weekly Availability Schedule
+                  </FormLabel>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr>
+                              <th className="text-left text-sm font-medium p-2 border-b"></th>
+                              {TIME_SLOTS.map(slot => (
+                                <th key={slot} className="text-center text-sm font-medium p-2 border-b" data-testid={`header-${slot}`}>
+                                  {TIME_SLOT_LABELS[slot]}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {WEEKDAYS.map(day => (
+                              <tr key={day} className="border-b last:border-b-0">
+                                <td className="text-sm font-medium p-2 w-24" data-testid={`label-${day}`}>
+                                  {WEEKDAY_LABELS[day]}
+                                </td>
+                                {TIME_SLOTS.map(slot => (
+                                  <td key={slot} className="text-center p-2">
+                                    <Checkbox
+                                      checked={(weeklySchedule[day] || []).includes(slot)}
+                                      onCheckedChange={() => toggleScheduleSlot(day, slot)}
+                                      data-testid={`checkbox-${day}-${slot}`}
+                                    />
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-3">
+                        Select your available time slots for each day of the week.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <FormLabel>Portfolio Projects</FormLabel>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={addPortfolioItem}
+                      data-testid="button-add-portfolio"
+                    >
+                      Add Project
+                    </Button>
+                  </div>
+                  <div className="space-y-4">
+                    {portfolioItems.map((item, index) => (
+                      <Card key={index}>
+                        <CardContent className="pt-6 space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-1 space-y-3">
+                              <Input
+                                placeholder="Project title"
+                                value={item.title}
+                                onChange={(e) => updatePortfolioItem(index, 'title', e.target.value)}
+                                data-testid={`input-portfolio-title-${index}`}
+                              />
+                              <Textarea
+                                placeholder="Project description"
+                                value={item.description}
+                                onChange={(e) => updatePortfolioItem(index, 'description', e.target.value)}
+                                className="min-h-[80px] resize-none"
+                                data-testid={`input-portfolio-description-${index}`}
+                              />
+                              <Input
+                                placeholder="Project URL (optional)"
+                                value={item.url || ""}
+                                onChange={(e) => updatePortfolioItem(index, 'url', e.target.value)}
+                                data-testid={`input-portfolio-url-${index}`}
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removePortfolioItem(index)}
+                              data-testid={`button-remove-portfolio-${index}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {portfolioItems.length === 0 && (
+                      <div className="text-sm text-muted-foreground text-center py-4">
+                        No portfolio projects added yet. Click "Add Project" to showcase your work.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <FormLabel>Service Packages</FormLabel>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={addServicePackage}
+                      data-testid="button-add-service-package"
+                    >
+                      Add Package
+                    </Button>
+                  </div>
+                  <div className="space-y-4">
+                    {servicePackages.map((pkg, index) => (
+                      <Card key={index}>
+                        <CardContent className="pt-6 space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-1 space-y-3">
+                              <Input
+                                placeholder="Package name (e.g., Basic Website Setup)"
+                                value={pkg.name}
+                                onChange={(e) => updateServicePackage(index, 'name', e.target.value)}
+                                data-testid={`input-package-name-${index}`}
+                              />
+                              <Textarea
+                                placeholder="Package description"
+                                value={pkg.description}
+                                onChange={(e) => updateServicePackage(index, 'description', e.target.value)}
+                                className="min-h-[80px] resize-none"
+                                data-testid={`input-package-description-${index}`}
+                              />
+                              <div className="grid grid-cols-2 gap-3">
+                                <Input
+                                  type="number"
+                                  placeholder="Price (﷼)"
+                                  value={pkg.price}
+                                  onChange={(e) => updateServicePackage(index, 'price', e.target.value)}
+                                  data-testid={`input-package-price-${index}`}
+                                />
+                                <Input
+                                  placeholder="Delivery time (e.g., 7 days)"
+                                  value={pkg.deliveryTime}
+                                  onChange={(e) => updateServicePackage(index, 'deliveryTime', e.target.value)}
+                                  data-testid={`input-package-delivery-${index}`}
+                                />
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeServicePackage(index)}
+                              data-testid={`button-remove-package-${index}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {servicePackages.length === 0 && (
+                      <div className="text-sm text-muted-foreground text-center py-4">
+                        No service packages added yet. Click "Add Package" to offer predefined services.
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex gap-3 justify-end">
@@ -390,6 +711,23 @@ export default function ConsultantProfile() {
                 <div className="text-sm text-muted-foreground mb-1">Experience Level</div>
                 <div className="font-medium capitalize" data-testid="text-experience">
                   {profile?.experience || "Not provided"}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground mb-2">
+                  <Code className="h-4 w-4 inline mr-1" />
+                  Skills
+                </div>
+                <div className="flex flex-wrap gap-2" data-testid="text-skills">
+                  {profile?.skills && profile.skills.length > 0 ? (
+                    profile.skills.map((skill, index) => (
+                      <Badge key={index} variant="secondary">
+                        {skill}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No skills listed</span>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -472,6 +810,102 @@ export default function ConsultantProfile() {
               </div>
             </CardContent>
           </Card>
+
+          {profile?.portfolio && Array.isArray(profile.portfolio) && profile.portfolio.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FolderOpen className="h-5 w-5 text-primary" />
+                  Portfolio
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(profile.portfolio as PortfolioItem[]).map((item, index) => (
+                  <div key={index} className="border-l-2 border-primary pl-4" data-testid={`portfolio-item-${index}`}>
+                    <h4 className="font-semibold" data-testid={`text-portfolio-title-${index}`}>{item.title}</h4>
+                    <p className="text-sm text-muted-foreground mt-1" data-testid={`text-portfolio-description-${index}`}>
+                      {item.description}
+                    </p>
+                    {item.url && (
+                      <a 
+                        href={item.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-sm text-primary hover:underline mt-2 inline-block"
+                        data-testid={`link-portfolio-url-${index}`}
+                      >
+                        View Project →
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {profile?.servicePackages && Array.isArray(profile.servicePackages) && profile.servicePackages.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5 text-primary" />
+                  Service Packages
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(profile.servicePackages as ServicePackage[]).map((pkg, index) => (
+                  <Card key={index} data-testid={`service-package-${index}`}>
+                    <CardHeader>
+                      <CardTitle className="text-lg" data-testid={`text-package-name-${index}`}>{pkg.name}</CardTitle>
+                      <CardDescription data-testid={`text-package-description-${index}`}>{pkg.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between">
+                        <div className="text-2xl font-bold text-primary" data-testid={`text-package-price-${index}`}>
+                          ﷼{parseFloat(pkg.price).toFixed(2)}
+                        </div>
+                        <div className="text-sm text-muted-foreground" data-testid={`text-package-delivery-${index}`}>
+                          {pkg.deliveryTime}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {profile?.weeklySchedule && Object.keys(profile.weeklySchedule).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarIcon className="h-5 w-5 text-primary" />
+                  Weekly Availability
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {WEEKDAYS.map(day => {
+                    const schedule = profile.weeklySchedule as WeeklySchedule;
+                    const slots = schedule[day];
+                    if (!slots || slots.length === 0) return null;
+                    
+                    return (
+                      <div key={day} className="flex items-start gap-2" data-testid={`schedule-${day}`}>
+                        <span className="font-medium text-sm min-w-[60px]">{WEEKDAY_LABELS[day]}:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {slots.map(slot => (
+                            <Badge key={slot} variant="secondary" className="text-xs">
+                              {TIME_SLOT_LABELS[slot]}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
     </div>
