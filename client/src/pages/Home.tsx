@@ -157,19 +157,19 @@ export default function Home() {
                 <CardContent className="space-y-4">
                   <div className="text-3xl font-bold" data-testid="text-client-basic-price">ر.س 0<span className="text-base font-normal text-muted-foreground">/month</span></div>
                   <ul className="space-y-3">
-                    <li className="flex items-start gap-2" data-testid="text-tier-basic-feature-1">
+                    <li className="flex items-start gap-2" data-testid="text-client-basic-feature-1">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">Post up to 3 projects/month</span>
                     </li>
-                    <li className="flex items-start gap-2" data-testid="text-tier-basic-feature-2">
+                    <li className="flex items-start gap-2" data-testid="text-client-basic-feature-2">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">Receive up to 10 bids per project</span>
                     </li>
-                    <li className="flex items-start gap-2" data-testid="text-tier-basic-feature-3">
+                    <li className="flex items-start gap-2" data-testid="text-client-basic-feature-3">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">Basic vendor profiles</span>
                     </li>
-                    <li className="flex items-start gap-2" data-testid="text-tier-basic-feature-4">
+                    <li className="flex items-start gap-2" data-testid="text-client-basic-feature-4">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">Email support</span>
                     </li>
@@ -193,27 +193,27 @@ export default function Home() {
                 <CardContent className="space-y-4">
                   <div className="text-3xl font-bold" data-testid="text-client-advanced-price">ر.س 1,499<span className="text-base font-normal text-muted-foreground">/month</span></div>
                   <ul className="space-y-3">
-                    <li className="flex items-start gap-2" data-testid="text-tier-advanced-feature-1">
+                    <li className="flex items-start gap-2" data-testid="text-client-advanced-feature-1">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">Post up to 15 projects/month</span>
                     </li>
-                    <li className="flex items-start gap-2" data-testid="text-tier-advanced-feature-2">
+                    <li className="flex items-start gap-2" data-testid="text-client-advanced-feature-2">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">Receive unlimited bids</span>
                     </li>
-                    <li className="flex items-start gap-2" data-testid="text-tier-advanced-feature-3">
+                    <li className="flex items-start gap-2" data-testid="text-client-advanced-feature-3">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">Featured vendor profiles</span>
                     </li>
-                    <li className="flex items-start gap-2" data-testid="text-tier-advanced-feature-4">
+                    <li className="flex items-start gap-2" data-testid="text-client-advanced-feature-4">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">Priority support (24-48hrs)</span>
                     </li>
-                    <li className="flex items-start gap-2" data-testid="text-tier-advanced-feature-5">
+                    <li className="flex items-start gap-2" data-testid="text-client-advanced-feature-5">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">Advanced analytics dashboard</span>
                     </li>
-                    <li className="flex items-start gap-2" data-testid="text-tier-advanced-feature-6">
+                    <li className="flex items-start gap-2" data-testid="text-client-advanced-feature-6">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">Project milestones & escrow</span>
                     </li>
@@ -237,31 +237,31 @@ export default function Home() {
                 <CardContent className="space-y-4">
                   <div className="text-3xl font-bold" data-testid="text-client-pro-price">ر.س 4,499<span className="text-base font-normal text-muted-foreground">/month</span></div>
                   <ul className="space-y-3">
-                    <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-1">
+                    <li className="flex items-start gap-2" data-testid="text-client-pro-feature-1">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">Unlimited projects & bids</span>
                     </li>
-                    <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-2">
+                    <li className="flex items-start gap-2" data-testid="text-client-pro-feature-2">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">Premium vendor profiles</span>
                     </li>
-                    <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-3">
+                    <li className="flex items-start gap-2" data-testid="text-client-pro-feature-3">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">Dedicated account manager</span>
                     </li>
-                    <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-4">
+                    <li className="flex items-start gap-2" data-testid="text-client-pro-feature-4">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">24/7 priority support</span>
                     </li>
-                    <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-5">
+                    <li className="flex items-start gap-2" data-testid="text-client-pro-feature-5">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">Custom integrations & API access</span>
                     </li>
-                    <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-6">
+                    <li className="flex items-start gap-2" data-testid="text-client-pro-feature-6">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">White-label solutions</span>
                     </li>
-                    <li className="flex items-start gap-2" data-testid="text-tier-pro-feature-7">
+                    <li className="flex items-start gap-2" data-testid="text-client-pro-feature-7">
                       <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">SLA guarantee</span>
                     </li>
