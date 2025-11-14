@@ -212,6 +212,15 @@ export const bidStatusEnum = z.enum(['pending', 'shortlisted', 'accepted', 'reje
 export const BID_STATUSES = bidStatusEnum.options;
 export type BidStatus = z.infer<typeof bidStatusEnum>;
 
+// Payment enums
+export const paymentStatusEnum = z.enum(['pending', 'processing', 'completed', 'failed', 'refunded']);
+export const PAYMENT_STATUSES = paymentStatusEnum.options;
+export type PaymentStatus = z.infer<typeof paymentStatusEnum>;
+
+export const paymentTypeEnum = z.enum(['deposit', 'release', 'refund', 'withdrawal']);
+export const PAYMENT_TYPES = paymentTypeEnum.options;
+export type PaymentType = z.infer<typeof paymentTypeEnum>;
+
 // Projects - Active work between client and consultant
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
