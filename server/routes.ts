@@ -526,6 +526,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all categories (with pagination and filters)
+  app.get('/api/admin/categories', isAuthenticated, isAdmin, hasPermission('categories:view'), async (req, res) => {
+    try {
+      const { parent, featured, active, page = '1', limit = '20' } = req.query;
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+      
+      // Build filter conditions
+      const conditions = [];
+      
+      if (parent && parent !== 'all') {
+        if (parent === 'null') {
+          conditions.push(sql`${categories.parentId} IS NULL`);
+        } else {
+          conditions.push(eq(categories.parentId, parent as string));
+        }
+      }
+      
+      if (featured && featured !== 'all') {
+        conditions.push(eq(categories.featured, featured === 'true'));
+      }
+      
+      if (active && active !== 'all') {
+        conditions.push(eq(categories.active, active === 'true'));
+      }
+      
+      // Apply filters
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      
+      // Get paginated results
+      let query = db.select().from(categories);
+      if (whereClause) {
+        query = query.where(whereClause) as any;
+      }
+      
+      const categoriesResult = await query
+        .limit(limitNum)
+        .offset(offset)
+        .orderBy(categories.displayOrder, categories.name);
+      
+      // Get total count with same filters
+      let countQuery = db.select({ count: count() }).from(categories);
+      if (whereClause) {
+        countQuery = countQuery.where(whereClause) as any;
+      }
+      const [totalResult] = await countQuery;
+      
+      res.json({
+        categories: categoriesResult,
+        total: totalResult?.count || 0,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil((totalResult?.count || 0) / limitNum),
+      });
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
