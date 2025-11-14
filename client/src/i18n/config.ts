@@ -3,6 +3,14 @@ import { initReactI18next } from 'react-i18next';
 import enTranslations from './locales/en.json';
 import arTranslations from './locales/ar.json';
 
+// Read language from localStorage BEFORE init
+const savedLanguage = localStorage.getItem('language') || 'en';
+
+// Set initial direction BEFORE init
+const initialDir = savedLanguage === 'ar' ? 'rtl' : 'ltr';
+document.documentElement.dir = initialDir;
+document.documentElement.lang = savedLanguage;
+
 i18n
   .use(initReactI18next)
   .init({
@@ -14,7 +22,7 @@ i18n
         translation: arTranslations
       }
     },
-    lng: localStorage.getItem('language') || 'en',
+    lng: savedLanguage,
     fallbackLng: 'en',
     interpolation: {
       escapeValue: false
@@ -30,11 +38,9 @@ i18n.on('languageChanged', (lng) => {
   document.documentElement.dir = dir;
   document.documentElement.lang = lng;
   localStorage.setItem('language', lng);
+  
+  // Force page reload to apply RTL layout changes
+  window.location.reload();
 });
-
-// Set initial direction
-const currentLang = i18n.language;
-document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
-document.documentElement.lang = currentLang;
 
 export default i18n;

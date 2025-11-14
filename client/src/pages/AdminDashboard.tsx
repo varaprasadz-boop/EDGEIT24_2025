@@ -1,12 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { Shield, Users, Briefcase, FileText, MessageSquare, DollarSign, CheckCircle, LogOut } from "lucide-react";
+import { Shield, Users, Briefcase, FileText, MessageSquare, DollarSign, CheckCircle } from "lucide-react";
 import { useLocation } from "wouter";
-import { apiRequest } from "@/lib/queryClient";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useTranslation } from "react-i18next";
+import { AdminLayout } from "@/components/AdminLayout";
 
 interface AdminStats {
   totalUsers: number;
@@ -30,15 +29,6 @@ export default function AdminDashboard() {
     queryKey: ['/api/admin/dashboard/stats'],
     enabled: !!admin, // Only fetch stats if admin is authenticated
   });
-
-  const handleLogout = async () => {
-    try {
-      await apiRequest("POST", "/api/auth/logout", {});
-      setLocation("/admin/login");
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-  };
 
   // Show loading while checking admin auth
   if (isAdminLoading) {
@@ -68,38 +58,8 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Shield className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">EDGEIT24 Admin</h1>
-                <p className="text-sm text-muted-foreground">Super Admin Panel</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <LanguageSwitcher />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                data-testid="button-logout"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                {t('auth.logout')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+    <AdminLayout>
+      <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold">{t('dashboard.platformOverview')}</h2>
           <p className="text-muted-foreground mt-1">{t('dashboard.subtitle')}</p>
@@ -231,7 +191,7 @@ export default function AdminDashboard() {
             </Button>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   );
 }
