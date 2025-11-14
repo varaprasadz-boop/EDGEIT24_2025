@@ -158,6 +158,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: 'ok' });
   });
 
+  // Public: Get subscription plans (for homepage)
+  app.get('/api/subscription-plans', async (req, res) => {
+    try {
+      const { audience } = req.query;
+      
+      // Build conditions array
+      const conditions = [eq(subscriptionPlans.status, 'active')];
+      
+      // Add audience filter if provided
+      if (audience && (audience === 'client' || audience === 'consultant')) {
+        conditions.push(eq(subscriptionPlans.audience, audience));
+      }
+
+      // Execute query with all conditions and ordering
+      const plans = await db
+        .select()
+        .from(subscriptionPlans)
+        .where(and(...conditions))
+        .orderBy(subscriptionPlans.displayOrder);
+
+      res.json(plans);
+    } catch (error) {
+      console.error("Error fetching subscription plans:", error);
+      res.status(500).json({ message: "Failed to fetch subscription plans" });
+    }
+  });
+
   // Dashboard endpoints
   app.get('/api/dashboard/client/stats', isAuthenticated, async (req: any, res) => {
     try {

@@ -21,6 +21,7 @@ import {
   Shield,
   LogOut,
   Layers,
+  Mail,
 } from "lucide-react";
 import {
   Sidebar,
@@ -194,6 +195,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           url: '/admin/settings',
           icon: Settings,
           testId: 'nav-settings',
+        },
+        {
+          title: t('sidebar.emailTemplates'),
+          url: '/admin/email-templates',
+          icon: Mail,
+          testId: 'nav-email-templates',
         },
         {
           title: t('sidebar.rolesPermissions'),

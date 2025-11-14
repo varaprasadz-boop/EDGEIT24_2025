@@ -22,6 +22,8 @@ import AdminContracts from "@/pages/AdminContracts";
 import AdminSubscriptionPlans from "@/pages/AdminSubscriptionPlans";
 import AdminDisputes from "@/pages/AdminDisputes";
 import AdminVendors from "@/pages/AdminVendors";
+import AdminSettings from "@/pages/AdminSettings";
+import AdminEmailTemplates from "@/pages/AdminEmailTemplates";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -49,6 +51,8 @@ function Router() {
       <Route path="/admin/subscription-plans" component={AdminSubscriptionPlans} />
       <Route path="/admin/disputes" component={AdminDisputes} />
       <Route path="/admin/vendors" component={AdminVendors} />
+      <Route path="/admin/settings" component={AdminSettings} />
+      <Route path="/admin/email-templates" component={AdminEmailTemplates} />
       <Route component={NotFound} />
     </Switch>
   );

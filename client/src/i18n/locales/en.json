@@ -83,6 +83,7 @@
     "activityLogs": "Activity Logs",
     "analytics": "Analytics",
     "settings": "Settings",
+    "emailTemplates": "Email Templates",
     "rolesPermissions": "Roles & Permissions"
   },
   "dashboard": {
@@ -307,6 +308,147 @@
       },
       "filters": {
         "status": "Status"
+      }
+    },
+    "settings": {
+      "title": "Platform Settings",
+      "description": "Configure platform-wide settings including SMTP, branding, features, and finance",
+      "tabs": {
+        "smtp": "SMTP",
+        "branding": "Branding",
+        "features": "Features",
+        "finance": "Finance"
+      },
+      "smtp": {
+        "title": "SMTP Configuration",
+        "description": "Configure email server settings for sending platform notifications",
+        "host": "SMTP Host",
+        "port": "SMTP Port",
+        "username": "SMTP Username",
+        "password": "SMTP Password",
+        "fromEmail": "From Email",
+        "fromName": "From Name",
+        "save": "Save SMTP Settings"
+      },
+      "branding": {
+        "title": "Branding & Contact",
+        "description": "Customize platform branding, colors, and support contact information",
+        "platformName": "Platform Name",
+        "primaryColor": "Primary Color",
+        "logoUrl": "Logo URL",
+        "faviconUrl": "Favicon URL",
+        "supportEmail": "Support Email",
+        "supportPhone": "Support Phone",
+        "save": "Save Branding Settings"
+      },
+      "features": {
+        "title": "Feature Toggles",
+        "description": "Enable or disable platform features for all users",
+        "paymentProcessing": "Payment Processing",
+        "paymentProcessingDesc": "Allow users to process payments through the platform",
+        "escrowSystem": "Escrow System",
+        "escrowSystemDesc": "Enable milestone-based escrow payments",
+        "subscriptionPlans": "Subscription Plans",
+        "subscriptionPlansDesc": "Enable user subscription plans and tiers",
+        "twoFactorAuth": "Two-Factor Authentication",
+        "twoFactorAuthDesc": "Require or allow users to enable 2FA",
+        "emailVerification": "Email Verification Required",
+        "emailVerificationDesc": "Require users to verify their email before accessing the platform",
+        "save": "Save Feature Settings"
+      },
+      "finance": {
+        "title": "Finance Configuration",
+        "description": "Configure platform fees, currency, and financial policies",
+        "platformFee": "Platform Fee (%)",
+        "platformFeeHelp": "Percentage charged on each transaction",
+        "minimumPayout": "Minimum Payout (SAR)",
+        "minimumPayoutHelp": "Minimum amount required for payout requests",
+        "currency": "Currency",
+        "currencyHelp": "Platform currency code (e.g., SAR, USD, EUR)",
+        "taxRate": "Tax Rate (%)",
+        "taxRateHelp": "VAT/Sales tax rate applied to transactions",
+        "save": "Save Finance Settings"
+      },
+      "success": {
+        "title": "Settings saved",
+        "description": "Platform settings have been updated successfully."
+      },
+      "error": {
+        "title": "Error",
+        "description": "Failed to save settings. Please try again."
+      }
+    },
+    "emailTemplates": {
+      "title": "Email Templates",
+      "description": "Manage bilingual email templates for platform notifications",
+      "create": "Create Template",
+      "showVariables": "Variables",
+      "searchPlaceholder": "Search by trigger, subject, or body...",
+      "table": {
+        "trigger": "Trigger",
+        "audience": "Audience",
+        "subjectEn": "Subject (EN)",
+        "subjectAr": "Subject (AR)"
+      },
+      "filters": {
+        "audience": "Audience"
+      },
+      "audience": {
+        "all": "All Audiences",
+        "client": "Clients",
+        "consultant": "Consultants",
+        "both": "Both",
+        "admin": "Admins"
+      },
+      "modal": {
+        "createTitle": "Create Email Template",
+        "editTitle": "Edit Email Template",
+        "viewTitle": "Template Preview",
+        "deleteTitle": "Delete Email Template",
+        "description": "Configure the email template with bilingual content and variables",
+        "deleteDescription": "Are you sure you want to delete this email template? This action cannot be undone."
+      },
+      "buttons": {
+        "variables": "Variables",
+        "create": "Create Template",
+        "createSubmit": "Create",
+        "update": "Update"
+      },
+      "form": {
+        "trigger": "Trigger",
+        "audience": "Audience",
+        "subjectEn": "Subject (English)",
+        "subjectAr": "Subject (Arabic)",
+        "bodyEn": "Body (English)",
+        "bodyAr": "Body (Arabic)",
+        "description": "Description",
+        "createButton": "Create Template",
+        "updateButton": "Update Template"
+      },
+      "variables": {
+        "title": "Available Variables",
+        "description": "Use these variables in your email templates. They will be replaced with actual values when emails are sent.",
+        "userName": "User full name",
+        "userEmail": "User email address",
+        "projectTitle": "Project title",
+        "jobTitle": "Job title",
+        "bidAmount": "Bid amount (with currency)",
+        "paymentAmount": "Payment amount (with currency)",
+        "platformName": "Platform name (EDGEIT24)",
+        "supportEmail": "Support email address",
+        "actionUrl": "Call-to-action URL",
+        "verificationCode": "Email verification code",
+        "resetPasswordUrl": "Password reset link"
+      },
+      "success": {
+        "created": "Email template has been created successfully.",
+        "updated": "Email template has been updated successfully.",
+        "deleted": "Email template has been deleted successfully."
+      },
+      "error": {
+        "create": "Failed to create template.",
+        "update": "Failed to update template.",
+        "delete": "Failed to delete template."
       }
     }
   },
