@@ -1007,6 +1007,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get contracts/projects with pagination and filtering
+  app.get('/api/admin/contracts', isAuthenticated, isAdmin, hasPermission('finance:view'), async (req, res) => {
+    try {
+      const { status, clientId, consultantId, startDateFrom, startDateTo, search, page = '1', limit = '20' } = req.query;
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+      
+      // Create aliases for users table (client and consultant)
+      const clientUser = alias(users, 'clientUser');
+      const consultantUser = alias(users, 'consultantUser');
+      
+      // Build filter conditions
+      const conditions = [];
+      
+      if (status && status !== 'all') {
+        conditions.push(eq(projects.status, status as string));
+      }
+      
+      if (clientId && typeof clientId === 'string') {
+        conditions.push(eq(projects.clientId, clientId));
+      }
+      
+      if (consultantId && typeof consultantId === 'string') {
+        conditions.push(eq(projects.consultantId, consultantId));
+      }
+      
+      if (startDateFrom && typeof startDateFrom === 'string') {
+        conditions.push(gte(projects.startDate, new Date(startDateFrom)));
+      }
+      
+      if (startDateTo && typeof startDateTo === 'string') {
+        conditions.push(lte(projects.startDate, new Date(startDateTo)));
+      }
+      
+      if (search && typeof search === 'string' && search.trim()) {
+        const searchTerm = `%${search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(projects.title, searchTerm),
+            ilike(projects.description, searchTerm),
+            ilike(jobs.title, searchTerm),
+            ilike(clientUser.email, searchTerm),
+            ilike(sql`trim(concat(coalesce(${clientUser.firstName}, ''), ' ', coalesce(${clientUser.lastName}, '')))`, searchTerm),
+            ilike(consultantUser.email, searchTerm),
+            ilike(sql`trim(concat(coalesce(${consultantUser.firstName}, ''), ' ', coalesce(${consultantUser.lastName}, '')))`, searchTerm)
+          )
+        );
+      }
+      
+      // Apply filters
+      // Note: whereClause is shared by both the select query and count query below
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      
+      // Get paginated results with joins
+      let query = db
+        .select({
+          id: projects.id,
+          jobId: projects.jobId,
+          jobTitle: jobs.title,
+          bidId: projects.bidId,
+          bidAmount: bids.proposedBudget,
+          bidDuration: bids.proposedDuration,
+          clientId: projects.clientId,
+          clientEmail: clientUser.email,
+          clientName: sql<string>`trim(concat(coalesce(${clientUser.firstName}, ''), ' ', coalesce(${clientUser.lastName}, '')))`,
+          consultantId: projects.consultantId,
+          consultantEmail: consultantUser.email,
+          consultantName: sql<string>`trim(concat(coalesce(${consultantUser.firstName}, ''), ' ', coalesce(${consultantUser.lastName}, '')))`,
+          title: projects.title,
+          description: projects.description,
+          budget: projects.budget,
+          status: projects.status,
+          milestones: projects.milestones,
+          startDate: projects.startDate,
+          endDate: projects.endDate,
+          completedAt: projects.completedAt,
+          createdAt: projects.createdAt,
+          updatedAt: projects.updatedAt,
+        })
+        .from(projects)
+        .leftJoin(clientUser, eq(projects.clientId, clientUser.id))
+        .leftJoin(consultantUser, eq(projects.consultantId, consultantUser.id))
+        .leftJoin(jobs, eq(projects.jobId, jobs.id))
+        .leftJoin(bids, eq(projects.bidId, bids.id));
+      
+      if (whereClause) {
+        query = query.where(whereClause) as any;
+      }
+      
+      const contractsResult = await query
+        .limit(limitNum)
+        .offset(offset)
+        .orderBy(desc(projects.createdAt));
+      
+      // Fetch payment aggregates and dispute counts for each contract
+      const contractsWithAggregates = await Promise.all(
+        contractsResult.map(async (contract) => {
+          // Get payment totals
+          const [paymentStats] = await db
+            .select({
+              totalPaid: sql<string>`coalesce(sum(${payments.amount}), 0)`,
+              paymentCount: count(),
+            })
+            .from(payments)
+            .where(eq(payments.projectId, contract.id));
+          
+          // Get dispute count
+          const [disputeStats] = await db
+            .select({
+              disputeCount: count(),
+            })
+            .from(disputes)
+            .where(eq(disputes.projectId, contract.id));
+          
+          return {
+            ...contract,
+            milestones: contract.milestones || [],
+            totalPaid: paymentStats?.totalPaid || '0',
+            paymentCount: paymentStats?.paymentCount || 0,
+            disputeCount: disputeStats?.disputeCount || 0,
+          };
+        })
+      );
+      
+      // Get total count with same filters
+      let countQuery = db
+        .select({ count: count() })
+        .from(projects)
+        .leftJoin(clientUser, eq(projects.clientId, clientUser.id))
+        .leftJoin(consultantUser, eq(projects.consultantId, consultantUser.id))
+        .leftJoin(jobs, eq(projects.jobId, jobs.id))
+        .leftJoin(bids, eq(projects.bidId, bids.id));
+      
+      if (whereClause) {
+        countQuery = countQuery.where(whereClause) as any;
+      }
+      
+      const [totalResult] = await countQuery;
+      
+      res.json({
+        contracts: contractsWithAggregates,
+        total: totalResult?.count || 0,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil((totalResult?.count || 0) / limitNum),
+      });
+    } catch (error) {
+      console.error("Error fetching contracts:", error);
+      res.status(500).json({ message: "Failed to fetch contracts" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

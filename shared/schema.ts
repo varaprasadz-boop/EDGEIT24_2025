@@ -221,6 +221,11 @@ export const paymentTypeEnum = z.enum(['deposit', 'release', 'refund', 'withdraw
 export const PAYMENT_TYPES = paymentTypeEnum.options;
 export type PaymentType = z.infer<typeof paymentTypeEnum>;
 
+// Project status enum
+export const projectStatusEnum = z.enum(['not_started', 'in_progress', 'paused', 'completed', 'cancelled', 'disputed']);
+export const PROJECT_STATUSES = projectStatusEnum.options;
+export type ProjectStatus = z.infer<typeof projectStatusEnum>;
+
 // Projects - Active work between client and consultant
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
