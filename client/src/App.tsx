@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -35,6 +35,9 @@ function Router() {
       <Route path="/profile/consultant" component={ConsultantProfile} />
       {/* Admin Routes */}
       <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/admin">
+        {() => <Redirect to="/admin/dashboard" />}
+      </Route>
       <Route path="/admin/dashboard" component={AdminDashboard} />
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/categories" component={AdminCategories} />
