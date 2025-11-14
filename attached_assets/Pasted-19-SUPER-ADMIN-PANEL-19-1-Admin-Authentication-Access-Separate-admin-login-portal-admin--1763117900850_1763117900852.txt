@@ -1,0 +1,842 @@
+19. SUPER ADMIN PANEL
+19.1 Admin Authentication & Access
+•	Separate admin login portal (/admin)
+•	Role-Based Access Control (RBAC):
+o	Super Admin: Full access to all features
+o	Moderator: Content moderation, user management
+o	Support: Ticket management, user assistance
+o	Finance: Payment oversight, refunds, invoices
+o	Analyst: Read-only access to reports and analytics
+o	Category Manager: Category and vendor approval
+o	Custom Roles: Define custom permission sets
+•	Permission Matrix:
+o	User management (view, edit, delete, ban)
+o	Payment access (view, release, refund)
+o	Content moderation (approve, reject, delete)
+o	System settings (view, edit)
+o	Reports access (view, export)
+o	Category management (create, edit, delete)
+o	Dispute resolution (view, resolve)
+o	Admin user management
+•	Multi-factor authentication for admin accounts
+•	Session timeout for security
+•	Admin activity logging (all actions tracked)
+________________________________________
+19.2 Dashboard & Analytics
+Platform Overview:
+•	Total users (clients/vendors) by role
+•	Active requirements
+•	Active projects
+•	Total bids submitted
+•	Total GMV (Gross Merchandise Value - mock) by currency
+•	Platform revenue (mock fees) by currency
+•	Success rate
+•	Average project value
+•	User growth chart
+•	Revenue chart by currency
+•	Activity heatmap
+•	Real-time activity feed
+•	System health indicators
+Key Metrics:
+•	New registrations (today/week/month)
+•	Active users (DAU/MAU)
+•	Requirements posted (today/week/month)
+•	Bids submitted
+•	Projects completed
+•	Payment volume by currency
+•	Conversion funnel metrics
+•	Platform health score
+Predictive Analytics Dashboard:
+•	AI-powered trend forecasting
+•	User growth predictions
+•	Revenue forecasts by category
+•	Seasonal trends
+•	Market demand predictions
+•	Category growth/decline predictions
+•	Anomaly detection
+•	Risk alerts
+________________________________________
+19.3 User Management
+User Approval Queue:
+•	View pending registrations
+•	User details review
+•	Document verification
+•	ID verification
+•	Business license review
+•	Approve/reject with reasons
+•	Bulk approval/rejection
+•	Send verification instructions
+•	Request additional documents
+User Database:
+•	View all users (filterable by role, status, category)
+•	User detail view:
+o	Full profile information
+o	Verification status
+o	Activity history (all actions logged)
+o	Transaction history
+o	Reviews received/given
+o	Requirements/bids
+o	Flagged content count
+o	Account status
+o	Login history with IP and device
+o	Active sessions
+o	2FA status
+o	Team members (if applicable)
+o	Performance score (vendor)
+User Actions:
+•	Suspend user (with duration and reason)
+•	Ban user (permanent)
+•	Unban/reactivate user
+•	Delete user account
+•	Reset user password
+•	Force password change
+•	Verify/unverify user badge
+•	Send warning messages
+•	Send notifications
+•	Impersonate user (for support)
+•	Export user data
+•	View user activity logs
+•	Terminate active sessions
+Bulk Operations:
+•	Bulk approval
+•	Bulk messaging
+•	Bulk status updates
+•	Bulk export
+•	Bulk verification
+User Analytics:
+•	Total users by role
+•	New registrations trend
+•	Active users trend
+•	User retention rate
+•	Geographic distribution by region
+•	User growth forecast
+•	Churn analysis
+•	User engagement scores
+________________________________________
+19.4 Category Management
+Category Dashboard:
+•	View all categories (hierarchy view/tree view)
+•	Category statistics:
+o	Requirements posted
+o	Active vendors
+o	Bid count
+o	Success rate
+o	Revenue (mock) by region
+o	Average project value
+o	Growth trend
+•	Category performance comparison
+•	Trending categories
+Create/Edit Category:
+•	Category name and description
+•	Parent category selection (for hierarchy)
+•	Category type selection
+•	Upload icon/image
+•	Set visibility (public/hidden)
+•	Enable/disable category
+•	Featured category toggle
+•	Display order/priority
+•	Multi-language category names/descriptions
+Category Field Builder:
+•	Create custom form fields:
+o	Field name and label (multi-language)
+o	Field type (text, number, dropdown, multi-select, date, file, rich text, checkbox, radio)
+o	Required/optional toggle
+o	Validation rules (min/max, regex, custom)
+o	Default values
+o	Help text
+o	Placeholder text
+o	Field dependencies (conditional fields)
+•	Reorder fields (drag & drop)
+•	Preview category form
+•	Duplicate fields
+•	Import field templates
+•	Field versioning
+Category Settings:
+•	Requirement approval needed (yes/no)
+•	Bid limit per requirement
+•	Featured on homepage
+•	Commission rate (mock) by region
+•	Service fees (mock)
+•	Minimum/maximum budget by currency
+•	Default delivery timeline
+•	Auto-close requirements after X days
+•	NDA requirement default
+________________________________________
+19.5 Vendor Category Approval
+Approval Queue:
+•	Vendors requesting category access
+•	View vendor details
+•	View category requested
+•	Review credentials:
+o	Business license
+o	Certifications
+o	Experience in category
+o	Portfolio in that category
+o	References
+o	Years in business
+o	Employee count
+•	Approve/reject request with reasons
+•	Request additional documentation
+•	Bulk approval
+•	Set approval expiry (re-verification needed)
+Category Access Management:
+•	View vendors by category
+•	Remove vendor from category
+•	Suspend category access (temporary)
+•	Category capacity limits
+•	Vendor performance in category
+•	Re-verification reminders
+________________________________________
+19.6 Requirement Management
+Requirement Moderation:
+•	View all requirements (all categories)
+•	Filter by:
+o	Category
+o	Status
+o	Client
+o	Date posted
+o	Budget range by currency
+o	Region
+o	Flagged status
+o	Visibility (public/private)
+•	Requirement approval queue (if enabled for category)
+•	Review requirement details
+•	Review attached documents
+Requirement Actions:
+•	Approve/reject requirements (with reasons)
+•	Edit requirement details
+•	Remove inappropriate requirements
+•	Feature/promote requirements
+•	Close requirements
+•	Reopen closed requirements
+•	Refund posting fees (if any)
+•	Contact client for clarification
+•	Move to different category
+•	Flag for review
+Flagged Requirements:
+•	View reported requirements
+•	Review report reason
+•	Investigate requirement
+•	Contact reporter and poster
+•	Take action (remove, warn, dismiss, edit)
+•	Notify reporter of outcome
+•	Track resolution time
+________________________________________
+19.7 Bid & Proposal Monitoring
+Bid Overview:
+•	View all bids across platform
+•	Filter by category, status, vendor, requirement, date, currency, region
+•	Track proposal acceptance rates
+•	Average bid amount by category by currency
+•	Bid statistics and trends
+•	Conversion metrics
+Bid Moderation:
+•	Review flagged bids
+•	Detect spam/fraudulent bids (AI-powered)
+•	Remove inappropriate bids
+•	Warn vendors
+•	Monitor bid manipulation
+•	Bid pattern analysis
+•	Unusual pricing alerts
+________________________________________
+19.8 Payment & Escrow Management
+Escrow Dashboard:
+•	Total funds in escrow by currency
+•	Pending releases
+•	Completed transactions
+•	Disputed amounts
+•	Escrow by category
+•	Escrow by region
+•	Escrow trend chart
+•	Risk indicators
+Transaction Management:
+•	View all transactions
+•	Transaction details:
+o	Project information
+o	Client and vendor details
+o	Amount with currency
+o	Tax/GST amount
+o	Status
+o	Timeline
+o	Milestones
+o	Payment method
+o	Invoice number
+o	Region
+•	Filter transactions:
+o	Date range
+o	Amount range
+o	Status
+o	User
+o	Category
+o	Payment type
+o	Currency
+o	Region
+Payment Actions:
+•	Force release payment (dispute resolution)
+•	Initiate refund to client
+•	Hold/freeze payment
+•	Cancel transaction
+•	Split payment (partial release)
+•	Adjust transaction fees (mock)
+•	Manual payment entry
+•	Override payment rules
+•	Currency conversion (if needed)
+•	Process refund with reason logging
+Invoice Management:
+•	View all invoices
+•	Invoice details
+•	Regenerate invoices
+•	Download invoices
+•	Send invoice reminders
+•	Mark as paid/unpaid
+•	Invoice disputes
+•	Tax/GST verification
+Wallet Management:
+•	View all user wallets
+•	Wallet balances by currency
+•	Add/deduct wallet credits
+•	Wallet transaction history
+•	Freeze/unfreeze wallets
+•	Wallet reconciliation
+Refund Logs:
+•	All refund requests
+•	Refund details:
+o	Request date
+o	Requester (client/vendor)
+o	Reason for refund
+o	Amount with currency
+o	Evidence uploaded
+o	Admin approval/rejection
+o	Approver name
+o	Approval date
+o	Refund processed date
+o	Notes and comments
+o	Refund method (wallet/original payment)
+•	Approve/reject refunds
+•	Partial refund processing
+•	Refund analytics
+Payment Monitoring:
+•	Suspicious transaction flagging
+•	Payment failure logs
+•	Refund history
+•	Chargeback tracking (mock)
+•	Revenue reports (platform fees) by currency and region
+•	Payment success/failure rates
+•	Fraud detection alerts
+Financial Reports:
+•	Total transaction volume by currency
+•	Platform revenue by category by currency
+•	Revenue by region
+•	Revenue by vendor type
+•	Average project value
+•	Payment method breakdown
+•	Monthly/quarterly summaries
+•	Tax reports (mock)
+•	Profit/loss statements (mock)
+•	Export financial data (CSV/PDF/Excel)
+•	Automated report scheduling
+•	Multi-currency reconciliation
+________________________________________
+19.9 Dispute Resolution Center
+Dispute Queue:
+•	View all disputes
+•	Filter by:
+o	Status (pending, under review, in mediation, resolved, closed)
+o	Type
+o	Priority/urgency
+o	Category
+o	Date raised
+o	Region
+o	Amount involved
+•	Sort by urgency/age/amount
+•	SLA tracking (resolution time targets)
+Dispute Detail View:
+•	Project/order information
+•	Both parties' profiles and history
+•	Dispute type and reason
+•	Detailed statements from both sides
+•	Evidence attachments:
+o	Screenshots
+o	Documents
+o	Message logs
+o	Photos/videos
+o	Contracts
+o	Invoices
+•	Message history between parties (full thread)
+•	Contract terms
+•	Payment status
+•	Timeline of events
+•	Previous disputes (if any)
+•	Admin arbitration notes
+•	Time logs (time spent on dispute)
+Resolution Actions:
+•	Internal messaging with both parties
+•	Request additional evidence
+•	Set mediation deadlines
+•	Schedule mediation calls (mock)
+•	Make ruling:
+o	Favor client (full/partial refund)
+o	Favor vendor (release payment)
+o	Partial settlement (split amount/percentage)
+o	Require revision/completion
+o	Dismiss dispute
+o	No fault (both parties settle)
+•	Document resolution reasoning (required)
+•	Admin arbitration notes (internal)
+•	Close dispute with final decision
+•	Escalate to higher authority
+•	Legal escalation flag
+•	Resolution statuses tracking
+•	Send resolution notifications
+Dispute Analytics:
+•	Total disputes by category
+•	Disputes by region
+•	Average resolution time
+•	Time logs aggregation
+•	Dispute outcomes statistics
+•	Common dispute reasons
+•	Repeat offenders tracking (users with multiple disputes)
+•	Dispute prevention insights
+•	Dispute cost analysis
+•	Resolution success rate
+________________________________________
+19.10 Communication Monitoring
+Message Moderation:
+•	View flagged conversations
+•	Search messages:
+o	Keywords (policy violations)
+o	User
+o	Date range
+o	Category
+o	Region
+•	Content filtering for policy violations
+•	Review reported messages
+•	Message analytics (volume, frequency)
+Message Actions:
+•	Remove inappropriate messages
+•	Warn users
+•	Block messaging between users
+•	Suspend user messaging privileges
+•	Export conversation logs
+•	Add to evidence (for disputes)
+•	Redact sensitive information
+Content Filtering Rules:
+•	Blocked words/phrases management
+•	Profanity filter settings
+•	Spam detection thresholds
+•	Scam pattern detection (AI-powered)
+•	Auto-flag suspicious patterns
+•	Whitelist/blacklist management
+•	Language-specific filters (multi-language)
+Chat Summaries (AI):
+•	Review AI-generated chat summaries
+•	Verify accuracy
+•	Flag inappropriate summaries
+________________________________________
+19.11 Review & Rating Management
+Review Moderation:
+•	View all reviews
+•	Flagged reviews queue
+•	Filter by:
+o	Rating (1-5 stars)
+o	Category
+o	Status
+o	Date
+o	User
+o	Region
+•	Suspicious review detection (AI-powered)
+•	Fake review detection
+Review Actions:
+•	Approve/reject reviews
+•	Remove fake/fraudulent reviews
+•	Edit inappropriate content
+•	Hide reviews temporarily
+•	Restore removed reviews
+•	Mark as verified purchase/project
+•	Flag for investigation
+•	Contact reviewer/reviewee
+Review Disputes:
+•	Review disputes from users
+•	Investigate authenticity
+•	Mediate review conflicts
+•	Remove defamatory content
+•	Enforce review policies
+•	Resolution tracking
+Rating Analytics:
+•	Average platform ratings by category
+•	Rating distribution
+•	Review authenticity score
+•	Most reviewed users
+•	Review trends over time
+•	Manipulation detection (patterns)
+•	Review volume by region
+________________________________________
+19.12 Content Management
+Platform Pages:
+•	Edit homepage content (multi-language)
+•	Manage featured categories
+•	Featured requirements
+•	Featured vendors
+•	Banner management
+•	Promotional content
+•	Testimonials section
+•	Blog/news management (optional)
+SEO Management:
+•	Meta titles/descriptions (multi-language)
+•	Keywords management
+•	Sitemap generation
+•	Robots.txt management
+•	Schema markup
+•	URL redirects
+•	404 error management
+Email Templates:
+•	Welcome emails (multi-language)
+•	Verification emails
+•	Notification templates
+•	Payment confirmations
+•	Review requests
+•	Newsletter templates
+•	Dispute notifications
+•	Invoice emails
+•	Refund confirmations
+•	Customize email content
+•	Dynamic variables
+•	Preview emails
+•	Test email sending
+•	Email analytics (open/click rates)
+________________________________________
+19.13 Platform Settings
+General Settings:
+•	Platform name and branding
+•	Logo and favicon
+•	Contact information
+•	Social media links
+•	Timezone (default platform timezone)
+•	Currency settings (default and supported currencies)
+•	Language settings (default and supported languages)
+•	Regional settings
+Business Rules:
+•	Commission rates by category (mock) by region
+•	Service fees configuration (mock)
+•	Payment processing rules
+•	Minimum/maximum budgets by currency
+•	Bid limits per requirement
+•	Proposal validity periods
+•	Review posting rules
+•	Review edit window (hours)
+•	Dispute resolution timeframes
+•	Refund policies
+•	NDA defaults
+•	Contract templates
+System Settings:
+•	Multi-Currency Support:
+o	Add/remove currencies
+o	Exchange rates (mock or API integration)
+o	Currency display format
+o	Default currency
+•	Multi-Language Support:
+o	Add/remove languages
+o	Default language
+o	Translation management
+o	RTL language support
+•	Timezone Synchronization:
+o	Per-user timezone settings
+o	Auto-detect timezone
+o	Timezone display preferences
+File Upload Settings:
+•	Maximum file sizes by type
+•	Allowed file types (whitelist)
+•	Storage limits per user role
+•	Image compression settings
+•	Virus scanning (mock)
+•	File retention policies
+Security Settings:
+•	Password requirements (length, complexity)
+•	Session timeout duration
+•	Login attempt limits
+•	Account lockout duration
+•	IP whitelisting/blacklisting
+•	API rate limiting
+•	Data encryption settings
+•	CORS settings
+•	XSS/CSRF protection
+Feature Flags:
+•	Enable/disable features globally
+•	Category-specific features
+•	Beta features toggle
+•	Dark mode availability
+•	AI features toggle (recommendations, chat summaries)
+•	Maintenance mode
+________________________________________
+19.14 System Management
+System Health:
+•	Server status
+•	Database performance
+•	API response times
+•	Error logs
+•	System uptime
+•	Resource usage (CPU, memory, storage)
+•	WebSocket connection status
+•	Queue status (jobs, emails)
+Maintenance:
+•	Maintenance mode toggle
+•	Scheduled maintenance
+•	Maintenance notifications (multi-language)
+•	Database backup/restore
+•	Cache management (clear cache)
+•	Clear logs
+•	Database optimization
+•	Index rebuilding
+Audit Logs:
+•	Record every create/update/delete:
+o	User modifications
+o	Payment releases
+o	Content removals
+o	Setting changes
+o	Report generation
+o	Category changes
+o	Dispute resolutions
+o	Admin actions
+o	Login/logout events
+o	Permission changes
+•	Filter audit logs:
+o	By admin user
+o	By action type
+o	By date range
+o	By module/section
+o	By entity (user, requirement, payment, etc.)
+•	Export audit trails
+•	Alert on critical actions
+•	Audit log retention policies
+Security Monitoring:
+•	Security audit logs
+•	Failed login attempts by user/IP
+•	Suspicious activity alerts
+•	Data breach monitoring
+•	GDPR compliance tools
+•	Privacy settings audit
+•	SQL injection attempts
+•	Brute force detection
+•	Unusual admin activity alerts
+Announcement System:
+•	Create platform announcements
+•	Scheduled announcements
+•	Targeted announcements:
+o	By role (client/vendor)
+o	By category
+o	By region
+o	By language
+•	Banner notifications
+•	Email broadcasts (multi-language)
+•	Push notifications
+•	Maintenance notifications
+•	Announcement history
+________________________________________
+19.15 Support & Help Desk
+Ticket Management:
+•	View all support tickets
+•	Ticket categories and priorities (Low, Medium, High, Urgent)
+•	Assign tickets to support staff
+•	Ticket status tracking (open, pending, in progress, resolved, closed)
+•	Internal notes/comments
+•	Canned responses library
+•	Response templates
+•	Ticket merging
+•	Bulk ticket operations
+•	SLA tracking and alerts
+•	First response time tracking
+•	Resolution time tracking
+•	Ticket by region
+•	Multi-language ticket support
+FAQ Management:
+•	Add/edit/delete FAQ items (multi-language)
+•	FAQ categories
+•	FAQ ordering
+•	FAQ analytics (views, helpful votes, searches)
+•	Search analytics (what users search for)
+•	AI-powered FAQ suggestions
+Knowledge Base:
+•	Create/edit articles (multi-language)
+•	Article categories
+•	Rich text editor
+•	Image/video embedding
+•	Code snippets
+•	Article versioning
+•	Publish/unpublish articles
+•	Schedule publishing
+•	Article analytics (views, helpful votes)
+•	Related articles
+________________________________________
+19.16 Admin User Management
+Create Admin Users:
+•	Add new admin users
+•	Assign roles (Super Admin, Moderator, Support, Finance, Analyst, Custom)
+•	Set permission levels (granular RBAC):
+o	User management access (view, edit, delete, ban)
+o	Payment access (view, release, refund)
+o	Content moderation (approve, reject, delete)
+o	System settings (view, edit)
+o	Reports access (view, export)
+o	Category management (create, edit, delete)
+o	Dispute resolution (view, resolve)
+o	Admin user management
+o	Audit log access
+o	Support ticket access
+•	Account activation
+•	Password policy enforcement
+•	2FA requirement for admins
+•	Set admin timezone and language
+Admin Activity Logs:
+•	Track all admin actions:
+o	User modifications
+o	Payment releases
+o	Content removals
+o	Setting changes
+o	Report generation
+o	Category changes
+o	Dispute resolutions
+o	Login/logout
+o	Permission changes
+o	Failed actions
+•	Filter by:
+o	Admin user
+o	Action type
+o	Date range
+o	Module/section
+o	Success/failure
+•	Export audit trails (CSV/PDF)
+•	Alert on critical actions (email/notification)
+•	Admin performance metrics:
+o	Actions per day
+o	Response time
+o	Tickets resolved
+o	Disputes handled
+Admin Permissions Matrix:
+•	Visual permission grid
+•	Role-based templates
+•	Custom permission sets
+•	Permission inheritance
+•	Permission audit trail
+________________________________________
+19.17 Fraud Detection & Prevention
+Fraud Dashboard:
+•	Suspicious activity overview
+•	Fraud cases (active/resolved)
+•	Fraud prevention rules status
+•	Blacklisted entities count
+•	Fraud cost impact
+•	Risk score distribution
+Detection Rules (AI-Powered):
+•	Multiple accounts from same IP
+•	Rapid requirement posting
+•	Unusual payment patterns
+•	Review manipulation detection
+•	Bid spam detection
+•	Identity theft indicators
+•	Fake profile detection
+•	Duplicate account detection
+•	Email pattern analysis
+•	Phone number verification
+•	Unusual login patterns
+•	Geographic anomalies
+•	Behavior pattern analysis
+•	Machine learning fraud models
+Fraud Actions:
+•	Flag suspicious users
+•	Investigate fraud cases
+•	Ban users/IPs/payment methods
+•	Blacklist management:
+o	Email blacklist
+o	IP blacklist (with CIDR support)
+o	Phone blacklist
+o	Payment method blacklist
+o	Domain blacklist
+•	Fraud case resolution
+•	Legal reporting
+•	Evidence collection
+•	Fraud pattern analysis
+Verification Queue:
+•	Document verification
+•	Identity verification review
+•	Payment method verification
+•	Business verification
+•	Phone number verification
+•	Manual review queue
+•	AI-assisted verification
+________________________________________
+19.18 Compliance & Legal
+Legal Documents:
+•	Terms of Service management (multi-language)
+•	Privacy Policy management (multi-language)
+•	Cookie policy (multi-language)
+•	User agreement versions
+•	Category-specific terms
+•	Vendor agreements
+•	Refund policy
+•	Legal notice publishing
+•	Document versioning
+•	Effective date tracking
+•	User acceptance tracking
+Data Management (GDPR):
+•	User data export requests
+•	Account deletion requests queue
+•	Data retention policies
+•	Cookie consent management
+•	Privacy settings audit
+•	Data processing agreements
+•	Right to be forgotten
+•	Data portability
+•	Consent management
+•	Data breach notification
+Tax & Compliance:
+•	Tax/GST configuration by region
+•	Tax ID validation
+•	Tax reporting
+•	Compliance reports
+•	Audit trails for tax
+•	Regional compliance settings
+Compliance Reports:
+•	GDPR compliance status
+•	Data processing records
+•	User consent logs
+•	Data breach logs
+•	Compliance audit trails
+•	Regional compliance (by jurisdiction)
+________________________________________
+19.19 Reports & Business Intelligence
+Pre-built Reports:
+•	User growth report
+•	Revenue report (by category/time/region/currency)
+•	Transaction volume report by currency
+•	Category performance report
+•	Vendor performance report
+•	Client activity report
+•	Dispute analysis report
+•	Platform health report
+•	Conversion funnel reports
+•	Tax/GST reports
+•	Refund reports
+•	Project success rate reports
+Custom Report Builder:
+•	Select data sources
+•	Choose metrics
+•	Apply filters (category, region, currency, date, user type)
+•	Select date ranges
+•	Group by dimensions
+•	Chart type selection (bar, line, pie, area, scatter)
+•	Comparison reports
+•	Save report templates
+•	Share reports with team
+Report Scheduling:
+•	Daily/weekly/monthly reports
+•	Email delivery to stakeholders
+•	Auto-export to storage
+•	Report sharing with external parties (mock)
+•	Automated insights
+Data Export:
+•	Export to CSV
+•	Export to Excel
+•	Export to PDF
+•	JSON export
+•	API access for external BI tools
+•	Webhook integration (mock)
