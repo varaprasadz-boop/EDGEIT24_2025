@@ -15,18 +15,24 @@ async function getUserIdFromRequest(req: any): Promise<string | null> {
   const email = req.user?.claims?.email;
   const replitSub = req.user?.claims?.sub;
   
+  console.log('[getUserIdFromRequest] Looking up user with:', { email, replitSub });
+  
   // Look up user by replitSub first, then email
   let user = replitSub ? await storage.getUserByReplitSub(replitSub) : null;
+  console.log('[getUserIdFromRequest] Found by replitSub:', user?.id);
   
   if (!user && email) {
     user = await storage.getUserByEmail(email);
+    console.log('[getUserIdFromRequest] Found by email:', user?.id);
   }
   
   if (!user && replitSub) {
     // Fallback for users created with sub as ID (legacy)
     user = await storage.getUser(replitSub);
+    console.log('[getUserIdFromRequest] Found by ID lookup:', user?.id);
   }
   
+  console.log('[getUserIdFromRequest] Final userId:', user?.id);
   return user?.id || null;
 }
 
@@ -204,8 +210,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingProfile = await storage.getClientProfile(userId);
       
       if (!existingProfile) {
-        // Create new profile
-        const newProfile = await storage.createClientProfile(userId, validation.data);
+        // Create new profile - userId must be included in the data object
+        const newProfile = await storage.createClientProfile({
+          ...validation.data,
+          userId
+        });
         return res.status(201).json(newProfile);
       } else {
         // Update existing profile

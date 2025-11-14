@@ -138,17 +138,25 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
-    // Store intended role in session if provided
+    // Store intended role in session if provided (will be passed via state param)
     const intendedRole = req.query.role as string;
-    if (intendedRole === 'client' || intendedRole === 'consultant') {
-      (req.session as any).onboardingRole = intendedRole;
-    }
+    console.log('[/api/login] Received role:', intendedRole);
     
     const strategyName = ensureStrategy(req);
-    passport.authenticate(strategyName, {
+    
+    // Pass role via OIDC state parameter to survive redirects
+    const authOptions: any = {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
-    })(req, res, next);
+    };
+    
+    // Include role in OIDC state if provided
+    if (intendedRole === 'client' || intendedRole === 'consultant') {
+      authOptions.state = JSON.stringify({ onboardingRole: intendedRole });
+      console.log('[/api/login] Passing role via state parameter:', intendedRole);
+    }
+    
+    passport.authenticate(strategyName, authOptions)(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
@@ -168,6 +176,21 @@ export async function setupAuth(app: Express) {
           const email = user.claims?.email;
           const replitSub = user.claims?.sub;
           
+          console.log('[/api/callback] OIDC user claims:', { email, replitSub });
+          
+          // Extract role from OIDC state parameter
+          let intendedRole: string | undefined;
+          try {
+            const stateParam = req.query.state as string;
+            if (stateParam) {
+              const state = JSON.parse(stateParam);
+              intendedRole = state.onboardingRole;
+              console.log('[/api/callback] Extracted role from state:', intendedRole);
+            }
+          } catch (e) {
+            console.log('[/api/callback] No valid state parameter');
+          }
+          
           // Look up the database user
           let dbUser = replitSub ? await storage.getUserByReplitSub(replitSub) : null;
           if (!dbUser && email) {
@@ -176,8 +199,11 @@ export async function setupAuth(app: Express) {
 
           if (!dbUser) {
             // Shouldn't happen since upsertUser runs in verify, but fallback to dashboard
+            console.log('[/api/callback] No dbUser found, redirecting to dashboard');
             return res.redirect("/dashboard");
           }
+
+          console.log('[/api/callback] Found dbUser:', dbUser.id);
 
           // Check if user has profiles
           const [clientProfile, consultantProfile] = await Promise.all([
@@ -185,25 +211,30 @@ export async function setupAuth(app: Express) {
             storage.getConsultantProfile(dbUser.id).catch(() => null),
           ]);
 
+          console.log('[/api/callback] Profile status:', { 
+            hasClientProfile: !!clientProfile, 
+            hasConsultantProfile: !!consultantProfile 
+          });
+
           // If user has profiles, go to dashboard
           if (clientProfile || consultantProfile) {
+            console.log('[/api/callback] User has profiles, redirecting to dashboard');
             return res.redirect("/dashboard");
           }
 
           // New user onboarding: redirect to profile creation based on intended role
-          const intendedRole = (req.session as any).onboardingRole;
+          console.log('[/api/callback] Intended role:', intendedRole);
           
           if (intendedRole === 'client') {
-            // Clear the role from session
-            delete (req.session as any).onboardingRole;
+            console.log('[/api/callback] Redirecting to client onboarding');
             return res.redirect("/profile/client?onboarding=true");
           } else if (intendedRole === 'consultant') {
-            // Clear the role from session
-            delete (req.session as any).onboardingRole;
+            console.log('[/api/callback] Redirecting to consultant onboarding');
             return res.redirect("/profile/consultant?onboarding=true");
           }
           
           // No role specified, default to dashboard
+          console.log('[/api/callback] No role specified, redirecting to dashboard');
           return res.redirect("/dashboard");
         } catch (error) {
           console.error("Error in callback redirect logic:", error);

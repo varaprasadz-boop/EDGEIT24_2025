@@ -76,18 +76,20 @@ export default function ClientProfile() {
     }
   }, [isOnboarding, isEditing, isLoading]);
 
-  // Reset form when profile data loads or editing toggles
-  if (profile && !isEditing) {
-    form.reset({
-      companyName: profile.companyName ?? undefined,
-      industry: profile.industry ?? undefined,
-      companySize: profile.companySize ?? undefined,
-      website: profile.website ?? undefined,
-      description: profile.description ?? undefined,
-      location: profile.location ?? undefined,
-      avatar: profile.avatar ?? undefined,
-    });
-  }
+  // Reset form when profile data loads
+  useEffect(() => {
+    if (profile && !isEditing) {
+      form.reset({
+        companyName: profile.companyName ?? undefined,
+        industry: profile.industry ?? undefined,
+        companySize: profile.companySize ?? undefined,
+        website: profile.website ?? undefined,
+        description: profile.description ?? undefined,
+        location: profile.location ?? undefined,
+        avatar: profile.avatar ?? undefined,
+      });
+    }
+  }, [profile, isEditing, form]);
 
   // Update mutation
   const updateMutation = useMutation({
