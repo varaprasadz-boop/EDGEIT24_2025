@@ -332,6 +332,85 @@ export const disputes = pgTable("disputes", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Subscription Plans - Engagement models for clients and consultants
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // "Basic", "Advanced", "Pro"
+  nameAr: text("name_ar"), // Arabic translation
+  audience: text("audience").notNull(), // 'client', 'consultant', 'both'
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(), // Monthly price in SAR
+  currency: text("currency").default('SAR'),
+  billingCycle: text("billing_cycle").default('monthly'), // 'monthly', 'quarterly', 'yearly'
+  features: jsonb("features"), // JSON object: { projectsPerMonth: 3, bidsPerProject: 10, vendorProfile: 'basic', support: 'email', analytics: false, milestones: false }
+  limits: jsonb("limits"), // JSON object with plan-specific limits
+  supportLevel: text("support_level"), // 'email', 'priority', '24/7'
+  analyticsAccess: boolean("analytics_access").default(false),
+  apiAccess: boolean("api_access").default(false),
+  whiteLabel: boolean("white_label").default(false),
+  customIntegrations: boolean("custom_integrations").default(false),
+  dedicatedAccountManager: boolean("dedicated_account_manager").default(false),
+  slaGuarantee: boolean("sla_guarantee").default(false),
+  status: text("status").default('active'), // 'active', 'inactive', 'archived'
+  featured: boolean("featured").default(false),
+  popular: boolean("popular").default(false), // Mark as "Most Popular"
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  audienceIdx: index("subscription_plans_audience_idx").on(table.audience),
+  statusIdx: index("subscription_plans_status_idx").on(table.status),
+}));
+
+// User Subscriptions - Track active subscriptions for users
+export const userSubscriptions = pgTable("user_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  planId: varchar("plan_id").notNull().references(() => subscriptionPlans.id),
+  status: text("status").default('active'), // 'active', 'cancelled', 'expired', 'suspended'
+  startDate: timestamp("start_date").defaultNow().notNull(),
+  endDate: timestamp("end_date"),
+  renewalDate: timestamp("renewal_date"),
+  autoRenew: boolean("auto_renew").default(true),
+  paymentMethod: text("payment_method"), // 'card', 'bank_transfer', 'invoice'
+  lastPaymentId: varchar("last_payment_id"), // Reference to last payment transaction
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("user_subscriptions_user_id_idx").on(table.userId),
+  planIdIdx: index("user_subscriptions_plan_id_idx").on(table.planId),
+  statusIdx: index("user_subscriptions_status_idx").on(table.status),
+}));
+
+// Platform Settings - Global configuration
+export const platformSettings = pgTable("platform_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(), // 'platform_fee_percentage', 'brand_name', 'support_email', etc.
+  value: text("value"),
+  dataType: text("data_type").default('string'), // 'string', 'number', 'boolean', 'json'
+  category: text("category"), // 'general', 'finance', 'branding', 'smtp', 'features'
+  description: text("description"),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Email Templates - Predefined email templates for various triggers
+export const emailTemplates = pgTable("email_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  trigger: text("trigger").notNull().unique(), // 'registration', 'email_verification', 'password_reset', 'bid_received', 'payment_completed', etc.
+  audience: text("audience").notNull(), // 'client', 'consultant', 'both', 'admin'
+  subject: text("subject").notNull(),
+  subjectAr: text("subject_ar"), // Arabic subject
+  body: text("body").notNull(), // HTML body with variables like {{userName}}, {{projectTitle}}, etc.
+  bodyAr: text("body_ar"), // Arabic body
+  variables: text("variables").array(), // List of available variables
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // =============================================================================
 // ZOD SCHEMAS & TYPES
 // =============================================================================
@@ -530,3 +609,62 @@ export const insertVendorCategoryRequestSchema = createInsertSchema(vendorCatego
 
 export type InsertVendorCategoryRequest = z.infer<typeof insertVendorCategoryRequestSchema>;
 export type VendorCategoryRequest = typeof vendorCategoryRequests.$inferSelect;
+
+// Subscription Plans
+export const subscriptionPlanAudienceEnum = z.enum(['client', 'consultant', 'both']);
+export const SUBSCRIPTION_PLAN_AUDIENCES = subscriptionPlanAudienceEnum.options;
+export type SubscriptionPlanAudience = z.infer<typeof subscriptionPlanAudienceEnum>;
+
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Plan name is required"),
+  audience: subscriptionPlanAudienceEnum,
+  price: z.string().min(0, "Price must be positive"),
+});
+
+export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+
+// User Subscriptions
+export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema>;
+export type UserSubscription = typeof userSubscriptions.$inferSelect;
+
+// Platform Settings
+export const insertPlatformSettingSchema = createInsertSchema(platformSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  key: z.string().min(1, "Setting key is required"),
+});
+
+export type InsertPlatformSetting = z.infer<typeof insertPlatformSettingSchema>;
+export type PlatformSetting = typeof platformSettings.$inferSelect;
+
+// Email Templates
+export const emailTemplateAudienceEnum = z.enum(['client', 'consultant', 'both', 'admin']);
+export const EMAIL_TEMPLATE_AUDIENCES = emailTemplateAudienceEnum.options;
+export type EmailTemplateAudience = z.infer<typeof emailTemplateAudienceEnum>;
+
+export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  trigger: z.string().min(1, "Trigger is required"),
+  audience: emailTemplateAudienceEnum,
+  subject: z.string().min(1, "Subject is required"),
+  body: z.string().min(1, "Body is required"),
+});
+
+export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
+export type EmailTemplate = typeof emailTemplates.$inferSelect;
