@@ -1,39 +1,19 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema } from "@shared/schema";
+import passport from "passport";
 
 const queryLimitSchema = z.object({
   limit: z.string().optional().transform(val => val ? parseInt(val) : 10)
     .refine(val => val > 0 && val <= 100, "Limit must be between 1 and 100"),
 });
 
-// Helper to get userId from authenticated request
-async function getUserIdFromRequest(req: any): Promise<string | null> {
-  const email = req.user?.claims?.email;
-  const replitSub = req.user?.claims?.sub;
-  
-  console.log('[getUserIdFromRequest] Looking up user with:', { email, replitSub });
-  
-  // Look up user by replitSub first, then email
-  let user = replitSub ? await storage.getUserByReplitSub(replitSub) : null;
-  console.log('[getUserIdFromRequest] Found by replitSub:', user?.id);
-  
-  if (!user && email) {
-    user = await storage.getUserByEmail(email);
-    console.log('[getUserIdFromRequest] Found by email:', user?.id);
-  }
-  
-  if (!user && replitSub) {
-    // Fallback for users created with sub as ID (legacy)
-    user = await storage.getUser(replitSub);
-    console.log('[getUserIdFromRequest] Found by ID lookup:', user?.id);
-  }
-  
-  console.log('[getUserIdFromRequest] Final userId:', user?.id);
-  return user?.id || null;
+// Helper to get userId from authenticated request (for local auth)
+function getUserIdFromRequest(req: any): string | null {
+  return req.user?.id || null;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -41,33 +21,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  
+  // Signup route
+  app.post('/api/auth/signup', async (req, res) => {
     try {
-      const email = req.user.claims.email;
-      const replitSub = req.user.claims.sub;
+      const { email, password, role } = req.body;
       
-      // Look up user by replitSub first, then email, then sub (for legacy)
-      let user = replitSub ? await storage.getUserByReplitSub(replitSub) : null;
-      
-      if (!user && email) {
-        user = await storage.getUserByEmail(email);
+      // Validation
+      if (!email || !password || !role) {
+        return res.status(400).json({ message: "Email, password, and role are required" });
       }
       
-      if (!user && replitSub) {
-        // Fallback for users created with sub as ID (legacy)
-        user = await storage.getUser(replitSub);
+      if (password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+      
+      if (role !== 'client' && role !== 'consultant') {
+        return res.status(400).json({ message: "Role must be either 'client' or 'consultant'" });
+      }
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User with this email already exists" });
+      }
+      
+      // Hash password
+      const hashedPassword = await hashPassword(password);
+      
+      // Create user
+      const user = await storage.upsertUser({
+        email,
+        password: hashedPassword,
+        role,
+        authProvider: 'local',
+        emailVerified: false,
+      });
+      
+      // Log user in
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Error logging in after signup:", err);
+          return res.status(500).json({ message: "Account created but login failed" });
+        }
+        
+        // Return user and onboarding redirect path
+        const redirectPath = role === 'client' ? '/profile/client?onboarding=true' : '/profile/consultant?onboarding=true';
+        
+        res.status(201).json({
+          user: {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+          },
+          redirectPath,
+        });
+      });
+    } catch (error) {
+      console.error("Error during signup:", error);
+      res.status(500).json({ message: "Failed to create account" });
+    }
+  });
+  
+  // Login route
+  app.post('/api/auth/login', (req, res, next) => {
+    passport.authenticate('local', (err: any, user: any, info: any) => {
+      if (err) {
+        return res.status(500).json({ message: "Login failed" });
       }
       
       if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        return res.status(401).json({ message: info?.message || "Invalid email or password" });
+      }
+      
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          return res.status(500).json({ message: "Login failed" });
+        }
+        
+        res.json({
+          user: {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+          },
+        });
+      });
+    })(req, res, next);
+  });
+  
+  // Logout route
+  app.post('/api/auth/logout', (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Logout failed" });
+      }
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+  
+  // Get current user - returns null if not authenticated (frontend expects this)
+  app.get('/api/auth/user', async (req: any, res) => {
+    try {
+      // Return null if not authenticated (don't throw 401)
+      if (!req.isAuthenticated() || !req.user) {
+        return res.json({ user: null });
       }
 
+      const user = req.user;
+
       // Fetch associated profiles
-      const clientProfile = await storage.getClientProfile(user.id);
-      const consultantProfile = await storage.getConsultantProfile(user.id);
+      const clientProfile = await storage.getClientProfile(user.id).catch(() => null);
+      const consultantProfile = await storage.getConsultantProfile(user.id).catch(() => null);
+
+      // Don't send password to client
+      const { password, ...userWithoutPassword } = user;
 
       res.json({
-        ...user,
+        ...userWithoutPassword,
         clientProfile,
         consultantProfile,
       });
@@ -85,7 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard endpoints
   app.get('/api/dashboard/client/stats', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = await getUserIdFromRequest(req);
+      const userId = getUserIdFromRequest(req);
       if (!userId) {
         return res.status(401).json({ message: "User not found" });
       }
@@ -106,7 +177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/dashboard/consultant/stats', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = await getUserIdFromRequest(req);
+      const userId = getUserIdFromRequest(req);
       if (!userId) {
         return res.status(401).json({ message: "User not found" });
       }
@@ -128,7 +199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Job endpoints
   app.get('/api/jobs', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = await getUserIdFromRequest(req);
+      const userId = getUserIdFromRequest(req);
       if (!userId) {
         return res.status(401).json({ message: "User not found" });
       }
@@ -151,7 +222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bid endpoints
   app.get('/api/bids', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = await getUserIdFromRequest(req);
+      const userId = getUserIdFromRequest(req);
       if (!userId) {
         return res.status(401).json({ message: "User not found" });
       }
@@ -174,7 +245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Client Profile endpoints
   app.get('/api/profile/client', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = await getUserIdFromRequest(req);
+      const userId = getUserIdFromRequest(req);
       if (!userId) {
         return res.status(401).json({ message: "User not found" });
       }
@@ -193,7 +264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/profile/client', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = await getUserIdFromRequest(req);
+      const userId = getUserIdFromRequest(req);
       if (!userId) {
         return res.status(401).json({ message: "User not found" });
       }
@@ -230,7 +301,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Consultant Profile endpoints
   app.get('/api/profile/consultant', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = await getUserIdFromRequest(req);
+      const userId = getUserIdFromRequest(req);
       if (!userId) {
         return res.status(401).json({ message: "User not found" });
       }
@@ -249,7 +320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/profile/consultant', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = await getUserIdFromRequest(req);
+      const userId = getUserIdFromRequest(req);
       if (!userId) {
         return res.status(401).json({ message: "User not found" });
       }

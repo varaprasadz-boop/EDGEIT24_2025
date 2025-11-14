@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Home from "@/pages/Home";
 import Register from "@/pages/Register";
+import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import ClientProfile from "@/pages/ClientProfile";
 import ConsultantProfile from "@/pages/ConsultantProfile";
@@ -16,6 +17,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/register" component={Register} />
+      <Route path="/login" component={Login} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/profile/client" component={ClientProfile} />
       <Route path="/profile/consultant" component={ConsultantProfile} />

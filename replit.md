@@ -58,21 +58,25 @@ These accounts should be pre-seeded in the database and used for all automated t
 - **Logging**: Custom request/response logging middleware with duration tracking and response body capture (truncated at 80 chars)
 - **Error Handling**: Consistent error response format through middleware chain
 
-**Authentication System**
-- **Method**: Replit Auth (OIDC) exclusively - supports Google, GitHub, X, Apple, and email/password
+**Authentication System** (Updated: November 14, 2025)
+- **Method**: Custom Email/Password Authentication using passport-local
 - **Session Storage**: PostgreSQL-backed sessions via express-session and connect-pg-simple
-- **Identity Linking**: Multi-lookup strategy prevents duplicate accounts:
-  1. Check for existing user by replitSub (OIDC identity)
-  2. Fall back to email lookup for local→OIDC migration
-  3. Create new user if neither exists
-- **User Lookup**: Added replitSub column to users table for seamless OIDC linking
-- **Routes**:
-  - `/api/login` - Initiates OIDC flow, redirects to Replit Auth
-  - `/api/callback` - Handles OIDC callback, creates/links user, establishes session
-  - `/api/logout` - Destroys session, redirects to home
-  - `/api/auth/user` - Returns current user + profiles (client/consultant)
+- **Password Security**: bcrypt hashing with 10 salt rounds
+- **Session Configuration**:
+  - Development: `secure: false`, `sameSite: 'lax'` (HTTP compatible)
+  - Production: `secure: true`, `sameSite: 'strict'` (HTTPS only)
+  - Auto-creates sessions table if missing
+- **API Routes**:
+  - `POST /api/auth/signup` - Creates user account with email, password, role
+  - `POST /api/auth/login` - Authenticates via passport-local
+  - `POST /api/auth/logout` - Destroys session
+  - `GET /api/auth/user` - Returns current user + profiles (or null if unauthenticated)
+- **Frontend Pages**:
+  - `/register` - Two-step form: role selection → email/password entry
+  - `/login` - Email/password login form
 - **Frontend Integration**:
   - AuthProvider/AuthContext manages user state globally
+  - useAuth hook handles both authenticated and unauthenticated states
   - useAuthContext hook provides: user, isLoading, isAuthenticated, login(), logout(), getActiveRole()
   - Role detection: "client" | "consultant" | "both" | null based on profile data
   - Auth-aware routing: Home page redirects authenticated users to /dashboard
@@ -126,7 +130,36 @@ These accounts should be pre-seeded in the database and used for all automated t
 **Session Management**
 - **connect-pg-simple**: PostgreSQL-backed session store for Replit Auth sessions
 
-## Recent Changes (November 11, 2025)
+## Recent Changes
+
+### Authentication Migration to Custom Email/Password (November 14, 2025)
+- **Migration Completed**: Switched from Replit Auth (OIDC) to custom email/password authentication
+- **Reason**: User requested custom-branded login forms instead of external authentication page
+- **New Backend Implementation**:
+  - Created `server/auth.ts` with passport-local strategy
+  - bcrypt password hashing (10 salt rounds)
+  - Session-based authentication with PostgreSQL storage
+  - Conditional cookie settings (secure/strict for production, relaxed for development)
+  - Auto-creates sessions table if missing
+- **New API Routes**:
+  - `POST /api/auth/signup` - User registration with email, password, and role
+  - `POST /api/auth/login` - Authentication via passport-local
+  - `POST /api/auth/logout` - Session destruction
+  - `GET /api/auth/user` - Returns `{ user: null }` when unauthenticated (frontend-compatible)
+- **Updated Frontend**:
+  - `/register` page - Two-step registration form (role selection → credentials)
+  - `/login` page - Custom login form with email/password
+  - Updated `useAuth` hook to handle new response format
+  - Updated `AuthContext` logout to call POST endpoint
+  - Updated Header component to link to `/login` instead of `/api/login`
+- **Onboarding Flow**: Now works correctly - signup includes role and redirects to appropriate onboarding page
+- **Security Features**:
+  - Passwords never sent to client
+  - bcrypt hashing for secure storage
+  - Session-based authentication with PostgreSQL persistence
+  - Environment-aware cookie settings
+
+### Dashboard Implementation (November 11, 2025)
 
 ### Dashboard Implementation
 - **Client Dashboard**: Displays active jobs, total bids received, spending stats, and message count using real database queries

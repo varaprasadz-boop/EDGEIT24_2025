@@ -6,22 +6,25 @@ interface AuthUser extends User {
   consultantProfile?: any;
 }
 
+interface AuthResponse {
+  user?: AuthUser | null;
+  // For backward compatibility with direct user response
+  id?: string;
+  email?: string;
+}
+
 export function useAuth() {
-  const { data: user, isLoading, error } = useQuery<AuthUser>({
+  const { data, isLoading } = useQuery<AuthResponse>({
     queryKey: ["/api/auth/user"],
     retry: false,
-    // Treat 401 as unauthenticated, not an error
-    throwOnError: (error: any) => {
-      return !/^401:/.test(error.message);
-    },
   });
 
-  // If we have a 401 error, treat as unauthenticated
-  const is401 = error && /^401:/.test((error as Error).message);
+  // Handle both response formats: { user: ... } or direct user object
+  const user = data?.user !== undefined ? data.user : (data?.id ? data as AuthUser : null);
 
   return {
-    user,
+    user: user || undefined,
     isLoading,
-    isAuthenticated: !!user && !is401,
+    isAuthenticated: !!user,
   };
 }

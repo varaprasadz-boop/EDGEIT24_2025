@@ -22,11 +22,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated, isLoading } = useAuth();
 
   const login = () => {
-    window.location.href = '/api/login';
+    window.location.href = '/login';
   };
 
-  const logout = () => {
-    window.location.href = '/api/logout';
+  const logout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+      window.location.href = '/';
+    }
   };
 
   const getActiveRole = (): 'client' | 'consultant' | 'both' | null => {

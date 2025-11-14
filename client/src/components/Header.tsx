@@ -110,10 +110,10 @@ export function Header() {
           ) : (
             <>
               <Button variant="outline" asChild className="border-white/20 text-white" data-testid="button-signin">
-                <a href="/api/login">Sign In</a>
+                <a href="/login">Sign In</a>
               </Button>
               <Button asChild className="bg-primary text-primary-foreground" data-testid="button-post-requirement">
-                <a href="/api/login">Post Requirement</a>
+                <a href="/login">Post Requirement</a>
               </Button>
             </>
           )}
@@ -175,10 +175,10 @@ export function Header() {
               ) : (
                 <>
                   <Button variant="outline" asChild className="border-white/20 text-white w-full" data-testid="button-mobile-signin">
-                    <a href="/api/login">Sign In</a>
+                    <a href="/login">Sign In</a>
                   </Button>
                   <Button asChild className="bg-primary text-primary-foreground w-full" data-testid="button-mobile-post-requirement">
-                    <a href="/api/login">Post Requirement</a>
+                    <a href="/login">Post Requirement</a>
                   </Button>
                 </>
               )}
