@@ -2,8 +2,12 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
+import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema } from "@shared/schema";
+import { db } from "./db";
+import { users, adminRoles, categories, jobs, bids, payments, disputes } from "@shared/schema";
+import { eq, and, count, sql, desc } from "drizzle-orm";
 import passport from "passport";
 
 const queryLimitSchema = z.object({
@@ -357,6 +361,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating consultant profile:", error);
       res.status(500).json({ message: "Failed to update consultant profile" });
+    }
+  });
+
+  // ==================== ADMIN ROUTES ====================
+  
+  // Admin login - same as regular login but requires admin role
+  app.post('/api/admin/login', (req, res, next) => {
+    passport.authenticate('local', async (err: any, user: any, info: any) => {
+      if (err) {
+        return res.status(500).json({ message: "Login failed" });
+      }
+      
+      if (!user) {
+        return res.status(401).json({ message: info?.message || "Invalid email or password" });
+      }
+      
+      // Check if user has admin role
+      try {
+        const [adminRole] = await db
+          .select()
+          .from(adminRoles)
+          .where(
+            and(
+              eq(adminRoles.userId, user.id),
+              eq(adminRoles.active, true)
+            )
+          )
+          .limit(1);
+        
+        if (!adminRole) {
+          return res.status(403).json({ message: "Admin access required" });
+        }
+        
+        req.login(user, (loginErr) => {
+          if (loginErr) {
+            return res.status(500).json({ message: "Login failed" });
+          }
+          
+          res.json({
+            user: {
+              id: user.id,
+              email: user.email,
+              role: user.role,
+            },
+            adminRole: {
+              role: adminRole.role,
+              permissions: adminRole.permissions,
+            },
+          });
+        });
+      } catch (error) {
+        console.error("Error checking admin role:", error);
+        res.status(500).json({ message: "Failed to verify admin status" });
+      }
+    })(req, res, next);
+  });
+  
+  // Get current admin user info
+  app.get('/api/admin/user', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      res.json({
+        user: {
+          id: req.user.id,
+          email: req.user.email,
+          role: req.user.role,
+        },
+        adminRole: req.adminRole,
+      });
+    } catch (error) {
+      console.error("Error fetching admin user:", error);
+      res.status(500).json({ message: "Failed to fetch user info" });
+    }
+  });
+  
+  // Admin dashboard stats
+  app.get('/api/admin/dashboard/stats', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      // Get platform overview stats
+      const [
+        totalUsersResult,
+        clientsResult,
+        consultantsResult,
+        activeJobsResult,
+        totalBidsResult,
+        completedProjectsResult,
+        totalGMVResult,
+      ] = await Promise.all([
+        db.select({ count: count() }).from(users),
+        db.select({ count: count() }).from(users).where(eq(users.role, 'client')),
+        db.select({ count: count() }).from(users).where(eq(users.role, 'consultant')),
+        db.select({ count: count() }).from(jobs).where(eq(jobs.status, 'open')),
+        db.select({ count: count() }).from(bids),
+        db.select({ count: count() }).from(jobs).where(eq(jobs.status, 'completed')),
+        db.select({ 
+          total: sql<string>`COALESCE(SUM(amount), 0)`
+        }).from(payments).where(eq(payments.status, 'completed')),
+      ]);
+      
+      const stats = {
+        totalUsers: totalUsersResult[0]?.count || 0,
+        totalClients: clientsResult[0]?.count || 0,
+        totalConsultants: consultantsResult[0]?.count || 0,
+        activeRequirements: activeJobsResult[0]?.count || 0,
+        totalBids: totalBidsResult[0]?.count || 0,
+        completedProjects: completedProjectsResult[0]?.count || 0,
+        totalGMV: totalGMVResult[0]?.total || '0',
+        currency: 'SAR',
+      };
+      
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching admin dashboard stats:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
+  });
+  
+  // Get all users (with pagination and filters)
+  app.get('/api/admin/users', isAuthenticated, isAdmin, hasPermission('users:view'), async (req, res) => {
+    try {
+      const { role, status, page = '1', limit = '20' } = req.query;
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+      
+      let query = db.select().from(users);
+      
+      // Add filters
+      if (role && role !== 'all') {
+        query = query.where(eq(users.role, role as string)) as any;
+      }
+      
+      if (status && status !== 'all') {
+        query = query.where(eq(users.status, status as string)) as any;
+      }
+      
+      // Get paginated results
+      const usersResult = await query
+        .limit(limitNum)
+        .offset(offset)
+        .orderBy(desc(users.createdAt));
+      
+      // Get total count
+      const [totalResult] = await db.select({ count: count() }).from(users);
+      
+      // Remove passwords from response
+      const safeUsers = usersResult.map(({ password, ...user }) => user);
+      
+      res.json({
+        users: safeUsers,
+        total: totalResult?.count || 0,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil((totalResult?.count || 0) / limitNum),
+      });
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
     }
   });
 

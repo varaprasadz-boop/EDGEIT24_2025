@@ -77,17 +77,86 @@ export const consultantProfiles = pgTable("consultant_profiles", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Categories - IT service categories
+// Admin Roles - For RBAC system
+export const adminRoles = pgTable("admin_roles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  role: text("role").notNull(), // REQUIRED - no default to prevent privilege escalation. Values: 'super_admin', 'moderator', 'support', 'finance', 'analyst', 'category_manager'
+  permissions: jsonb("permissions"), // JSON object with permission flags
+  customPermissions: text("custom_permissions").array(), // Array of custom permission strings
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Admin Activity Logs - Track all admin actions
+export const adminActivityLogs = pgTable("admin_activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adminId: varchar("admin_id").notNull().references(() => users.id),
+  action: text("action").notNull(), // 'user_suspended', 'category_created', 'payment_released', etc.
+  targetType: text("target_type"), // 'user', 'category', 'payment', 'dispute', etc.
+  targetId: varchar("target_id"),
+  details: jsonb("details"), // Additional action context
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  adminIdIdx: index("admin_activity_logs_admin_id_idx").on(table.adminId),
+  actionIdx: index("admin_activity_logs_action_idx").on(table.action),
+}));
+
+// Categories - IT service categories with custom fields
 export const categories = pgTable("categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull().unique(),
+  nameAr: text("name_ar"), // Arabic translation
   slug: text("slug").notNull().unique(),
   description: text("description"),
+  descriptionAr: text("description_ar"), // Arabic translation
   icon: text("icon"), // lucide-react icon name
+  image: text("image"), // Category image URL
   parentId: varchar("parent_id").references((): any => categories.id, { onDelete: "set null" }), // Self-reference for subcategories
+  customFields: jsonb("custom_fields"), // Array of field definitions for category forms
+  requirementApprovalRequired: boolean("requirement_approval_required").default(false),
+  bidLimit: integer("bid_limit"),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }), // % commission in SAR
+  minBudget: decimal("min_budget", { precision: 10, scale: 2 }), // Minimum budget in SAR
+  maxBudget: decimal("max_budget", { precision: 10, scale: 2 }), // Maximum budget in SAR
+  defaultDuration: text("default_duration"), // Default project duration
+  autoCloseDays: integer("auto_close_days"), // Auto-close requirements after X days
+  featured: boolean("featured").default(false),
+  displayOrder: integer("display_order").default(0),
   active: boolean("active").default(true),
+  visible: boolean("visible").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  parentIdIdx: index("categories_parent_id_idx").on(table.parentId),
+  activeIdx: index("categories_active_idx").on(table.active),
+}));
+
+// Vendor Category Requests - Vendors requesting access to categories
+export const vendorCategoryRequests = pgTable("vendor_category_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorId: varchar("vendor_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  categoryId: varchar("category_id").notNull().references(() => categories.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default('pending'), // 'pending', 'approved', 'rejected'
+  credentials: jsonb("credentials"), // Uploaded documents, certifications, portfolio, etc.
+  yearsOfExperience: integer("years_of_experience"),
+  reasonForRequest: text("reason_for_request"),
+  adminNotes: text("admin_notes"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  expiresAt: timestamp("expires_at"), // Category access expiry for re-verification
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  vendorIdIdx: index("vendor_category_requests_vendor_id_idx").on(table.vendorId),
+  categoryIdIdx: index("vendor_category_requests_category_id_idx").on(table.categoryId),
+  statusIdx: index("vendor_category_requests_status_idx").on(table.status),
+  // Prevent duplicate pending requests for same vendor+category
+  uniquePendingRequest: uniqueIndex("unique_vendor_category_pending").on(table.vendorId, table.categoryId, table.status),
+}));
 
 // Jobs/Requirements - What clients post
 export const jobs = pgTable("jobs", {
@@ -406,3 +475,36 @@ export const insertDisputeSchema = createInsertSchema(disputes).omit({
 
 export type InsertDispute = z.infer<typeof insertDisputeSchema>;
 export type Dispute = typeof disputes.$inferSelect;
+
+// Admin Roles
+export const insertAdminRoleSchema = createInsertSchema(adminRoles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  role: z.enum(['super_admin', 'moderator', 'support', 'finance', 'analyst', 'category_manager']),
+});
+
+export type InsertAdminRole = z.infer<typeof insertAdminRoleSchema>;
+export type AdminRole = typeof adminRoles.$inferSelect;
+
+// Admin Activity Logs
+export const insertAdminActivityLogSchema = createInsertSchema(adminActivityLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAdminActivityLog = z.infer<typeof insertAdminActivityLogSchema>;
+export type AdminActivityLog = typeof adminActivityLogs.$inferSelect;
+
+// Vendor Category Requests
+export const insertVendorCategoryRequestSchema = createInsertSchema(vendorCategoryRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  status: z.enum(['pending', 'approved', 'rejected']).optional(),
+});
+
+export type InsertVendorCategoryRequest = z.infer<typeof insertVendorCategoryRequestSchema>;
+export type VendorCategoryRequest = typeof vendorCategoryRequests.$inferSelect;

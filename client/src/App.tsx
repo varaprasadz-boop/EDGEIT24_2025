@@ -10,6 +10,8 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import ClientProfile from "@/pages/ClientProfile";
 import ConsultantProfile from "@/pages/ConsultantProfile";
+import AdminLogin from "@/pages/AdminLogin";
+import AdminDashboard from "@/pages/AdminDashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -21,6 +23,9 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/profile/client" component={ClientProfile} />
       <Route path="/profile/consultant" component={ConsultantProfile} />
+      {/* Admin Routes */}
+      <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/admin/dashboard" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
   );
