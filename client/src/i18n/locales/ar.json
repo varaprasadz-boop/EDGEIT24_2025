@@ -27,6 +27,8 @@
     "from": "من",
     "to": "إلى",
     "all": "الكل",
+    "yes": "نعم",
+    "no": "لا",
     "active": "نشط",
     "inactive": "غير نشط",
     "pending": "قيد الانتظار",
@@ -217,17 +219,32 @@
       "negotiable": "قابل للتفاوض"
     }
   },
-  "bids": {
-    "title": "إدارة العروض",
-    "subtitle": "مراقبة مقترحات وعروض المستشارين",
-    "requirement": "المتطلب",
-    "consultant": "المستشار",
-    "amount": "المبلغ (ريال)",
-    "submitted": "تاريخ الإرسال",
-    "shortlisted": "القائمة المختصرة",
-    "clientViewed": "شاهده العميل",
-    "viewBid": "عرض العرض",
-    "filterByStatus": "تصفية حسب الحالة"
+  "admin": {
+    "bids": {
+      "title": "إدارة العروض",
+      "description": "مراقبة وإدارة مقترحات وعروض المستشارين",
+      "searchPlaceholder": "البحث بعنوان الوظيفة أو اسم المستشار أو تفاصيل العرض...",
+      "table": {
+        "job": "الوظيفة",
+        "consultant": "المستشار",
+        "client": "العميل",
+        "budget": "الميزانية المقترحة",
+        "duration": "المدة",
+        "status": "الحالة",
+        "viewed": "تم العرض",
+        "createdAt": "تاريخ الإرسال"
+      },
+      "status": {
+        "pending": "قيد الانتظار",
+        "shortlisted": "القائمة المختصرة",
+        "accepted": "مقبول",
+        "rejected": "مرفوض",
+        "withdrawn": "منسحب"
+      },
+      "filters": {
+        "status": "الحالة"
+      }
+    }
   },
   "payments": {
     "title": "إدارة المدفوعات",

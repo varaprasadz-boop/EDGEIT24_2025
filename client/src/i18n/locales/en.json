@@ -27,6 +27,8 @@
     "from": "From",
     "to": "To",
     "all": "All",
+    "yes": "Yes",
+    "no": "No",
     "active": "Active",
     "inactive": "Inactive",
     "pending": "Pending",
@@ -217,17 +219,32 @@
       "negotiable": "Negotiable"
     }
   },
-  "bids": {
-    "title": "Bids Management",
-    "subtitle": "Monitor consultant proposals and bids",
-    "requirement": "Requirement",
-    "consultant": "Consultant",
-    "amount": "Amount (SAR)",
-    "submitted": "Submitted",
-    "shortlisted": "Shortlisted",
-    "clientViewed": "Client Viewed",
-    "viewBid": "View Bid",
-    "filterByStatus": "Filter by Status"
+  "admin": {
+    "bids": {
+      "title": "Bids Management",
+      "description": "Monitor and manage consultant proposals and bids",
+      "searchPlaceholder": "Search by job title, consultant name, or bid details...",
+      "table": {
+        "job": "Job",
+        "consultant": "Consultant",
+        "client": "Client",
+        "budget": "Proposed Budget",
+        "duration": "Duration",
+        "status": "Status",
+        "viewed": "Viewed",
+        "createdAt": "Submitted"
+      },
+      "status": {
+        "pending": "Pending",
+        "shortlisted": "Shortlisted",
+        "accepted": "Accepted",
+        "rejected": "Rejected",
+        "withdrawn": "Withdrawn"
+      },
+      "filters": {
+        "status": "Status"
+      }
+    }
   },
   "payments": {
     "title": "Payments Management",
