@@ -51,6 +51,7 @@ The Admin Portal features a comprehensive i18n system with RTL support, using `i
 
 **Completed Screens**:
 - Categories Management (`/admin/categories`): Server-side pagination, bilingual name display, Featured/Active filters, search across name/nameAr/slug fields
+- Bids Management (`/admin/bids`): Server-side pagination, status filtering (pending, shortlisted, accepted, rejected, withdrawn), job filtering, search across consultant name/email/job title/cover letter, displays bid details with consultant info, client info, proposed budget (SAR), duration, submission date, and viewed status. Uses proper table aliasing (`consultantUser`, `clientUser`) via `drizzle-orm/pg-core` for multi-table joins
 
 ### Dashboard & Profile Management
 - **Client Dashboard**: Displays active jobs, bids, spending, and messages.
