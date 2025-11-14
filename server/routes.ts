@@ -7,7 +7,8 @@ import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema } from "@shared/schema";
 import { db } from "./db";
 import { users, adminRoles, categories, jobs, bids, payments, disputes, vendorCategoryRequests } from "@shared/schema";
-import { eq, and, or, count, sql, desc, ilike, gte, lte, alias } from "drizzle-orm";
+import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
 
 const queryLimitSchema = z.object({
@@ -811,8 +812,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const offset = (pageNum - 1) * limitNum;
       
       // Create aliases for users table (consultant and client)
-      const consultant = alias(users, 'consultant');
-      const client = alias(users, 'client');
+      const consultantUser = alias(users, 'consultantUser');
+      const clientUser = alias(users, 'clientUser');
       
       // Build filter conditions
       const conditions = [];
@@ -829,8 +830,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const searchTerm = `%${search.trim()}%`;
         conditions.push(
           or(
-            ilike(consultant.email, searchTerm),
-            ilike(sql`trim(concat(coalesce(${consultant.firstName}, ''), ' ', coalesce(${consultant.lastName}, '')))`, searchTerm),
+            ilike(consultantUser.email, searchTerm),
+            ilike(sql`trim(concat(coalesce(${consultantUser.firstName}, ''), ' ', coalesce(${consultantUser.lastName}, '')))`, searchTerm),
             ilike(jobs.title, searchTerm),
             ilike(bids.coverLetter, searchTerm)
           )
@@ -848,11 +849,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           jobId: bids.jobId,
           jobTitle: jobs.title,
           clientId: jobs.clientId,
-          clientEmail: client.email,
-          clientName: sql<string>`trim(concat(coalesce(${client.firstName}, ''), ' ', coalesce(${client.lastName}, '')))`,
+          clientEmail: clientUser.email,
+          clientName: sql<string>`trim(concat(coalesce(${clientUser.firstName}, ''), ' ', coalesce(${clientUser.lastName}, '')))`,
           consultantId: bids.consultantId,
-          consultantEmail: consultant.email,
-          consultantName: sql<string>`trim(concat(coalesce(${consultant.firstName}, ''), ' ', coalesce(${consultant.lastName}, '')))`,
+          consultantEmail: consultantUser.email,
+          consultantName: sql<string>`trim(concat(coalesce(${consultantUser.firstName}, ''), ' ', coalesce(${consultantUser.lastName}, '')))`,
           proposedBudget: bids.proposedBudget,
           proposedDuration: bids.proposedDuration,
           status: bids.status,
@@ -861,9 +862,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updatedAt: bids.updatedAt,
         })
         .from(bids)
-        .leftJoin(consultant, eq(bids.consultantId, consultant.id))
+        .leftJoin(consultantUser, eq(bids.consultantId, consultantUser.id))
         .leftJoin(jobs, eq(bids.jobId, jobs.id))
-        .leftJoin(client, eq(jobs.clientId, client.id));
+        .leftJoin(clientUser, eq(jobs.clientId, clientUser.id));
       
       if (whereClause) {
         query = query.where(whereClause) as any;
@@ -878,9 +879,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let countQuery = db
         .select({ count: count() })
         .from(bids)
-        .leftJoin(consultant, eq(bids.consultantId, consultant.id))
+        .leftJoin(consultantUser, eq(bids.consultantId, consultantUser.id))
         .leftJoin(jobs, eq(bids.jobId, jobs.id))
-        .leftJoin(client, eq(jobs.clientId, client.id));
+        .leftJoin(clientUser, eq(jobs.clientId, clientUser.id));
       
       if (whereClause) {
         countQuery = countQuery.where(whereClause) as any;

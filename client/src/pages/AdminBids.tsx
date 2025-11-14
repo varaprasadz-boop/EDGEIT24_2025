@@ -42,19 +42,27 @@ export default function AdminBids() {
     pageSize: 20,
   });
 
+  const statusFilter = filters.status || "all";
+
   const { data, isLoading } = useQuery<BidsResponse>({
-    queryKey: ["/api/admin/bids", { status: filters.status || "all", search: searchValue, page: pagination.pageIndex + 1, limit: pagination.pageSize }],
-    queryFn: async ({ queryKey }) => {
-      const [_, params] = queryKey as [string, Record<string, any>];
-      const searchParams = new URLSearchParams();
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== "all") {
-          searchParams.append(key, String(value));
-        }
+    queryKey: ['/api/admin/bids', pagination.pageIndex + 1, pagination.pageSize, searchValue, statusFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: (pagination.pageIndex + 1).toString(),
+        limit: pagination.pageSize.toString(),
+        ...(searchValue && { search: searchValue }),
+        ...(statusFilter !== 'all' && { status: statusFilter }),
       });
-      const response = await fetch(`/api/admin/bids?${searchParams.toString()}`);
-      if (!response.ok) throw new Error("Failed to fetch bids");
-      return response.json();
+      
+      const res = await fetch(`/api/admin/bids?${params}`, {
+        credentials: 'include',
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch bids');
+      }
+      
+      return res.json();
     },
   });
 
@@ -161,6 +169,7 @@ export default function AdminBids() {
   ];
 
   const statusFilterOptions = [
+    { value: "all", label: t("common.all") },
     ...BID_STATUSES.map((status) => ({
       value: status,
       label: t(`admin.bids.status.${status}`),
