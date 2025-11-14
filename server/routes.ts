@@ -6,7 +6,7 @@ import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema } from "@shared/schema";
 import { db } from "./db";
-import { users, adminRoles, categories, jobs, bids, payments, disputes, vendorCategoryRequests, projects } from "@shared/schema";
+import { users, adminRoles, categories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
@@ -1157,6 +1157,312 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching contracts:", error);
       res.status(500).json({ message: "Failed to fetch contracts" });
+    }
+  });
+
+  // ============================================================================
+  // SUBSCRIPTION PLANS MANAGEMENT
+  // ============================================================================
+  
+  // Get all subscription plans with filtering
+  app.get('/api/admin/subscription-plans', isAuthenticated, isAdmin, hasPermission('plans:view'), async (req, res) => {
+    try {
+      const { audience, status, search, page = '1', limit = '20' } = req.query;
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+      
+      // Build filter conditions
+      const conditions = [];
+      
+      if (audience && audience !== 'all') {
+        conditions.push(eq(subscriptionPlans.audience, audience as string));
+      }
+      
+      if (status && status !== 'all') {
+        conditions.push(eq(subscriptionPlans.status, status as string));
+      }
+      
+      if (search && typeof search === 'string' && search.trim()) {
+        const searchTerm = `%${search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(subscriptionPlans.name, searchTerm),
+            ilike(subscriptionPlans.nameAr, searchTerm),
+            ilike(subscriptionPlans.description, searchTerm)
+          )
+        );
+      }
+      
+      // Apply filters
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      
+      // Get paginated results
+      let query = db.select().from(subscriptionPlans);
+      if (whereClause) {
+        query = query.where(whereClause) as any;
+      }
+      
+      const plansResult = await query
+        .limit(limitNum)
+        .offset(offset)
+        .orderBy(subscriptionPlans.displayOrder, subscriptionPlans.name);
+      
+      // Get total count with same filters
+      let countQuery = db.select({ count: count() }).from(subscriptionPlans);
+      if (whereClause) {
+        countQuery = countQuery.where(whereClause) as any;
+      }
+      const [totalResult] = await countQuery;
+      
+      res.json({
+        plans: plansResult,
+        total: totalResult?.count || 0,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil((totalResult?.count || 0) / limitNum),
+      });
+    } catch (error) {
+      console.error("Error fetching subscription plans:", error);
+      res.status(500).json({ message: "Failed to fetch subscription plans" });
+    }
+  });
+
+  // Create new subscription plan
+  app.post('/api/admin/subscription-plans', isAuthenticated, isAdmin, hasPermission('plans:manage'), async (req, res) => {
+    try {
+      const validatedData = insertSubscriptionPlanSchema.parse(req.body);
+      
+      const [newPlan] = await db.insert(subscriptionPlans)
+        .values(validatedData)
+        .returning();
+      
+      res.status(201).json(newPlan);
+    } catch (error: any) {
+      console.error("Error creating subscription plan:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create subscription plan" });
+    }
+  });
+
+  // Update subscription plan
+  app.patch('/api/admin/subscription-plans/:id', isAuthenticated, isAdmin, hasPermission('plans:manage'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Validate data (partial updates allowed)
+      const validatedData = insertSubscriptionPlanSchema.partial().parse(req.body);
+      
+      const [updatedPlan] = await db.update(subscriptionPlans)
+        .set({ ...validatedData, updatedAt: new Date() })
+        .where(eq(subscriptionPlans.id, id))
+        .returning();
+      
+      if (!updatedPlan) {
+        return res.status(404).json({ message: "Subscription plan not found" });
+      }
+      
+      res.json(updatedPlan);
+    } catch (error: any) {
+      console.error("Error updating subscription plan:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update subscription plan" });
+    }
+  });
+
+  // Delete subscription plan
+  app.delete('/api/admin/subscription-plans/:id', isAuthenticated, isAdmin, hasPermission('plans:manage'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Check if any users are subscribed to this plan
+      const [subscription] = await db.select()
+        .from(userSubscriptions)
+        .where(eq(userSubscriptions.planId, id))
+        .limit(1);
+      
+      if (subscription) {
+        return res.status(400).json({ 
+          message: "Cannot delete plan with active subscriptions. Please archive it instead." 
+        });
+      }
+      
+      const [deletedPlan] = await db.delete(subscriptionPlans)
+        .where(eq(subscriptionPlans.id, id))
+        .returning();
+      
+      if (!deletedPlan) {
+        return res.status(404).json({ message: "Subscription plan not found" });
+      }
+      
+      res.json({ message: "Subscription plan deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting subscription plan:", error);
+      res.status(500).json({ message: "Failed to delete subscription plan" });
+    }
+  });
+
+  // ============================================================================
+  // PLATFORM SETTINGS MANAGEMENT
+  // ============================================================================
+  
+  // Get all platform settings
+  app.get('/api/admin/settings', isAuthenticated, isAdmin, hasPermission('settings:view'), async (req, res) => {
+    try {
+      const { category } = req.query;
+      
+      let query = db.select().from(platformSettings);
+      
+      if (category && category !== 'all') {
+        query = query.where(eq(platformSettings.category, category as string)) as any;
+      }
+      
+      const settingsResult = await query.orderBy(platformSettings.category, platformSettings.key);
+      
+      res.json({ settings: settingsResult });
+    } catch (error) {
+      console.error("Error fetching platform settings:", error);
+      res.status(500).json({ message: "Failed to fetch platform settings" });
+    }
+  });
+
+  // Update or create platform setting
+  app.post('/api/admin/settings', isAuthenticated, isAdmin, hasPermission('settings:manage'), async (req, res) => {
+    try {
+      const validatedData = insertPlatformSettingSchema.parse(req.body);
+      const adminId = getUserIdFromRequest(req);
+      
+      // Check if setting exists
+      const [existing] = await db.select()
+        .from(platformSettings)
+        .where(eq(platformSettings.key, validatedData.key))
+        .limit(1);
+      
+      let result;
+      if (existing) {
+        // Update existing
+        [result] = await db.update(platformSettings)
+          .set({ ...validatedData, updatedBy: adminId, updatedAt: new Date() })
+          .where(eq(platformSettings.key, validatedData.key))
+          .returning();
+      } else {
+        // Create new
+        [result] = await db.insert(platformSettings)
+          .values({ ...validatedData, updatedBy: adminId })
+          .returning();
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error saving platform setting:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to save platform setting" });
+    }
+  });
+
+  // ============================================================================
+  // EMAIL TEMPLATES MANAGEMENT
+  // ============================================================================
+  
+  // Get all email templates
+  app.get('/api/admin/email-templates', isAuthenticated, isAdmin, hasPermission('emails:view'), async (req, res) => {
+    try {
+      const { audience, active } = req.query;
+      
+      const conditions = [];
+      
+      if (audience && audience !== 'all') {
+        conditions.push(eq(emailTemplates.audience, audience as string));
+      }
+      
+      if (active && active !== 'all') {
+        conditions.push(eq(emailTemplates.active, active === 'true'));
+      }
+      
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      
+      let query = db.select().from(emailTemplates);
+      if (whereClause) {
+        query = query.where(whereClause) as any;
+      }
+      
+      const templatesResult = await query.orderBy(emailTemplates.trigger);
+      
+      res.json({ templates: templatesResult });
+    } catch (error) {
+      console.error("Error fetching email templates:", error);
+      res.status(500).json({ message: "Failed to fetch email templates" });
+    }
+  });
+
+  // Create email template
+  app.post('/api/admin/email-templates', isAuthenticated, isAdmin, hasPermission('emails:manage'), async (req, res) => {
+    try {
+      const validatedData = insertEmailTemplateSchema.parse(req.body);
+      
+      const [newTemplate] = await db.insert(emailTemplates)
+        .values(validatedData)
+        .returning();
+      
+      res.status(201).json(newTemplate);
+    } catch (error: any) {
+      console.error("Error creating email template:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create email template" });
+    }
+  });
+
+  // Update email template
+  app.patch('/api/admin/email-templates/:id', isAuthenticated, isAdmin, hasPermission('emails:manage'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const validatedData = insertEmailTemplateSchema.partial().parse(req.body);
+      
+      const [updatedTemplate] = await db.update(emailTemplates)
+        .set({ ...validatedData, updatedAt: new Date() })
+        .where(eq(emailTemplates.id, id))
+        .returning();
+      
+      if (!updatedTemplate) {
+        return res.status(404).json({ message: "Email template not found" });
+      }
+      
+      res.json(updatedTemplate);
+    } catch (error: any) {
+      console.error("Error updating email template:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update email template" });
+    }
+  });
+
+  // Delete email template
+  app.delete('/api/admin/email-templates/:id', isAuthenticated, isAdmin, hasPermission('emails:manage'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const [deletedTemplate] = await db.delete(emailTemplates)
+        .where(eq(emailTemplates.id, id))
+        .returning();
+      
+      if (!deletedTemplate) {
+        return res.status(404).json({ message: "Email template not found" });
+      }
+      
+      res.json({ message: "Email template deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting email template:", error);
+      res.status(500).json({ message: "Failed to delete email template" });
     }
   });
 
