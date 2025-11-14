@@ -11,8 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, FileText } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { JOB_STATUSES, type JobStatus } from "@shared/schema";
 
-interface Job {
+interface AdminRequirementJob {
   id: string;
   clientId: string;
   clientEmail: string;
@@ -26,7 +27,7 @@ interface Job {
   budgetType: string | null;
   duration: string | null;
   experienceLevel: string | null;
-  status: string;
+  status: JobStatus;
   bidCount: number;
   viewCount: number;
   createdAt: string;
@@ -34,7 +35,7 @@ interface Job {
 }
 
 interface RequirementsResponse {
-  jobs: Job[];
+  jobs: AdminRequirementJob[];
   total: number;
   page: number;
   limit: number;
@@ -100,11 +101,10 @@ export default function AdminRequirements() {
 
   const statusFilterOptions = [
     { value: "all", label: t("requirements.filters.allStatuses") },
-    { value: "draft", label: t("requirements.filters.draft") },
-    { value: "open", label: t("requirements.filters.open") },
-    { value: "in_progress", label: t("requirements.statuses.inProgress") },
-    { value: "completed", label: t("requirements.filters.completed") },
-    { value: "cancelled", label: t("requirements.filters.cancelled") },
+    ...JOB_STATUSES.map(status => ({
+      value: status,
+      label: t(`requirements.statuses.${status}`),
+    })),
   ];
 
   const categoryFilterOptions = [
@@ -130,7 +130,7 @@ export default function AdminRequirements() {
     },
   ];
 
-  const columns: ColumnDef<Job>[] = [
+  const columns: ColumnDef<AdminRequirementJob>[] = [
     {
       accessorKey: "title",
       header: t("requirements.columns.title"),
@@ -203,10 +203,10 @@ export default function AdminRequirements() {
       accessorKey: "status",
       header: t("requirements.columns.status"),
       cell: ({ row }) => {
-        const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+        const statusMap: Record<JobStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
           draft: { label: t("requirements.statuses.draft"), variant: "outline" },
           open: { label: t("requirements.statuses.open"), variant: "default" },
-          in_progress: { label: t("requirements.statuses.inProgress"), variant: "secondary" },
+          inProgress: { label: t("requirements.statuses.inProgress"), variant: "secondary" },
           completed: { label: t("requirements.statuses.completed"), variant: "default" },
           cancelled: { label: t("requirements.statuses.cancelled"), variant: "destructive" },
         };

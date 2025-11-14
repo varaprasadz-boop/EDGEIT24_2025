@@ -610,7 +610,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const conditions = [];
       
       if (status && status !== 'all') {
-        conditions.push(eq(jobs.status, status as string));
+        // Defensive mapping: match both legacy snake_case and canonical camelCase
+        if (status === 'inProgress') {
+          conditions.push(or(
+            eq(jobs.status, 'inProgress'),
+            eq(jobs.status, 'in_progress')
+          ));
+        } else {
+          conditions.push(eq(jobs.status, status as string));
+        }
       }
       
       if (category && category !== 'all') {
@@ -635,6 +643,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Apply filters
+      // Note: whereClause is shared by both the select query and count query below
+      // This ensures pagination totals include all rows matched by defensive status normalization
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
       
       // Get paginated results with joins
@@ -653,7 +663,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           budgetType: jobs.budgetType,
           duration: jobs.duration,
           experienceLevel: jobs.experienceLevel,
-          status: jobs.status,
+          status: sql<string>`CASE 
+            WHEN ${jobs.status} = 'in_progress' THEN 'inProgress'
+            ELSE ${jobs.status}
+          END`,
           bidCount: jobs.bidCount,
           viewCount: jobs.viewCount,
           createdAt: jobs.createdAt,

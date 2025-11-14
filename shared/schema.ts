@@ -172,7 +172,7 @@ export const jobs = pgTable("jobs", {
   duration: text("duration"), // 'short', 'medium', 'long'
   experienceLevel: text("experience_level"), // 'junior', 'mid', 'senior', 'expert'
   attachments: text("attachments").array(), // File URLs
-  status: text("status").notNull().default('open'), // 'draft', 'open', 'in_progress', 'completed', 'cancelled'
+  status: text("status").notNull().default('open'), // 'draft', 'open', 'inProgress', 'completed', 'cancelled'
   expiresAt: timestamp("expires_at"),
   viewCount: integer("view_count").default(0),
   bidCount: integer("bid_count").default(0),
@@ -183,6 +183,10 @@ export const jobs = pgTable("jobs", {
   statusIdx: index("jobs_status_idx").on(table.status),
   categoryIdIdx: index("jobs_category_id_idx").on(table.categoryId),
 }));
+
+export const jobStatusEnum = z.enum(['draft', 'open', 'inProgress', 'completed', 'cancelled']);
+export const JOB_STATUSES = jobStatusEnum.options;
+export type JobStatus = z.infer<typeof jobStatusEnum>;
 
 // Bids - Proposals from consultants
 export const bids = pgTable("bids", {

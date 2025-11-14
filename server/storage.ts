@@ -164,7 +164,7 @@ export class DatabaseStorage implements IStorage {
 
   // Dashboard operations
   async getClientDashboardStats(userId: string): Promise<DashboardStats> {
-    // Count active jobs posted by client
+    // Count active jobs posted by client (defensive: match both camelCase and legacy snake_case)
     const [jobStats] = await db
       .select({
         count: sql<number>`cast(count(*) as int)`,
@@ -173,7 +173,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(jobs.clientId, userId),
-          sql`${jobs.status} IN ('open', 'in_progress')`
+          sql`${jobs.status} IN ('open', 'inProgress', 'in_progress')`
         )
       );
 
