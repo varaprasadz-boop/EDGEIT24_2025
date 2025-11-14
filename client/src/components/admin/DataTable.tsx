@@ -85,8 +85,9 @@ export function DataTable<TData, TValue>({
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: manualPagination ? undefined : getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    getSortedRowModel: manualPagination ? undefined : getSortedRowModel(),
     manualPagination,
+    manualSorting: manualPagination,
   });
 
   if (isLoading) {
@@ -128,7 +129,7 @@ export function DataTable<TData, TValue>({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
-                  const canSort = header.column.getCanSort();
+                  const canSort = !manualPagination && header.column.getCanSort();
                   const isSorted = header.column.getIsSorted();
 
                   return (
