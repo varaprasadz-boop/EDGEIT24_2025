@@ -277,6 +277,36 @@
         "status": "الحالة",
         "type": "النوع"
       }
+    },
+    "contracts": {
+      "title": "إدارة العقود",
+      "description": "مراقبة العقود النشطة ودورة حياة المشاريع",
+      "searchPlaceholder": "البحث بالعنوان أو الوظيفة أو العميل أو المستشار...",
+      "table": {
+        "title": "عنوان العقد",
+        "client": "العميل",
+        "consultant": "المستشار",
+        "budget": "الميزانية",
+        "bidAmount": "العرض",
+        "status": "الحالة",
+        "milestones": "المراحل",
+        "completed": "مكتمل",
+        "payments": "المدفوعات",
+        "transactions": "معاملات",
+        "disputes": "النزاعات",
+        "createdAt": "تاريخ الإنشاء"
+      },
+      "status": {
+        "not_started": "لم يبدأ",
+        "in_progress": "قيد التنفيذ",
+        "paused": "متوقف مؤقتًا",
+        "completed": "مكتمل",
+        "cancelled": "ملغى",
+        "disputed": "متنازع عليه"
+      },
+      "filters": {
+        "status": "الحالة"
+      }
     }
   },
   "payments": {

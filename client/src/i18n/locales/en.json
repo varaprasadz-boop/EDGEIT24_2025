@@ -277,6 +277,36 @@
         "status": "Status",
         "type": "Type"
       }
+    },
+    "contracts": {
+      "title": "Contracts Management",
+      "description": "Monitor active contracts and project lifecycle",
+      "searchPlaceholder": "Search by title, job, client or consultant...",
+      "table": {
+        "title": "Contract Title",
+        "client": "Client",
+        "consultant": "Consultant",
+        "budget": "Budget",
+        "bidAmount": "Bid",
+        "status": "Status",
+        "milestones": "Milestones",
+        "completed": "completed",
+        "payments": "Payments",
+        "transactions": "transactions",
+        "disputes": "Disputes",
+        "createdAt": "Created"
+      },
+      "status": {
+        "not_started": "Not Started",
+        "in_progress": "In Progress",
+        "paused": "Paused",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "disputed": "Disputed"
+      },
+      "filters": {
+        "status": "Status"
+      }
     }
   },
   "payments": {
