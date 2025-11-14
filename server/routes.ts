@@ -6,7 +6,7 @@ import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema } from "@shared/schema";
 import { db } from "./db";
-import { users, adminRoles, categories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema } from "@shared/schema";
+import { users, adminRoles, categories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, consultantProfiles, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
@@ -1157,6 +1157,287 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching contracts:", error);
       res.status(500).json({ message: "Failed to fetch contracts" });
+    }
+  });
+
+  // ============================================================================
+  // DISPUTES MANAGEMENT
+  // ============================================================================
+  
+  // Get disputes with pagination and filtering
+  app.get('/api/admin/disputes', isAuthenticated, isAdmin, hasPermission('disputes:view'), async (req, res) => {
+    try {
+      const { status, severity, project, search, page = '1', limit = '20' } = req.query;
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+      
+      // Create aliases for users table (raised by, against, resolved by)
+      const raisedByUser = alias(users, 'raisedByUser');
+      const againstUser = alias(users, 'againstUser');
+      const resolvedByUser = alias(users, 'resolvedByUser');
+      
+      // Build filter conditions
+      const conditions = [];
+      
+      if (status && status !== 'all') {
+        conditions.push(eq(disputes.status, status as string));
+      }
+      
+      if (project && project !== 'all') {
+        conditions.push(eq(disputes.projectId, project as string));
+      }
+      
+      if (search && typeof search === 'string' && search.trim()) {
+        const searchTerm = `%${search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(disputes.reason, searchTerm),
+            ilike(disputes.description, searchTerm),
+            ilike(projects.title, searchTerm),
+            ilike(raisedByUser.email, searchTerm),
+            ilike(sql`trim(concat(coalesce(${raisedByUser.firstName}, ''), ' ', coalesce(${raisedByUser.lastName}, '')))`, searchTerm),
+            ilike(againstUser.email, searchTerm),
+            ilike(sql`trim(concat(coalesce(${againstUser.firstName}, ''), ' ', coalesce(${againstUser.lastName}, '')))`, searchTerm)
+          )
+        );
+      }
+      
+      // Apply filters
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      
+      // Get paginated results with joins
+      let query = db
+        .select({
+          id: disputes.id,
+          projectId: disputes.projectId,
+          projectTitle: projects.title,
+          raisedBy: disputes.raisedBy,
+          raisedByEmail: raisedByUser.email,
+          raisedByName: sql<string>`trim(concat(coalesce(${raisedByUser.firstName}, ''), ' ', coalesce(${raisedByUser.lastName}, '')))`,
+          against: disputes.against,
+          againstEmail: againstUser.email,
+          againstName: sql<string>`trim(concat(coalesce(${againstUser.firstName}, ''), ' ', coalesce(${againstUser.lastName}, '')))`,
+          reason: disputes.reason,
+          description: disputes.description,
+          status: disputes.status,
+          resolution: disputes.resolution,
+          resolvedBy: disputes.resolvedBy,
+          resolvedByEmail: resolvedByUser.email,
+          resolvedByName: sql<string>`trim(concat(coalesce(${resolvedByUser.firstName}, ''), ' ', coalesce(${resolvedByUser.lastName}, '')))`,
+          resolvedAt: disputes.resolvedAt,
+          createdAt: disputes.createdAt,
+          updatedAt: disputes.updatedAt,
+        })
+        .from(disputes)
+        .leftJoin(raisedByUser, eq(disputes.raisedBy, raisedByUser.id))
+        .leftJoin(againstUser, eq(disputes.against, againstUser.id))
+        .leftJoin(resolvedByUser, eq(disputes.resolvedBy, resolvedByUser.id))
+        .leftJoin(projects, eq(disputes.projectId, projects.id));
+      
+      if (whereClause) {
+        query = query.where(whereClause) as any;
+      }
+      
+      const disputesResult = await query
+        .limit(limitNum)
+        .offset(offset)
+        .orderBy(desc(disputes.createdAt));
+      
+      // Get total count with same filters
+      let countQuery = db
+        .select({ count: count() })
+        .from(disputes)
+        .leftJoin(raisedByUser, eq(disputes.raisedBy, raisedByUser.id))
+        .leftJoin(againstUser, eq(disputes.against, againstUser.id))
+        .leftJoin(projects, eq(disputes.projectId, projects.id));
+      
+      if (whereClause) {
+        countQuery = countQuery.where(whereClause) as any;
+      }
+      
+      const [totalResult] = await countQuery;
+      
+      res.json({
+        disputes: disputesResult,
+        total: totalResult?.count || 0,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil((totalResult?.count || 0) / limitNum),
+      });
+    } catch (error) {
+      console.error("Error fetching disputes:", error);
+      res.status(500).json({ message: "Failed to fetch disputes" });
+    }
+  });
+
+  // Resolve dispute
+  app.patch('/api/admin/disputes/:id/resolve', isAuthenticated, isAdmin, hasPermission('disputes:manage'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { resolution } = req.body;
+      const adminId = getUserIdFromRequest(req);
+      
+      if (!resolution || resolution.trim().length < 10) {
+        return res.status(400).json({ message: "Resolution must be at least 10 characters" });
+      }
+      
+      const [updatedDispute] = await db.update(disputes)
+        .set({
+          status: 'resolved',
+          resolution,
+          resolvedBy: adminId,
+          resolvedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(disputes.id, id))
+        .returning();
+      
+      if (!updatedDispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+      
+      res.json(updatedDispute);
+    } catch (error) {
+      console.error("Error resolving dispute:", error);
+      res.status(500).json({ message: "Failed to resolve dispute" });
+    }
+  });
+
+  // ============================================================================
+  // VENDOR DIRECTORY MANAGEMENT
+  // ============================================================================
+  
+  // Get consultant vendors with filtering
+  app.get('/api/admin/vendors', isAuthenticated, isAdmin, hasPermission('vendors:view'), async (req, res) => {
+    try {
+      const { verified, experience, rating, search, page = '1', limit = '20' } = req.query;
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+      
+      // Build filter conditions
+      const conditions = [
+        // Only show users with consultant role
+        or(
+          eq(users.role, 'consultant'),
+          eq(users.role, 'both')
+        )
+      ];
+      
+      if (verified && verified !== 'all') {
+        conditions.push(eq(consultantProfiles.verified, verified === 'true'));
+      }
+      
+      if (experience && experience !== 'all') {
+        conditions.push(eq(consultantProfiles.experience, experience as string));
+      }
+      
+      if (rating && rating !== 'all') {
+        // Filter by rating >= selected value
+        const ratingValue = parseInt(rating as string);
+        if (!isNaN(ratingValue)) {
+          conditions.push(gte(consultantProfiles.rating, ratingValue.toString()));
+        }
+      }
+      
+      if (search && typeof search === 'string' && search.trim()) {
+        const searchTerm = `%${search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(users.email, searchTerm),
+            ilike(consultantProfiles.fullName, searchTerm),
+            ilike(consultantProfiles.title, searchTerm),
+            ilike(consultantProfiles.bio, searchTerm)
+          )
+        );
+      }
+      
+      // Apply filters
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      
+      // Get paginated results with joins
+      let query = db
+        .select({
+          id: users.id,
+          email: users.email,
+          role: users.role,
+          status: users.status,
+          emailVerified: users.emailVerified,
+          createdAt: users.createdAt,
+          profileId: consultantProfiles.id,
+          fullName: consultantProfiles.fullName,
+          title: consultantProfiles.title,
+          bio: consultantProfiles.bio,
+          hourlyRate: consultantProfiles.hourlyRate,
+          experience: consultantProfiles.experience,
+          verified: consultantProfiles.verified,
+          rating: consultantProfiles.rating,
+          totalReviews: consultantProfiles.totalReviews,
+          completedProjects: consultantProfiles.completedProjects,
+          availability: consultantProfiles.availability,
+          location: consultantProfiles.location,
+        })
+        .from(users)
+        .leftJoin(consultantProfiles, eq(users.id, consultantProfiles.userId));
+      
+      if (whereClause) {
+        query = query.where(whereClause) as any;
+      }
+      
+      const vendorsResult = await query
+        .limit(limitNum)
+        .offset(offset)
+        .orderBy(desc(consultantProfiles.rating), desc(consultantProfiles.completedProjects));
+      
+      // Get total count with same filters
+      let countQuery = db
+        .select({ count: count() })
+        .from(users)
+        .leftJoin(consultantProfiles, eq(users.id, consultantProfiles.userId));
+      
+      if (whereClause) {
+        countQuery = countQuery.where(whereClause) as any;
+      }
+      
+      const [totalResult] = await countQuery;
+      
+      res.json({
+        vendors: vendorsResult,
+        total: totalResult?.count || 0,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil((totalResult?.count || 0) / limitNum),
+      });
+    } catch (error) {
+      console.error("Error fetching vendors:", error);
+      res.status(500).json({ message: "Failed to fetch vendors" });
+    }
+  });
+
+  // Verify/unverify consultant
+  app.patch('/api/admin/vendors/:id/verify', isAuthenticated, isAdmin, hasPermission('vendors:manage'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { verified } = req.body;
+      
+      if (typeof verified !== 'boolean') {
+        return res.status(400).json({ message: "Verified must be a boolean value" });
+      }
+      
+      const [updatedProfile] = await db.update(consultantProfiles)
+        .set({ verified, updatedAt: new Date() })
+        .where(eq(consultantProfiles.userId, id))
+        .returning();
+      
+      if (!updatedProfile) {
+        return res.status(404).json({ message: "Consultant profile not found" });
+      }
+      
+      res.json(updatedProfile);
+    } catch (error) {
+      console.error("Error updating vendor verification:", error);
+      res.status(500).json({ message: "Failed to update vendor verification" });
     }
   });
 
