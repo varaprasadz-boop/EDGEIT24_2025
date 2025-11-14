@@ -6,7 +6,7 @@ import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema } from "@shared/schema";
 import { db } from "./db";
-import { users, adminRoles, categories, jobs, bids, payments, disputes } from "@shared/schema";
+import { users, adminRoles, categories, jobs, bids, payments, disputes, vendorCategoryRequests } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike } from "drizzle-orm";
 import passport from "passport";
 
@@ -595,6 +595,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching categories:", error);
       res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
+  // Get vendor category requests with pagination and filtering
+  app.get('/api/admin/vendor-requests', isAuthenticated, isAdmin, hasPermission('vendors:view'), async (req, res) => {
+    try {
+      const { status, search, page = '1', limit = '20' } = req.query;
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+      
+      // Build filter conditions
+      const conditions = [];
+      
+      if (status && status !== 'all') {
+        conditions.push(eq(vendorCategoryRequests.status, status as string));
+      }
+      
+      if (search && typeof search === 'string' && search.trim()) {
+        const searchTerm = `%${search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(users.email, searchTerm),
+            ilike(sql`trim(concat(coalesce(${users.firstName}, ''), ' ', coalesce(${users.lastName}, '')))`, searchTerm),
+            ilike(categories.name, searchTerm),
+            ilike(categories.nameAr, searchTerm),
+            ilike(vendorCategoryRequests.reasonForRequest, searchTerm)
+          )
+        );
+      }
+      
+      // Apply filters
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      
+      // Get paginated results with joins
+      let query = db
+        .select({
+          id: vendorCategoryRequests.id,
+          vendorId: vendorCategoryRequests.vendorId,
+          vendorEmail: users.email,
+          vendorFirstName: users.firstName,
+          vendorLastName: users.lastName,
+          vendorName: sql<string>`trim(concat(coalesce(${users.firstName}, ''), ' ', coalesce(${users.lastName}, '')))`,
+          categoryId: vendorCategoryRequests.categoryId,
+          categoryName: categories.name,
+          categoryNameAr: categories.nameAr,
+          status: vendorCategoryRequests.status,
+          yearsOfExperience: vendorCategoryRequests.yearsOfExperience,
+          reasonForRequest: vendorCategoryRequests.reasonForRequest,
+          adminNotes: vendorCategoryRequests.adminNotes,
+          reviewedBy: vendorCategoryRequests.reviewedBy,
+          reviewedAt: vendorCategoryRequests.reviewedAt,
+          createdAt: vendorCategoryRequests.createdAt,
+          updatedAt: vendorCategoryRequests.updatedAt,
+        })
+        .from(vendorCategoryRequests)
+        .leftJoin(users, eq(vendorCategoryRequests.vendorId, users.id))
+        .leftJoin(categories, eq(vendorCategoryRequests.categoryId, categories.id));
+      
+      if (whereClause) {
+        query = query.where(whereClause) as any;
+      }
+      
+      const requestsResult = await query
+        .limit(limitNum)
+        .offset(offset)
+        .orderBy(desc(vendorCategoryRequests.createdAt));
+      
+      // Get total count with same filters
+      let countQuery = db
+        .select({ count: count() })
+        .from(vendorCategoryRequests)
+        .leftJoin(users, eq(vendorCategoryRequests.vendorId, users.id))
+        .leftJoin(categories, eq(vendorCategoryRequests.categoryId, categories.id));
+      
+      if (whereClause) {
+        countQuery = countQuery.where(whereClause) as any;
+      }
+      
+      const [totalResult] = await countQuery;
+      
+      res.json({
+        requests: requestsResult,
+        total: totalResult?.count || 0,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil((totalResult?.count || 0) / limitNum),
+      });
+    } catch (error) {
+      console.error("Error fetching vendor requests:", error);
+      res.status(500).json({ message: "Failed to fetch vendor requests" });
     }
   });
 

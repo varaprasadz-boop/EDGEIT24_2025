@@ -145,18 +145,28 @@
   },
   "vendorRequests": {
     "title": "طلبات فئات المستشارين",
-    "subtitle": "مراجعة والموافقة على طلبات فئات المستشارين",
-    "vendor": "المستشار",
-    "category": "الفئة",
-    "submitted": "تاريخ الإرسال",
-    "reviewer": "المراجع",
-    "expiry": "تاريخ الانتهاء",
-    "approve": "موافقة",
-    "reject": "رفض",
-    "viewDetails": "عرض التفاصيل",
-    "approvalQueue": "قائمة الانتظار للموافقة",
-    "filterByStatus": "تصفية حسب الحالة",
-    "filterByCategory": "تصفية حسب الفئة"
+    "description": "مراجعة والموافقة على طلبات الوصول لفئات المستشارين",
+    "table": {
+      "vendor": "المستشار",
+      "category": "الفئة",
+      "experience": "الخبرة",
+      "years": "سنوات",
+      "status": "الحالة",
+      "requestedAt": "تاريخ الطلب",
+      "actions": "الإجراءات"
+    },
+    "status": {
+      "pending": "قيد الانتظار",
+      "approved": "موافق عليه",
+      "rejected": "مرفوض"
+    },
+    "filters": {
+      "status": "الحالة",
+      "allStatuses": "جميع الحالات",
+      "pending": "قيد الانتظار",
+      "approved": "موافق عليه",
+      "rejected": "مرفوض"
+    }
   },
   "requirements": {
     "title": "إدارة المتطلبات",

@@ -28,7 +28,29 @@ The platform uses a custom Email/Password authentication system built with `pass
 **Drizzle ORM** is used for type-safe SQL query building with **PostgreSQL** (via Neon serverless driver). Schema definitions are shared and co-located with **Zod** validators for type safety and validation. `drizzle-kit` manages schema migrations.
 
 ### Admin Portal
-The Admin Portal features a comprehensive i18n system with RTL support, using `i18next` and `react-i18next` for translations (English and Arabic). It includes an `AdminLayout` with a `shadcn` Sidebar for navigation across various modules (Overview, Operations, Finance, System). Reusable `DataTable` components (built with TanStack React Table v8) and `FilterBar` components provide sorting, pagination, and filtering capabilities for managing data like users.
+The Admin Portal features a comprehensive i18n system with RTL support, using `i18next` and `react-i18next` for translations (English and Arabic). It includes an `AdminLayout` with a `shadcn` Sidebar for navigation across various modules (Overview, Operations, Finance, System).
+
+**DataTable Component** (`client/src/components/admin/DataTable.tsx`):
+- Production-ready foundation for all admin screens, architect-approved
+- **Manual Pagination Mode**: Server-driven pagination with `manualPagination: true`
+  - Fully decoupled from TanStack client-side operations (no sorting/pagination models)
+  - Uses controlled pagination state via `pagination` and `onPaginationChange` props
+  - Backend provides `pageCount` metadata for total pages
+  - Sorting UI automatically disabled in manual mode (can add server sorting hooks later)
+  - Pagination controls bypass TanStack helpers, call `onPaginationChange` directly
+- **Client-Side Mode**: Auto pagination for in-memory datasets
+  - Uses TanStack's built-in sorting and pagination models
+  - Ideal for small datasets that don't require server pagination
+- **Clamping Logic**: Prevents users getting stuck on invalid pages when filters reduce results
+- **Empty State Handling**: Shows "No data" message while keeping pagination controls visible in manual mode
+
+**FilterBar Component** (`client/src/components/admin/FilterBar.tsx`):
+- Reusable search input, filter dropdowns, and active filter pills
+- Triggers pagination reset on search/filter changes
+- Fully bilingual with i18n support
+
+**Completed Screens**:
+- Categories Management (`/admin/categories`): Server-side pagination, bilingual name display, Featured/Active filters, search across name/nameAr/slug fields
 
 ### Dashboard & Profile Management
 - **Client Dashboard**: Displays active jobs, bids, spending, and messages.

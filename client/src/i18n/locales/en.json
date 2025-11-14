@@ -145,18 +145,28 @@
   },
   "vendorRequests": {
     "title": "Vendor Category Requests",
-    "subtitle": "Review and approve vendor category applications",
-    "vendor": "Vendor",
-    "category": "Category",
-    "submitted": "Submitted",
-    "reviewer": "Reviewer",
-    "expiry": "Expiry Date",
-    "approve": "Approve",
-    "reject": "Reject",
-    "viewDetails": "View Details",
-    "approvalQueue": "Approval Queue",
-    "filterByStatus": "Filter by Status",
-    "filterByCategory": "Filter by Category"
+    "description": "Review and approve vendor category access applications",
+    "table": {
+      "vendor": "Vendor",
+      "category": "Category",
+      "experience": "Experience",
+      "years": "years",
+      "status": "Status",
+      "requestedAt": "Requested",
+      "actions": "Actions"
+    },
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "filters": {
+      "status": "Status",
+      "allStatuses": "All Statuses",
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    }
   },
   "requirements": {
     "title": "Requirements Management",
