@@ -244,6 +244,39 @@
       "filters": {
         "status": "Status"
       }
+    },
+    "payments": {
+      "title": "Payments Management",
+      "description": "Monitor and manage all financial transactions in the marketplace",
+      "searchPlaceholder": "Search by transaction ID, project, user names...",
+      "table": {
+        "transactionId": "Transaction ID",
+        "project": "Project",
+        "payer": "Payer",
+        "payee": "Payee",
+        "amount": "Amount",
+        "type": "Type",
+        "status": "Status",
+        "paymentMethod": "Payment Method",
+        "createdAt": "Date"
+      },
+      "status": {
+        "pending": "Pending",
+        "processing": "Processing",
+        "completed": "Completed",
+        "failed": "Failed",
+        "refunded": "Refunded"
+      },
+      "type": {
+        "deposit": "Deposit",
+        "release": "Release",
+        "refund": "Refund",
+        "withdrawal": "Withdrawal"
+      },
+      "filters": {
+        "status": "Status",
+        "type": "Type"
+      }
     }
   },
   "payments": {

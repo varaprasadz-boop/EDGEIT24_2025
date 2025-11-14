@@ -244,6 +244,39 @@
       "filters": {
         "status": "الحالة"
       }
+    },
+    "payments": {
+      "title": "إدارة المدفوعات",
+      "description": "مراقبة وإدارة جميع المعاملات المالية في السوق",
+      "searchPlaceholder": "البحث برقم المعاملة أو المشروع أو أسماء المستخدمين...",
+      "table": {
+        "transactionId": "رقم المعاملة",
+        "project": "المشروع",
+        "payer": "الدافع",
+        "payee": "المستلم",
+        "amount": "المبلغ",
+        "type": "النوع",
+        "status": "الحالة",
+        "paymentMethod": "طريقة الدفع",
+        "createdAt": "التاريخ"
+      },
+      "status": {
+        "pending": "قيد الانتظار",
+        "processing": "قيد المعالجة",
+        "completed": "مكتمل",
+        "failed": "فشل",
+        "refunded": "مسترد"
+      },
+      "type": {
+        "deposit": "إيداع",
+        "release": "إطلاق",
+        "refund": "استرداد",
+        "withdrawal": "سحب"
+      },
+      "filters": {
+        "status": "الحالة",
+        "type": "النوع"
+      }
     }
   },
   "payments": {
