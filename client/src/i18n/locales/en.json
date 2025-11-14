@@ -75,6 +75,7 @@
     "messages": "Messages",
     "reviews": "Reviews",
     "notifications": "Notifications",
+    "subscriptionPlans": "Subscription Plans",
     "contracts": "Contracts & Escrow",
     "payments": "Payments",
     "refunds": "Refunds",
@@ -356,5 +357,27 @@
     "viewDetails": "View Details",
     "filterByUser": "Filter by User",
     "filterByAction": "Filter by Action"
+  },
+  "subscriptionPlans": {
+    "title": "Subscription Plans",
+    "subtitle": "Manage subscription plans for clients and consultants",
+    "addPlan": "Add Plan",
+    "editPlan": "Edit Plan",
+    "deletePlan": "Delete Plan",
+    "planName": "Plan Name",
+    "audience": "Audience",
+    "price": "Price",
+    "billingCycle": "Billing Cycle",
+    "featured": "Featured",
+    "popular": "Popular",
+    "displayOrder": "Display Order",
+    "description": "Description",
+    "client": "Client",
+    "consultant": "Consultant",
+    "both": "Both",
+    "monthly": "Monthly",
+    "archived": "Archived",
+    "filterByAudience": "Filter by Audience",
+    "filterByStatus": "Filter by Status"
   }
 }

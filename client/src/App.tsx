@@ -19,6 +19,7 @@ import AdminRequirements from "@/pages/AdminRequirements";
 import AdminBids from "@/pages/AdminBids";
 import AdminPayments from "@/pages/AdminPayments";
 import AdminContracts from "@/pages/AdminContracts";
+import AdminSubscriptionPlans from "@/pages/AdminSubscriptionPlans";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -40,6 +41,7 @@ function Router() {
       <Route path="/admin/bids" component={AdminBids} />
       <Route path="/admin/payments" component={AdminPayments} />
       <Route path="/admin/contracts" component={AdminContracts} />
+      <Route path="/admin/subscription-plans" component={AdminSubscriptionPlans} />
       <Route component={NotFound} />
     </Switch>
   );

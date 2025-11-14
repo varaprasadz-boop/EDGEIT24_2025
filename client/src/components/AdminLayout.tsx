@@ -20,6 +20,7 @@ import {
   Settings,
   Shield,
   LogOut,
+  Layers,
 } from "lucide-react";
 import {
   Sidebar,
@@ -141,6 +142,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     {
       label: t('sidebar.finance'),
       items: [
+        {
+          title: t('sidebar.subscriptionPlans'),
+          url: '/admin/subscription-plans',
+          icon: Layers,
+          testId: 'nav-subscription-plans',
+        },
         {
           title: t('sidebar.contracts'),
           url: '/admin/contracts',

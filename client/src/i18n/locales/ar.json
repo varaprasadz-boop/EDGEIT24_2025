@@ -75,6 +75,7 @@
     "messages": "الرسائل",
     "reviews": "التقييمات",
     "notifications": "الإشعارات",
+    "subscriptionPlans": "خطط الاشتراك",
     "contracts": "العقود والضمان",
     "payments": "المدفوعات",
     "refunds": "المبالغ المستردة",
@@ -356,5 +357,27 @@
     "viewDetails": "عرض التفاصيل",
     "filterByUser": "تصفية حسب المستخدم",
     "filterByAction": "تصفية حسب الإجراء"
+  },
+  "subscriptionPlans": {
+    "title": "خطط الاشتراك",
+    "subtitle": "إدارة خطط الاشتراك للعملاء والمستشارين",
+    "addPlan": "إضافة خطة",
+    "editPlan": "تعديل الخطة",
+    "deletePlan": "حذف الخطة",
+    "planName": "اسم الخطة",
+    "audience": "الجمهور",
+    "price": "السعر",
+    "billingCycle": "دورة الفوترة",
+    "featured": "مميز",
+    "popular": "شائع",
+    "displayOrder": "ترتيب العرض",
+    "description": "الوصف",
+    "client": "عميل",
+    "consultant": "مستشار",
+    "both": "كلاهما",
+    "monthly": "شهري",
+    "archived": "مؤرشف",
+    "filterByAudience": "تصفية حسب الجمهور",
+    "filterByStatus": "تصفية حسب الحالة"
   }
 }
