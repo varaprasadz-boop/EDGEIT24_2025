@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LanguageSwitcher, t, useLanguage } from "@/components/LanguageSwitcher";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Shield, Users, Briefcase, FileText, MessageSquare, DollarSign, CheckCircle, LogOut } from "lucide-react";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { useTranslation } from "react-i18next";
 
 interface AdminStats {
   totalUsers: number;
@@ -20,8 +21,7 @@ interface AdminStats {
 
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
-  const language = useLanguage();
-  const translations = t[language];
+  const { t } = useTranslation();
 
   // Protect admin route - redirects to login if not admin
   const { admin, isLoading: isAdminLoading } = useAdminAuth();
@@ -91,7 +91,7 @@ export default function AdminDashboard() {
                 data-testid="button-logout"
               >
                 <LogOut className="h-4 w-4 mr-2" />
-                {translations.logout}
+                {t('auth.logout')}
               </Button>
             </div>
           </div>
@@ -101,8 +101,8 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold">{translations.platformOverview}</h2>
-          <p className="text-muted-foreground mt-1">Monitor platform metrics and performance</p>
+          <h2 className="text-3xl font-bold">{t('dashboard.platformOverview')}</h2>
+          <p className="text-muted-foreground mt-1">{t('dashboard.subtitle')}</p>
         </div>
 
         {/* Stats Grid */}
@@ -124,7 +124,7 @@ export default function AdminDashboard() {
             {/* Total Users */}
             <Card className="hover-elevate" data-testid="card-total-users">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{translations.totalUsers}</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('dashboard.totalUsers')}</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -136,7 +136,7 @@ export default function AdminDashboard() {
             {/* Total Clients */}
             <Card className="hover-elevate" data-testid="card-total-clients">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{translations.totalClients}</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('dashboard.totalClients')}</CardTitle>
                 <Briefcase className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -148,7 +148,7 @@ export default function AdminDashboard() {
             {/* Total Consultants */}
             <Card className="hover-elevate" data-testid="card-total-consultants">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{translations.totalConsultants}</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('dashboard.totalConsultants')}</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -160,7 +160,7 @@ export default function AdminDashboard() {
             {/* Active Requirements */}
             <Card className="hover-elevate" data-testid="card-active-requirements">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{translations.activeRequirements}</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('dashboard.activeRequirements')}</CardTitle>
                 <FileText className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -172,7 +172,7 @@ export default function AdminDashboard() {
             {/* Total Bids */}
             <Card className="hover-elevate" data-testid="card-total-bids">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{translations.totalBids}</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('dashboard.totalBids')}</CardTitle>
                 <MessageSquare className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -184,7 +184,7 @@ export default function AdminDashboard() {
             {/* Completed Projects */}
             <Card className="hover-elevate" data-testid="card-completed-projects">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{translations.completedProjects}</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('dashboard.completedProjects')}</CardTitle>
                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -196,7 +196,7 @@ export default function AdminDashboard() {
             {/* Total GMV */}
             <Card className="hover-elevate col-span-1 md:col-span-2" data-testid="card-total-gmv">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{translations.totalGMV}</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('dashboard.totalGMV')}</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
