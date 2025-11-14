@@ -40,6 +40,12 @@
     "export": "Export",
     "import": "Import"
   },
+  "table": {
+    "loading": "Loading data...",
+    "noData": "No records found",
+    "rowsPerPage": "Rows per page",
+    "pageInfo": "Page {{current}} of {{total}}"
+  },
   "auth": {
     "login": "Sign In",
     "logout": "Logout",
@@ -104,8 +110,10 @@
     "client": "Client",
     "consultant": "Consultant",
     "both": "Both",
+    "admin": "Admin",
     "viewProfile": "View Profile",
     "suspend": "Suspend",
+    "suspended": "Suspended",
     "activate": "Activate",
     "verify": "Verify",
     "sendMessage": "Send Message",

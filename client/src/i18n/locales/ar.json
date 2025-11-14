@@ -40,6 +40,12 @@
     "export": "تصدير",
     "import": "استيراد"
   },
+  "table": {
+    "loading": "جاري تحميل البيانات...",
+    "noData": "لم يتم العثور على سجلات",
+    "rowsPerPage": "صفوف لكل صفحة",
+    "pageInfo": "صفحة {{current}} من {{total}}"
+  },
   "auth": {
     "login": "تسجيل الدخول",
     "logout": "تسجيل الخروج",
@@ -104,8 +110,10 @@
     "client": "عميل",
     "consultant": "مستشار",
     "both": "كلاهما",
+    "admin": "مسؤول",
     "viewProfile": "عرض الملف الشخصي",
     "suspend": "تعليق",
+    "suspended": "معلق",
     "activate": "تفعيل",
     "verify": "تحقق",
     "sendMessage": "إرسال رسالة",
