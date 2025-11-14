@@ -138,6 +138,12 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
+    // Store intended role in session if provided
+    const intendedRole = req.query.role as string;
+    if (intendedRole === 'client' || intendedRole === 'consultant') {
+      (req.session as any).onboardingRole = intendedRole;
+    }
+    
     const strategyName = ensureStrategy(req);
     passport.authenticate(strategyName, {
       prompt: "login consent",
@@ -147,9 +153,63 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/callback", (req, res, next) => {
     const strategyName = ensureStrategy(req);
-    passport.authenticate(strategyName, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
+    passport.authenticate(strategyName, async (err: any, user: any) => {
+      if (err || !user) {
+        return res.redirect("/api/login");
+      }
+
+      req.logIn(user, async (loginErr) => {
+        if (loginErr) {
+          return res.redirect("/api/login");
+        }
+
+        // Smart redirect based on profile status
+        try {
+          const email = user.claims?.email;
+          const replitSub = user.claims?.sub;
+          
+          // Look up the database user
+          let dbUser = replitSub ? await storage.getUserByReplitSub(replitSub) : null;
+          if (!dbUser && email) {
+            dbUser = await storage.getUserByEmail(email);
+          }
+
+          if (!dbUser) {
+            // Shouldn't happen since upsertUser runs in verify, but fallback to dashboard
+            return res.redirect("/dashboard");
+          }
+
+          // Check if user has profiles
+          const [clientProfile, consultantProfile] = await Promise.all([
+            storage.getClientProfile(dbUser.id).catch(() => null),
+            storage.getConsultantProfile(dbUser.id).catch(() => null),
+          ]);
+
+          // If user has profiles, go to dashboard
+          if (clientProfile || consultantProfile) {
+            return res.redirect("/dashboard");
+          }
+
+          // New user onboarding: redirect to profile creation based on intended role
+          const intendedRole = (req.session as any).onboardingRole;
+          
+          if (intendedRole === 'client') {
+            // Clear the role from session
+            delete (req.session as any).onboardingRole;
+            return res.redirect("/profile/client?onboarding=true");
+          } else if (intendedRole === 'consultant') {
+            // Clear the role from session
+            delete (req.session as any).onboardingRole;
+            return res.redirect("/profile/consultant?onboarding=true");
+          }
+          
+          // No role specified, default to dashboard
+          return res.redirect("/dashboard");
+        } catch (error) {
+          console.error("Error in callback redirect logic:", error);
+          return res.redirect("/dashboard");
+        }
+      });
     })(req, res, next);
   });
 

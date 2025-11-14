@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClientProfileSchema, type ClientProfile } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Globe, MapPin, AlertCircle, Edit, Save, X } from "lucide-react";
+import { Building2, Globe, MapPin, AlertCircle, Edit, Save, X, Info } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 
 const updateProfileSchema = insertClientProfileSchema.omit({
@@ -27,21 +29,29 @@ type UpdateProfile = z.infer<typeof updateProfileSchema>;
 export default function ClientProfile() {
   const { user, isLoading: authLoading } = useAuthContext();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
+  
+  // Check if coming from onboarding
+  const isOnboarding = new URLSearchParams(window.location.search).get('onboarding') === 'true';
 
-  // Fetch client profile
-  const { data: profile, isLoading, isError, refetch } = useQuery<ClientProfile>({
+  // Fetch client profile - treat 404 as "no profile yet" rather than error
+  const { data: profile, isLoading, isError, refetch } = useQuery<ClientProfile | null>({
     queryKey: ['/api/profile/client'],
     queryFn: async () => {
       const response = await fetch('/api/profile/client', { 
         credentials: 'include' 
       });
+      if (response.status === 404) {
+        // No profile exists yet - return null instead of throwing
+        return null;
+      }
       if (!response.ok) {
         throw new Error(`Failed to fetch profile: ${response.statusText}`);
       }
       return response.json();
     },
-    enabled: !!user?.clientProfile,
+    enabled: !!user,
     retry: false,
   });
 
@@ -58,6 +68,13 @@ export default function ClientProfile() {
       avatar: profile?.avatar ?? undefined,
     },
   });
+
+  // Auto-open edit mode if onboarding
+  useEffect(() => {
+    if (isOnboarding && !isEditing && !isLoading) {
+      setIsEditing(true);
+    }
+  }, [isOnboarding, isEditing, isLoading]);
 
   // Reset form when profile data loads or editing toggles
   if (profile && !isEditing) {
@@ -102,6 +119,13 @@ export default function ClientProfile() {
   const handleCancel = () => {
     form.reset();
     setIsEditing(false);
+    if (isOnboarding) {
+      setLocation('/dashboard');
+    }
+  };
+
+  const handleSkip = () => {
+    setLocation('/dashboard');
   };
 
   if (authLoading || isLoading) {
@@ -139,17 +163,29 @@ export default function ClientProfile() {
     );
   }
 
-  if (!user?.clientProfile) {
+  // Show Create Profile button when no profile exists (and not in edit mode)
+  if (!profile && !isLoading && !isError && !isEditing) {
     return (
-      <div className="flex items-center justify-center min-h-[600px]">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>No Client Profile</CardTitle>
-            <CardDescription>
-              You don't have a client profile yet. Please contact support.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="container max-w-4xl mx-auto p-6">
+        <div className="flex items-center justify-center min-h-[600px]">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle>No Client Profile</CardTitle>
+              <CardDescription>
+                You don't have a client profile yet. Create one to start posting requirements and receiving bids.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={() => setIsEditing(true)}
+                className="w-full"
+                data-testid="button-create-profile"
+              >
+                Create Profile
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -180,6 +216,14 @@ export default function ClientProfile() {
             <CardDescription>Update your company details and business information</CardDescription>
           </CardHeader>
           <CardContent>
+            {isOnboarding && (
+              <Alert className="mb-6" data-testid="alert-onboarding">
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Welcome! Complete your profile to get started. You can always skip this and update it later from your dashboard.
+                </AlertDescription>
+              </Alert>
+            )}
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
@@ -286,6 +330,17 @@ export default function ClientProfile() {
                 />
 
                 <div className="flex gap-3 justify-end">
+                  {isOnboarding && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={handleSkip}
+                      disabled={updateMutation.isPending}
+                      data-testid="button-skip-onboarding"
+                    >
+                      Skip for Now
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="outline"

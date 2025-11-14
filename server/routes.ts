@@ -200,14 +200,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid profile data", errors: validation.error });
       }
       
-      // Check if profile exists
+      // Check if profile exists - create if not, update if yes (upsert)
       const existingProfile = await storage.getClientProfile(userId);
-      if (!existingProfile) {
-        return res.status(404).json({ message: "Client profile not found" });
-      }
       
-      const updatedProfile = await storage.updateClientProfile(userId, validation.data);
-      res.json(updatedProfile);
+      if (!existingProfile) {
+        // Create new profile
+        const newProfile = await storage.createClientProfile(userId, validation.data);
+        return res.status(201).json(newProfile);
+      } else {
+        // Update existing profile
+        const updatedProfile = await storage.updateClientProfile(userId, validation.data);
+        return res.json(updatedProfile);
+      }
     } catch (error) {
       console.error("Error updating client profile:", error);
       res.status(500).json({ message: "Failed to update client profile" });

@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertConsultantProfileSchema, type ConsultantProfile } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, MapPin, DollarSign, Star, AlertCircle, Edit, Save, X, Award, TrendingUp, Code, FolderOpen, Package, Calendar as CalendarIcon } from "lucide-react";
+import { Briefcase, MapPin, DollarSign, Star, AlertCircle, Edit, Save, X, Award, TrendingUp, Code, FolderOpen, Package, Calendar as CalendarIcon, Info } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 import { useState as useReactState, useEffect } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -70,10 +72,14 @@ const TIME_SLOT_LABELS: Record<typeof TIME_SLOTS[number], string> = {
 export default function ConsultantProfile() {
   const { user, isLoading: authLoading } = useAuthContext();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
   const [portfolioItems, setPortfolioItems] = useReactState<PortfolioItem[]>([]);
   const [servicePackages, setServicePackages] = useReactState<ServicePackage[]>([]);
   const [weeklySchedule, setWeeklySchedule] = useReactState<WeeklySchedule>({});
+  
+  // Check if coming from onboarding
+  const isOnboarding = new URLSearchParams(window.location.search).get('onboarding') === 'true';
 
   // Fetch consultant profile - treat 404 as "no profile yet" rather than error
   const { data: profile, isLoading, isError, refetch } = useQuery<ConsultantProfile | null>({
@@ -159,6 +165,13 @@ export default function ConsultantProfile() {
       }
     }
   }, [profile, isEditing, form]);
+
+  // Auto-open edit mode when in onboarding flow
+  useEffect(() => {
+    if (isOnboarding && !isEditing && !isLoading) {
+      setIsEditing(true);
+    }
+  }, [isOnboarding, isEditing, isLoading]);
 
   const toggleScheduleSlot = (day: typeof WEEKDAYS[number], slot: typeof TIME_SLOTS[number]) => {
     setWeeklySchedule(prev => {
@@ -246,8 +259,16 @@ export default function ConsultantProfile() {
   };
 
   const handleCancel = () => {
-    form.reset();
-    setIsEditing(false);
+    if (isOnboarding) {
+      setLocation('/dashboard');
+    } else {
+      form.reset();
+      setIsEditing(false);
+    }
+  };
+
+  const handleSkip = () => {
+    setLocation('/dashboard');
   };
 
   if (authLoading || isLoading) {
@@ -340,6 +361,15 @@ export default function ConsultantProfile() {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {isOnboarding && (
+                  <Alert className="mb-6" data-testid="alert-onboarding">
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      Welcome! Complete your profile to showcase your expertise. You can skip this and update it later from your dashboard.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
                 <FormField
                   control={form.control}
                   name="fullName"
@@ -678,6 +708,17 @@ export default function ConsultantProfile() {
                 </div>
 
                 <div className="flex gap-3 justify-end">
+                  {isOnboarding && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={handleSkip}
+                      disabled={updateMutation.isPending}
+                      data-testid="button-skip-onboarding"
+                    >
+                      Skip for Now
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="outline"

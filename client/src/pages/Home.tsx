@@ -69,13 +69,13 @@ export default function Home() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <Button size="lg" asChild className="bg-primary text-primary-foreground text-lg" data-testid="button-hero-client">
-                  <Link href="/post-requirement">
+                  <Link href="/register">
                     I Need IT Services
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
                 <Button size="lg" variant="outline" asChild className="border-white/20 text-white text-lg" data-testid="button-hero-vendor">
-                  <Link href="/signup-vendor">
+                  <Link href="/register">
                     I'm a Service Provider
                   </Link>
                 </Button>
