@@ -7,7 +7,7 @@ import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema } from "@shared/schema";
 import { db } from "./db";
 import { users, adminRoles, categories, jobs, bids, payments, disputes, vendorCategoryRequests } from "@shared/schema";
-import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
+import { eq, and, or, count, sql, desc, ilike, gte, lte, alias } from "drizzle-orm";
 import passport from "passport";
 
 const queryLimitSchema = z.object({
@@ -799,6 +799,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching vendor requests:", error);
       res.status(500).json({ message: "Failed to fetch vendor requests" });
+    }
+  });
+
+  // Get bids with pagination and filtering
+  app.get('/api/admin/bids', isAuthenticated, isAdmin, hasPermission('bids:view'), async (req, res) => {
+    try {
+      const { status, job, search, page = '1', limit = '20' } = req.query;
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+      
+      // Create aliases for users table (consultant and client)
+      const consultant = alias(users, 'consultant');
+      const client = alias(users, 'client');
+      
+      // Build filter conditions
+      const conditions = [];
+      
+      if (status && status !== 'all') {
+        conditions.push(eq(bids.status, status as string));
+      }
+      
+      if (job && job !== 'all') {
+        conditions.push(eq(bids.jobId, job as string));
+      }
+      
+      if (search && typeof search === 'string' && search.trim()) {
+        const searchTerm = `%${search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(consultant.email, searchTerm),
+            ilike(sql`trim(concat(coalesce(${consultant.firstName}, ''), ' ', coalesce(${consultant.lastName}, '')))`, searchTerm),
+            ilike(jobs.title, searchTerm),
+            ilike(bids.coverLetter, searchTerm)
+          )
+        );
+      }
+      
+      // Apply filters
+      // Note: whereClause is shared by both the select query and count query below
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      
+      // Get paginated results with joins
+      let query = db
+        .select({
+          id: bids.id,
+          jobId: bids.jobId,
+          jobTitle: jobs.title,
+          clientId: jobs.clientId,
+          clientEmail: client.email,
+          clientName: sql<string>`trim(concat(coalesce(${client.firstName}, ''), ' ', coalesce(${client.lastName}, '')))`,
+          consultantId: bids.consultantId,
+          consultantEmail: consultant.email,
+          consultantName: sql<string>`trim(concat(coalesce(${consultant.firstName}, ''), ' ', coalesce(${consultant.lastName}, '')))`,
+          proposedBudget: bids.proposedBudget,
+          proposedDuration: bids.proposedDuration,
+          status: bids.status,
+          clientViewed: bids.clientViewed,
+          createdAt: bids.createdAt,
+          updatedAt: bids.updatedAt,
+        })
+        .from(bids)
+        .leftJoin(consultant, eq(bids.consultantId, consultant.id))
+        .leftJoin(jobs, eq(bids.jobId, jobs.id))
+        .leftJoin(client, eq(jobs.clientId, client.id));
+      
+      if (whereClause) {
+        query = query.where(whereClause) as any;
+      }
+      
+      const bidsResult = await query
+        .limit(limitNum)
+        .offset(offset)
+        .orderBy(desc(bids.createdAt));
+      
+      // Get total count with same filters
+      let countQuery = db
+        .select({ count: count() })
+        .from(bids)
+        .leftJoin(consultant, eq(bids.consultantId, consultant.id))
+        .leftJoin(jobs, eq(bids.jobId, jobs.id))
+        .leftJoin(client, eq(jobs.clientId, client.id));
+      
+      if (whereClause) {
+        countQuery = countQuery.where(whereClause) as any;
+      }
+      
+      const [totalResult] = await countQuery;
+      
+      res.json({
+        bids: bidsResult,
+        total: totalResult?.count || 0,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil((totalResult?.count || 0) / limitNum),
+      });
+    } catch (error) {
+      console.error("Error fetching bids:", error);
+      res.status(500).json({ message: "Failed to fetch bids" });
     }
   });
 

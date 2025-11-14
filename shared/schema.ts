@@ -208,6 +208,10 @@ export const bids = pgTable("bids", {
   statusIdx: index("bids_status_idx").on(table.status),
 }));
 
+export const bidStatusEnum = z.enum(['pending', 'shortlisted', 'accepted', 'rejected', 'withdrawn']);
+export const BID_STATUSES = bidStatusEnum.options;
+export type BidStatus = z.infer<typeof bidStatusEnum>;
+
 // Projects - Active work between client and consultant
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
