@@ -41,32 +41,52 @@ interface DataTableProps<TData, TValue> {
   isLoading?: boolean;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
+  pageCount?: number;
+  manualPagination?: boolean;
+  pagination?: { pageIndex: number; pageSize: number };
+  onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   isLoading = false,
+  pageCount,
+  manualPagination = false,
+  pagination: controlledPagination,
+  onPaginationChange,
 }: DataTableProps<TData, TValue>) {
   const { t } = useTranslation();
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [pagination, setPagination] = useState({
+  const [internalPagination, setInternalPagination] = useState({
     pageIndex: 0,
     pageSize: 10,
   });
 
+  const pagination = manualPagination && controlledPagination ? controlledPagination : internalPagination;
+
   const table = useReactTable({
     data,
     columns,
+    pageCount: manualPagination ? pageCount : undefined,
     state: {
       sorting,
       pagination,
     },
     onSortingChange: setSorting,
-    onPaginationChange: setPagination,
+    onPaginationChange: (updater) => {
+      const newPagination = typeof updater === 'function' ? updater(pagination) : updater;
+      
+      if (manualPagination && onPaginationChange) {
+        onPaginationChange(newPagination);
+      } else {
+        setInternalPagination(newPagination);
+      }
+    },
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    getPaginationRowModel: manualPagination ? undefined : getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    manualPagination,
   });
 
   if (isLoading) {
@@ -84,16 +104,20 @@ export function DataTable<TData, TValue>({
     );
   }
 
+  // For manual pagination, show empty state with pagination controls
+  // For client-side pagination, show empty state without controls
   if (!data || data.length === 0) {
-    return (
-      <div className="space-y-4">
-        <div className="rounded-md border">
-          <div className="p-24 text-center text-muted-foreground">
-            {t('table.noData')}
+    if (!manualPagination) {
+      return (
+        <div className="space-y-4">
+          <div className="rounded-md border">
+            <div className="p-24 text-center text-muted-foreground">
+              {t('table.noData')}
+            </div>
           </div>
         </div>
-      </div>
-    );
+      );
+    }
   }
 
   return (
@@ -149,21 +173,32 @@ export function DataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-testid={`row-${row.id}`}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    data-testid={`cell-${cell.column.id}-${row.id}`}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
+            {table.getRowModel().rows.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  {t('table.noData')}
+                </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-testid={`row-${row.id}`}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell
+                      key={cell.id}
+                      data-testid={`cell-${cell.column.id}-${row.id}`}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
@@ -175,9 +210,13 @@ export function DataTable<TData, TValue>({
             {t('table.rowsPerPage')}
           </span>
           <Select
-            value={table.getState().pagination.pageSize.toString()}
+            value={pagination.pageSize.toString()}
             onValueChange={(value) => {
-              table.setPageSize(Number(value));
+              if (manualPagination && onPaginationChange) {
+                onPaginationChange({ pageIndex: 0, pageSize: Number(value) });
+              } else {
+                table.setPageSize(Number(value));
+              }
             }}
           >
             <SelectTrigger
@@ -198,17 +237,27 @@ export function DataTable<TData, TValue>({
 
         <div className="flex items-center gap-2">
           <div className="text-sm text-muted-foreground">
-            {t('table.pageInfo', {
-              current: table.getState().pagination.pageIndex + 1,
-              total: table.getPageCount(),
-            })}
+            {manualPagination && (pageCount === undefined || pageCount === 0) ? (
+              t('table.noData')
+            ) : (
+              t('table.pageInfo', {
+                current: pagination.pageIndex + 1,
+                total: manualPagination ? (pageCount || 0) : table.getPageCount(),
+              })
+            )}
           </div>
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="icon"
-              onClick={() => table.setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}
+              onClick={() => {
+                if (manualPagination && onPaginationChange) {
+                  onPaginationChange({ ...pagination, pageIndex: 0 });
+                } else {
+                  table.setPageIndex(0);
+                }
+              }}
+              disabled={manualPagination ? pagination.pageIndex === 0 : !table.getCanPreviousPage()}
               data-testid="button-first-page"
             >
               <ChevronsLeft className="h-4 w-4" />
@@ -216,8 +265,14 @@ export function DataTable<TData, TValue>({
             <Button
               variant="outline"
               size="icon"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
+              onClick={() => {
+                if (manualPagination && onPaginationChange) {
+                  onPaginationChange({ ...pagination, pageIndex: pagination.pageIndex - 1 });
+                } else {
+                  table.previousPage();
+                }
+              }}
+              disabled={manualPagination ? pagination.pageIndex === 0 : !table.getCanPreviousPage()}
               data-testid="button-prev-page"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -225,8 +280,18 @@ export function DataTable<TData, TValue>({
             <Button
               variant="outline"
               size="icon"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
+              onClick={() => {
+                if (manualPagination && onPaginationChange) {
+                  onPaginationChange({ ...pagination, pageIndex: pagination.pageIndex + 1 });
+                } else {
+                  table.nextPage();
+                }
+              }}
+              disabled={
+                manualPagination
+                  ? pagination.pageIndex >= (pageCount || 0) - 1 || (pageCount || 0) === 0
+                  : !table.getCanNextPage()
+              }
               data-testid="button-next-page"
             >
               <ChevronRight className="h-4 w-4" />
@@ -234,8 +299,18 @@ export function DataTable<TData, TValue>({
             <Button
               variant="outline"
               size="icon"
-              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-              disabled={!table.getCanNextPage()}
+              onClick={() => {
+                if (manualPagination && onPaginationChange) {
+                  onPaginationChange({ ...pagination, pageIndex: Math.max(0, (pageCount || 0) - 1) });
+                } else {
+                  table.setPageIndex(Math.max(0, table.getPageCount() - 1));
+                }
+              }}
+              disabled={
+                manualPagination
+                  ? pagination.pageIndex >= (pageCount || 0) - 1 || (pageCount || 0) === 0
+                  : !table.getCanNextPage()
+              }
               data-testid="button-last-page"
             >
               <ChevronsRight className="h-4 w-4" />

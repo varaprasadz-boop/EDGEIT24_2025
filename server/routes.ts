@@ -7,7 +7,7 @@ import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema } from "@shared/schema";
 import { db } from "./db";
 import { users, adminRoles, categories, jobs, bids, payments, disputes } from "@shared/schema";
-import { eq, and, count, sql, desc } from "drizzle-orm";
+import { eq, and, or, count, sql, desc, ilike } from "drizzle-orm";
 import passport from "passport";
 
 const queryLimitSchema = z.object({
@@ -529,7 +529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all categories (with pagination and filters)
   app.get('/api/admin/categories', isAuthenticated, isAdmin, hasPermission('categories:view'), async (req, res) => {
     try {
-      const { parent, featured, active, page = '1', limit = '20' } = req.query;
+      const { parent, featured, active, search, page = '1', limit = '20' } = req.query;
       const pageNum = parseInt(page as string);
       const limitNum = parseInt(limit as string);
       const offset = (pageNum - 1) * limitNum;
@@ -551,6 +551,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (active && active !== 'all') {
         conditions.push(eq(categories.active, active === 'true'));
+      }
+      
+      if (search && typeof search === 'string' && search.trim()) {
+        const searchTerm = `%${search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(categories.name, searchTerm),
+            ilike(categories.nameAr, searchTerm),
+            ilike(categories.slug, searchTerm)
+          )
+        );
       }
       
       // Apply filters

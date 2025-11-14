@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ColumnDef } from "@tanstack/react-table";
@@ -36,24 +36,41 @@ export default function AdminCategories() {
   const { t, i18n } = useTranslation();
   const [searchValue, setSearchValue] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
 
   // Fetch categories from API
   const { data, isLoading } = useQuery({
-    queryKey: ["/api/admin/categories", filters],
+    queryKey: ["/api/admin/categories", filters, searchValue, pagination.pageIndex, pagination.pageSize],
     queryFn: async () => {
       // Build query params
       const params = new URLSearchParams();
       if (filters.featured) params.append('featured', filters.featured);
       if (filters.active) params.append('active', filters.active);
       if (filters.parent) params.append('parent', filters.parent);
+      if (searchValue.trim()) params.append('search', searchValue.trim());
+      params.append('page', (pagination.pageIndex + 1).toString());
+      params.append('limit', pagination.pageSize.toString());
       
-      const url = `/api/admin/categories${params.toString() ? '?' + params.toString() : ''}`;
+      const url = `/api/admin/categories?${params.toString()}`;
       const response = await apiRequest("GET", url);
       return response.json();
     },
   });
 
   const categories = data?.categories || [];
+  const pageCount = data?.totalPages || 0;
+
+  // Clamp pagination when total pages changes (e.g., after filtering)
+  useEffect(() => {
+    if (pageCount === 0 && pagination.pageIndex !== 0) {
+      setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    } else if (pageCount > 0 && pagination.pageIndex >= pageCount) {
+      setPagination(prev => ({ ...prev, pageIndex: Math.max(0, pageCount - 1) }));
+    }
+  }, [pageCount, pagination.pageIndex]);
 
   // Filter columns configuration
   const filterConfig = [
@@ -209,14 +226,14 @@ export default function AdminCategories() {
     },
   ];
 
-  // Filter data based on search (client-side only for search)
-  const filteredCategories = categories.filter((category: Category) => {
-    if (!searchValue) return true;
-    
-    return category.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-      category.nameAr?.toLowerCase().includes(searchValue.toLowerCase()) ||
-      category.slug.toLowerCase().includes(searchValue.toLowerCase());
-  });
+  const handlePaginationChange = (newPagination: { pageIndex: number; pageSize: number }) => {
+    setPagination(newPagination);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchValue(value);
+    setPagination({ pageIndex: 0, pageSize: pagination.pageSize });
+  };
 
   return (
     <AdminLayout>
@@ -247,12 +264,13 @@ export default function AdminCategories() {
         <FilterBar
           searchPlaceholder={t("common.search")}
           searchValue={searchValue}
-          onSearchChange={setSearchValue}
+          onSearchChange={handleSearchChange}
           filters={filterConfig}
           onFiltersChange={setFilters}
           onReset={() => {
             setSearchValue("");
             setFilters({});
+            setPagination({ pageIndex: 0, pageSize: 10 });
           }}
           showAdvancedFilters={true}
         />
@@ -260,8 +278,12 @@ export default function AdminCategories() {
         {/* Table */}
         <DataTable
           columns={columns}
-          data={filteredCategories}
+          data={categories}
           isLoading={isLoading}
+          pageCount={pageCount}
+          manualPagination={true}
+          pagination={pagination}
+          onPaginationChange={handlePaginationChange}
         />
       </div>
     </AdminLayout>
