@@ -20,12 +20,12 @@ import {
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 
-interface FilterOption {
+export interface FilterOption {
   label: string;
   value: string;
 }
 
-interface FilterConfig {
+export interface FilterConfig {
   key: string;
   label: string;
   type: "select" | "text" | "date";

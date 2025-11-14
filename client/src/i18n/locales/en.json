@@ -171,19 +171,51 @@
   "requirements": {
     "title": "Requirements Management",
     "subtitle": "Monitor and manage client job postings",
-    "title_field": "Title",
-    "client": "Client",
-    "category": "Category",
-    "budget": "Budget (SAR)",
-    "bidsCount": "Bids",
-    "posted": "Posted",
-    "deadline": "Deadline",
-    "viewDetails": "View Details",
-    "closeRequirement": "Close Requirement",
-    "filterByCategory": "Filter by Category",
-    "filterByBudget": "Filter by Budget",
-    "budgetMin": "Min Budget",
-    "budgetMax": "Max Budget"
+    "searchPlaceholder": "Search by title, description, client, or category...",
+    "noData": "No requirements found",
+    "noCategory": "No category",
+    "negotiable": "Negotiable",
+    "currency": "SAR",
+    "columns": {
+      "title": "Title",
+      "client": "Client",
+      "category": "Category",
+      "budget": "Budget",
+      "status": "Status",
+      "bids": "Bids",
+      "posted": "Posted",
+      "actions": "Actions"
+    },
+    "filters": {
+      "status": "Status",
+      "allStatuses": "All Statuses",
+      "draft": "Draft",
+      "open": "Open",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "category": "Category",
+      "allCategories": "All Categories",
+      "budgetRange": "Budget Range",
+      "allBudgets": "All Budgets",
+      "budget0to5k": "0 - 5,000 SAR",
+      "budget5kto10k": "5,000 - 10,000 SAR",
+      "budget10kto25k": "10,000 - 25,000 SAR",
+      "budget25kto50k": "25,000 - 50,000 SAR",
+      "budget50kPlus": "50,000+ SAR"
+    },
+    "statuses": {
+      "draft": "Draft",
+      "open": "Open",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "budgetTypes": {
+      "fixed": "Fixed",
+      "hourly": "Hourly",
+      "negotiable": "Negotiable"
+    }
   },
   "bids": {
     "title": "Bids Management",

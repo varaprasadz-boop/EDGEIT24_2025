@@ -171,19 +171,51 @@
   "requirements": {
     "title": "إدارة المتطلبات",
     "subtitle": "مراقبة وإدارة إعلانات وظائف العملاء",
-    "title_field": "العنوان",
-    "client": "العميل",
-    "category": "الفئة",
-    "budget": "الميزانية (ريال)",
-    "bidsCount": "العروض",
-    "posted": "تاريخ النشر",
-    "deadline": "الموعد النهائي",
-    "viewDetails": "عرض التفاصيل",
-    "closeRequirement": "إغلاق المتطلب",
-    "filterByCategory": "تصفية حسب الفئة",
-    "filterByBudget": "تصفية حسب الميزانية",
-    "budgetMin": "الحد الأدنى للميزانية",
-    "budgetMax": "الحد الأقصى للميزانية"
+    "searchPlaceholder": "البحث بالعنوان، الوصف، العميل، أو الفئة...",
+    "noData": "لا توجد متطلبات",
+    "noCategory": "لا توجد فئة",
+    "negotiable": "قابل للتفاوض",
+    "currency": "ريال",
+    "columns": {
+      "title": "العنوان",
+      "client": "العميل",
+      "category": "الفئة",
+      "budget": "الميزانية",
+      "status": "الحالة",
+      "bids": "العروض",
+      "posted": "تاريخ النشر",
+      "actions": "الإجراءات"
+    },
+    "filters": {
+      "status": "الحالة",
+      "allStatuses": "جميع الحالات",
+      "draft": "مسودة",
+      "open": "مفتوح",
+      "inProgress": "قيد التنفيذ",
+      "completed": "مكتمل",
+      "cancelled": "ملغي",
+      "category": "الفئة",
+      "allCategories": "جميع الفئات",
+      "budgetRange": "نطاق الميزانية",
+      "allBudgets": "جميع الميزانيات",
+      "budget0to5k": "0 - 5,000 ريال",
+      "budget5kto10k": "5,000 - 10,000 ريال",
+      "budget10kto25k": "10,000 - 25,000 ريال",
+      "budget25kto50k": "25,000 - 50,000 ريال",
+      "budget50kPlus": "50,000+ ريال"
+    },
+    "statuses": {
+      "draft": "مسودة",
+      "open": "مفتوح",
+      "inProgress": "قيد التنفيذ",
+      "completed": "مكتمل",
+      "cancelled": "ملغي"
+    },
+    "budgetTypes": {
+      "fixed": "ثابت",
+      "hourly": "بالساعة",
+      "negotiable": "قابل للتفاوض"
+    }
   },
   "bids": {
     "title": "إدارة العروض",

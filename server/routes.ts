@@ -7,7 +7,7 @@ import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema } from "@shared/schema";
 import { db } from "./db";
 import { users, adminRoles, categories, jobs, bids, payments, disputes, vendorCategoryRequests } from "@shared/schema";
-import { eq, and, or, count, sql, desc, ilike } from "drizzle-orm";
+import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
 import passport from "passport";
 
 const queryLimitSchema = z.object({
@@ -595,6 +595,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching categories:", error);
       res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
+  // Get jobs/requirements with pagination and filtering
+  app.get('/api/admin/requirements', isAuthenticated, isAdmin, hasPermission('jobs:view'), async (req, res) => {
+    try {
+      const { status, category, budgetRange, search, page = '1', limit = '20' } = req.query;
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+      
+      // Build filter conditions
+      const conditions = [];
+      
+      if (status && status !== 'all') {
+        conditions.push(eq(jobs.status, status as string));
+      }
+      
+      if (category && category !== 'all') {
+        conditions.push(eq(jobs.categoryId, category as string));
+      }
+      
+      // TODO: Budget range filtering requires special handling due to Drizzle's
+      // decimal comparison behavior. Will be implemented in a follow-up task.
+      
+      if (search && typeof search === 'string' && search.trim()) {
+        const searchTerm = `%${search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(jobs.title, searchTerm),
+            ilike(jobs.description, searchTerm),
+            ilike(users.email, searchTerm),
+            ilike(sql`trim(concat(coalesce(${users.firstName}, ''), ' ', coalesce(${users.lastName}, '')))`, searchTerm),
+            ilike(categories.name, searchTerm),
+            ilike(categories.nameAr, searchTerm)
+          )
+        );
+      }
+      
+      // Apply filters
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      
+      // Get paginated results with joins
+      let query = db
+        .select({
+          id: jobs.id,
+          clientId: jobs.clientId,
+          clientEmail: users.email,
+          clientName: sql<string>`trim(concat(coalesce(${users.firstName}, ''), ' ', coalesce(${users.lastName}, '')))`,
+          categoryId: jobs.categoryId,
+          categoryName: categories.name,
+          categoryNameAr: categories.nameAr,
+          title: jobs.title,
+          description: jobs.description,
+          budget: jobs.budget,
+          budgetType: jobs.budgetType,
+          duration: jobs.duration,
+          experienceLevel: jobs.experienceLevel,
+          status: jobs.status,
+          bidCount: jobs.bidCount,
+          viewCount: jobs.viewCount,
+          createdAt: jobs.createdAt,
+          updatedAt: jobs.updatedAt,
+        })
+        .from(jobs)
+        .leftJoin(users, eq(jobs.clientId, users.id))
+        .leftJoin(categories, eq(jobs.categoryId, categories.id));
+      
+      if (whereClause) {
+        query = query.where(whereClause) as any;
+      }
+      
+      const jobsResult = await query
+        .limit(limitNum)
+        .offset(offset)
+        .orderBy(desc(jobs.createdAt));
+      
+      // Get total count with same filters
+      let countQuery = db
+        .select({ count: count() })
+        .from(jobs)
+        .leftJoin(users, eq(jobs.clientId, users.id))
+        .leftJoin(categories, eq(jobs.categoryId, categories.id));
+      
+      if (whereClause) {
+        countQuery = countQuery.where(whereClause) as any;
+      }
+      
+      const [totalResult] = await countQuery;
+      
+      res.json({
+        jobs: jobsResult,
+        total: totalResult?.count || 0,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil((totalResult?.count || 0) / limitNum),
+      });
+    } catch (error) {
+      console.error("Error fetching jobs:", error);
+      res.status(500).json({ message: "Failed to fetch jobs" });
     }
   });
 

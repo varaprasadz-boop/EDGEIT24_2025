@@ -15,6 +15,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import AdminUsers from "@/pages/AdminUsers";
 import AdminCategories from "@/pages/AdminCategories";
 import AdminVendorRequests from "@/pages/AdminVendorRequests";
+import AdminRequirements from "@/pages/AdminRequirements";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/categories" component={AdminCategories} />
       <Route path="/admin/vendor-requests" component={AdminVendorRequests} />
+      <Route path="/admin/requirements" component={AdminRequirements} />
       <Route component={NotFound} />
     </Switch>
   );
