@@ -6,7 +6,7 @@ import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema } from "@shared/schema";
 import { db } from "./db";
-import { users, adminRoles, categories, jobs, bids, payments, disputes, vendorCategoryRequests } from "@shared/schema";
+import { users, adminRoles, categories, jobs, bids, payments, disputes, vendorCategoryRequests, projects } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
@@ -899,6 +899,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching bids:", error);
       res.status(500).json({ message: "Failed to fetch bids" });
+    }
+  });
+
+  // Get payments with pagination and filtering
+  app.get('/api/admin/payments', isAuthenticated, isAdmin, hasPermission('finance:view'), async (req, res) => {
+    try {
+      const { status, type, search, page = '1', limit = '20' } = req.query;
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+      
+      // Create aliases for users table (payer and payee)
+      const payerUser = alias(users, 'payerUser');
+      const payeeUser = alias(users, 'payeeUser');
+      
+      // Build filter conditions
+      const conditions = [];
+      
+      if (status && status !== 'all') {
+        conditions.push(eq(payments.status, status as string));
+      }
+      
+      if (type && type !== 'all') {
+        conditions.push(eq(payments.type, type as string));
+      }
+      
+      if (search && typeof search === 'string' && search.trim()) {
+        const searchTerm = `%${search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(payments.transactionId, searchTerm),
+            ilike(payments.description, searchTerm),
+            ilike(projects.title, searchTerm),
+            ilike(payerUser.email, searchTerm),
+            ilike(sql`trim(concat(coalesce(${payerUser.firstName}, ''), ' ', coalesce(${payerUser.lastName}, '')))`, searchTerm),
+            ilike(payeeUser.email, searchTerm),
+            ilike(sql`trim(concat(coalesce(${payeeUser.firstName}, ''), ' ', coalesce(${payeeUser.lastName}, '')))`, searchTerm)
+          )
+        );
+      }
+      
+      // Apply filters
+      // Note: whereClause is shared by both the select query and count query below
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      
+      // Get paginated results with joins
+      let query = db
+        .select({
+          id: payments.id,
+          projectId: payments.projectId,
+          projectTitle: projects.title,
+          fromUserId: payments.fromUserId,
+          payerEmail: payerUser.email,
+          payerName: sql<string>`trim(concat(coalesce(${payerUser.firstName}, ''), ' ', coalesce(${payerUser.lastName}, '')))`,
+          toUserId: payments.toUserId,
+          payeeEmail: payeeUser.email,
+          payeeName: sql<string>`trim(concat(coalesce(${payeeUser.firstName}, ''), ' ', coalesce(${payeeUser.lastName}, '')))`,
+          amount: payments.amount,
+          currency: payments.currency,
+          type: payments.type,
+          status: payments.status,
+          paymentMethod: payments.paymentMethod,
+          transactionId: payments.transactionId,
+          description: payments.description,
+          createdAt: payments.createdAt,
+          updatedAt: payments.updatedAt,
+        })
+        .from(payments)
+        .leftJoin(payerUser, eq(payments.fromUserId, payerUser.id))
+        .leftJoin(payeeUser, eq(payments.toUserId, payeeUser.id))
+        .leftJoin(projects, eq(payments.projectId, projects.id));
+      
+      if (whereClause) {
+        query = query.where(whereClause) as any;
+      }
+      
+      const paymentsResult = await query
+        .limit(limitNum)
+        .offset(offset)
+        .orderBy(desc(payments.createdAt));
+      
+      // Get total count with same filters
+      let countQuery = db
+        .select({ count: count() })
+        .from(payments)
+        .leftJoin(payerUser, eq(payments.fromUserId, payerUser.id))
+        .leftJoin(payeeUser, eq(payments.toUserId, payeeUser.id))
+        .leftJoin(projects, eq(payments.projectId, projects.id));
+      
+      if (whereClause) {
+        countQuery = countQuery.where(whereClause) as any;
+      }
+      
+      const [totalResult] = await countQuery;
+      
+      res.json({
+        payments: paymentsResult,
+        total: totalResult?.count || 0,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil((totalResult?.count || 0) / limitNum),
+      });
+    } catch (error) {
+      console.error("Error fetching payments:", error);
+      res.status(500).json({ message: "Failed to fetch payments" });
     }
   });
 
