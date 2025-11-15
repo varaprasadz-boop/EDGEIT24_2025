@@ -246,8 +246,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(500).json({ message: "Account created but login failed" });
         }
         
-        // Return user and redirect to appropriate dashboard
-        const redirectPath = role === 'client' ? '/dashboard/client' : '/dashboard/consultant';
+        // Return user and redirect to dashboard
+        const redirectPath = '/dashboard';
         
         res.status(201).json({
           user: {

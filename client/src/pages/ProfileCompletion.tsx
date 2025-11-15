@@ -222,10 +222,10 @@ export default function ProfileCompletion() {
     try {
       // Submit profile for admin review
       if (isClient) {
-        await apiRequest("POST", "/api/profile/client/submit", {});
+        await apiRequest("POST", "/api/profiles/client/submit", {});
       }
       if (isConsultant) {
-        await apiRequest("POST", "/api/profile/consultant/submit", {});
+        await apiRequest("POST", "/api/profiles/consultant/submit", {});
       }
 
       toast({
