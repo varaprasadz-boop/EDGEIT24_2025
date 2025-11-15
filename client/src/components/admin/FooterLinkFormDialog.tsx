@@ -56,7 +56,7 @@ const formSchema = z.object({
   labelAr: z.string().optional(),
   url: z.string().min(1, "URL is required"),
   section: z.enum(['company', 'legal', 'support']),
-  displayOrder: z.number().min(0).default(0),
+  displayOrder: z.coerce.number().min(0).default(0),
   isExternal: z.boolean().default(false),
   openInNewTab: z.boolean().default(false),
   active: z.boolean().default(true),
@@ -109,7 +109,7 @@ export function FooterLinkFormDialog({ open, onClose, link }: Props) {
 
   const createMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      await apiRequest('/api/admin/footer-links', 'POST', data);
+      await apiRequest('POST', '/api/admin/footer-links', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/footer-links'] });
@@ -130,7 +130,7 @@ export function FooterLinkFormDialog({ open, onClose, link }: Props) {
 
   const updateMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      await apiRequest(`/api/admin/footer-links/${link?.id}`, 'PATCH', data);
+      await apiRequest('PATCH', `/api/admin/footer-links/${link?.id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/footer-links'] });

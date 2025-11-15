@@ -137,7 +137,7 @@ export function HomeSectionFormDialog({ open, onClose, section }: Props) {
 
   const createMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      await apiRequest('/api/admin/home-sections', 'POST', data);
+      await apiRequest('POST', '/api/admin/home-sections', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/home-sections'] });
@@ -158,7 +158,7 @@ export function HomeSectionFormDialog({ open, onClose, section }: Props) {
 
   const updateMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      await apiRequest(`/api/admin/home-sections/${section?.id}`, 'PATCH', data);
+      await apiRequest('PATCH', `/api/admin/home-sections/${section?.id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/home-sections'] });

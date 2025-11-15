@@ -69,7 +69,7 @@ const formSchema = z.object({
   metaTitleAr: z.string().optional(),
   metaDescription: z.string().optional(),
   metaDescriptionAr: z.string().optional(),
-  displayOrder: z.number().min(0).default(0),
+  displayOrder: z.coerce.number().min(0).default(0),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -137,7 +137,7 @@ export function ContentPageFormDialog({ open, onClose, page }: Props) {
 
   const createMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      await apiRequest('/api/admin/content-pages', 'POST', data);
+      await apiRequest('POST', '/api/admin/content-pages', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/content-pages'] });
@@ -158,7 +158,7 @@ export function ContentPageFormDialog({ open, onClose, page }: Props) {
 
   const updateMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      await apiRequest(`/api/admin/content-pages/${page?.id}`, 'PATCH', data);
+      await apiRequest('PATCH', `/api/admin/content-pages/${page?.id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/content-pages'] });
@@ -265,33 +265,57 @@ export function ContentPageFormDialog({ open, onClose, page }: Props) {
                   )}
                 />
 
-                <div className="space-y-2">
-                  <FormLabel>Content (English)</FormLabel>
-                  <div className="border rounded-md" data-testid="editor-content-en">
-                    <ReactQuill
-                      theme="snow"
-                      value={contentEn}
-                      onChange={setContentEn}
-                      modules={quillModules}
-                      formats={quillFormats}
-                      placeholder="Write your content here..."
-                    />
-                  </div>
-                </div>
+                <FormField
+                  control={form.control}
+                  name="content"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Content (English)</FormLabel>
+                      <FormControl>
+                        <div className="border rounded-md" data-testid="editor-content-en">
+                          <ReactQuill
+                            theme="snow"
+                            value={contentEn}
+                            onChange={(value) => {
+                              setContentEn(value);
+                              field.onChange(value);
+                            }}
+                            modules={quillModules}
+                            formats={quillFormats}
+                            placeholder="Write your content here..."
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                <div className="space-y-2">
-                  <FormLabel>Content (Arabic)</FormLabel>
-                  <div className="border rounded-md" dir="rtl" data-testid="editor-content-ar">
-                    <ReactQuill
-                      theme="snow"
-                      value={contentAr}
-                      onChange={setContentAr}
-                      modules={quillModules}
-                      formats={quillFormats}
-                      placeholder="اكتب المحتوى هنا..."
-                    />
-                  </div>
-                </div>
+                <FormField
+                  control={form.control}
+                  name="contentAr"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Content (Arabic)</FormLabel>
+                      <FormControl>
+                        <div className="border rounded-md" dir="rtl" data-testid="editor-content-ar">
+                          <ReactQuill
+                            theme="snow"
+                            value={contentAr}
+                            onChange={(value) => {
+                              setContentAr(value);
+                              field.onChange(value);
+                            }}
+                            modules={quillModules}
+                            formats={quillFormats}
+                            placeholder="اكتب المحتوى هنا..."
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </TabsContent>
 
               <TabsContent value="seo" className="space-y-4">

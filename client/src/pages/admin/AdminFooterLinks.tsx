@@ -57,9 +57,11 @@ export default function AdminFooterLinks() {
   const [selectedLink, setSelectedLink] = useState<FooterLink | null>(null);
   const [linkToDelete, setLinkToDelete] = useState<FooterLink | null>(null);
 
-  const { data: links = [], isLoading } = useQuery<FooterLink[]>({
+  const { data, isLoading } = useQuery({
     queryKey: ['/api/admin/footer-links'],
   });
+
+  const links = (data as any)?.links || [];
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {

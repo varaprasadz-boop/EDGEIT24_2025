@@ -63,9 +63,11 @@ export default function AdminHomeSections() {
   const [selectedSection, setSelectedSection] = useState<HomeSection | null>(null);
   const [sectionToDelete, setSectionToDelete] = useState<HomeSection | null>(null);
 
-  const { data: sections = [], isLoading } = useQuery<HomeSection[]>({
+  const { data, isLoading } = useQuery({
     queryKey: ['/api/admin/home-sections'],
   });
+
+  const sections = (data as any)?.sections || [];
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {

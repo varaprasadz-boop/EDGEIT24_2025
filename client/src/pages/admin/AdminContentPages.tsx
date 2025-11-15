@@ -64,9 +64,11 @@ export default function AdminContentPages() {
   const [selectedPage, setSelectedPage] = useState<ContentPage | null>(null);
   const [pageToDelete, setPageToDelete] = useState<ContentPage | null>(null);
 
-  const { data: pages = [], isLoading } = useQuery<ContentPage[]>({
+  const { data, isLoading } = useQuery({
     queryKey: ['/api/admin/content-pages'],
   });
+
+  const pages = (data as any)?.pages || [];
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
