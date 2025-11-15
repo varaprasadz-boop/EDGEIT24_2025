@@ -166,12 +166,13 @@ export interface IStorage {
   updateSubscriptionStatus(subscriptionId: string, status: string): Promise<UserSubscription>;
   
   // Payment Session operations
-  createPaymentSession(userId: string, planId: string, sessionId: string): Promise<PaymentSession>;
+  createPaymentSession(userId: string, planId: string, sessionId: string, planPrice: string, planName: string): Promise<PaymentSession>;
   getPaymentSessionBySessionId(sessionId: string): Promise<PaymentSession | undefined>;
   updatePaymentSessionStatus(sessionId: string, status: string): Promise<void>;
   
   // Subscription Plan operations
   getSubscriptionPlanById(planId: string): Promise<SubscriptionPlan | undefined>;
+  getSubscriptionPlanByName(name: string): Promise<SubscriptionPlan | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1103,11 +1104,13 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Payment Session operations
-  async createPaymentSession(userId: string, planId: string, sessionId: string): Promise<PaymentSession> {
+  async createPaymentSession(userId: string, planId: string, sessionId: string, planPrice: string, planName: string): Promise<PaymentSession> {
     const [session] = await db.insert(paymentSessions).values({
       userId,
       planId,
       sessionId,
+      planPrice,
+      planName,
       status: 'pending',
     }).returning();
     return session;
@@ -1132,6 +1135,12 @@ export class DatabaseStorage implements IStorage {
   async getSubscriptionPlanById(planId: string): Promise<SubscriptionPlan | undefined> {
     const [plan] = await db.select().from(subscriptionPlans)
       .where(eq(subscriptionPlans.id, planId));
+    return plan;
+  }
+
+  async getSubscriptionPlanByName(name: string): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db.select().from(subscriptionPlans)
+      .where(eq(subscriptionPlans.name, name));
     return plan;
   }
 }

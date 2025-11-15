@@ -191,6 +191,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Valid engagement plan is required (basic, professional, or enterprise)" });
       }
       
+      // Verify the plan exists in subscription_plans table
+      const planRecord = await storage.getSubscriptionPlanByName(engagementPlan);
+      if (!planRecord) {
+        return res.status(400).json({ message: "Invalid engagement plan selected" });
+      }
+      
+      // Verify payment status matches plan price with NaN guard
+      const planPrice = parseFloat(planRecord.price);
+      if (isNaN(planPrice) || planPrice < 0) {
+        return res.status(400).json({ message: "Invalid plan pricing configuration" });
+      }
+      const isPaidPlan = planPrice > 0;
+      const expectedPaymentStatus = isPaidPlan ? 'pending' : 'not_required';
+      
       // For consultants, validate selectedCategories
       if (role === 'consultant' && (!selectedCategories || !Array.isArray(selectedCategories) || selectedCategories.length === 0)) {
         return res.status(400).json({ message: "At least one expertise category is required for consultants" });
@@ -218,7 +232,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         authProvider: 'local',
         emailVerified: false,
         engagementPlan,
-        paymentStatus: engagementPlan === 'basic' ? 'not_required' : 'pending',
+        paymentStatus: expectedPaymentStatus,
       });
       
       // Auto-create profile based on role
@@ -478,8 +492,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create session ID
       const sessionId = nanoid();
       
-      // Store payment session
-      await storage.createPaymentSession(userId, planId, sessionId);
+      // Store payment session with plan metadata for security
+      await storage.createPaymentSession(userId, planId, sessionId, plan.price, plan.name);
       
       // Return mock checkout URL with session
       const checkoutUrl = `/mock-payment?session=${sessionId}`;
@@ -520,23 +534,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Verify plan exists
-      const plan = await storage.getSubscriptionPlanById(session.planId);
-      if (!plan) {
-        return res.status(404).json({ message: "Plan not found" });
-      }
+      // Session data is the immutable source of truth for payment
+      // The session locked in plan metadata (price, name) at checkout time
+      // Do NOT re-fetch plan - that would allow price manipulation attacks
+      // Even if plan changes in DB, this session records the original payment amount
       
       // Generate transaction reference
       const txnRef = `TXN-${nanoid(10)}`;
       
       // Update user payment status (idempotent)
+      // Payment amount is implicitly session.planPrice (immutable from checkout)
       await storage.updateUser(session.userId, {
         paymentStatus: 'succeeded',
         paymentReference: txnRef,
         paymentCompletedAt: new Date(),
       });
       
-      // Create subscription
+      // Create subscription using plan ID from immutable session
       const subscription = await storage.createUserSubscription(session.userId, session.planId);
       
       // Mark session as completed

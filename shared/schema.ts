@@ -608,6 +608,8 @@ export const paymentSessions = pgTable("payment_sessions", {
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   planId: varchar("plan_id").notNull().references(() => subscriptionPlans.id),
   sessionId: varchar("session_id").notNull().unique(),
+  planPrice: text("plan_price").notNull(), // Store plan price at session creation to prevent price manipulation
+  planName: text("plan_name").notNull(), // Store plan name for verification
   status: varchar("status").notNull().default('pending'), // pending, completed, expired
   createdAt: timestamp("created_at").defaultNow().notNull(),
   completedAt: timestamp("completed_at"),

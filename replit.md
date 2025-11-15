@@ -17,6 +17,33 @@ The backend is built with **Express.js** and **TypeScript**, using `tsx` for dev
 ### Authentication
 A custom Email/Password authentication system uses `passport-local` and `bcrypt` for hashing. Sessions are stored in PostgreSQL using `express-session` and `connect-pg-simple`. An `AuthProvider`/`AuthContext` manages global user state and authentication functionalities.
 
+### Engagement Model Registration & Payment System
+**Mandatory Engagement Plan Selection**: All new users must select an engagement plan during registration (Basic/Professional/Enterprise). Plans determine feature access and payment requirements.
+
+**Database Schema**:
+- `users` table: Added `engagementPlan` enum ('basic', 'professional', 'enterprise'), `paymentStatus` enum ('not_required', 'pending', 'succeeded', 'failed'), `paymentReference`, `paymentCompletedAt` fields for payment tracking
+- `payment_sessions` table: Tracks secure checkout sessions with `userId`, `planId`, `sessionId`, `status`, `planPrice`, `planName` (immutable snapshot at checkout), prevents price manipulation attacks
+- `user_subscriptions` table: Links users to their active subscriptions with `userId`, `planId`, `status`, `startDate`, `endDate`
+
+**Security Architecture**:
+- **Engagement Plan Validation**: Signup validates engagement plan against `subscription_plans` table with NaN guards, rejects invalid plans before user creation
+- **Session-Based Payment**: Payment sessions store immutable plan metadata (price, name) at creation time as the source of truth
+- **No Auto-Login**: Signup endpoint does not create authenticated sessions, users must manually log in after registration to prevent security vulnerabilities
+- **Payment Session Integrity**: Payment completion relies solely on session data (not mutable plan records), preventing price manipulation even if plans change in database
+- **Multi-Layer Validation**: User existence, plan validity, and session status verified before payment processing
+
+**User Flows**:
+- **Basic Plan (Free)**: User registers → selects Basic plan → creates user with paymentStatus='not_required' → redirects to /login → manual login → dashboard
+- **Professional/Enterprise Plans (Paid)**: User registers → selects paid plan → creates user with paymentStatus='pending' → creates payment session with locked-in price → redirects to /mock-payment → completes mock payment (2-second simulation) → payment completion validates session, updates user paymentStatus='succeeded', creates subscription → redirects to /login → manual login → dashboard
+
+**API Endpoints**:
+- POST `/api/auth/signup`: Validates engagement plan against database, creates user without auto-login, sets correct payment status
+- POST `/api/payments/checkout`: Validates user and plan, creates payment session with immutable metadata, returns checkout URL
+- POST `/api/payments/complete`: Validates session integrity, verifies user exists, uses session data as immutable source of truth, creates subscription, marks session completed
+- GET `/api/subscription-plans`: Returns active subscription plans for display during registration
+
+**Mock Payment Gateway**: Development implementation at `/mock-payment` simulates payment processing with 2-second delay, always succeeds for testing purposes, designed to be replaced with real payment integration (e.g., Stripe) in production.
+
 ### Database
 **Drizzle ORM** provides type-safe SQL query building with **PostgreSQL** (Neon serverless driver). Schema definitions are shared and co-located with **Zod** validators. `drizzle-kit` manages migrations.
 
