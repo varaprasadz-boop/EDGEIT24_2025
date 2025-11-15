@@ -14,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, MapPin, DollarSign, Star, AlertCircle, Edit, Save, X, Award, TrendingUp, Code, FolderOpen, Package, Calendar as CalendarIcon, Info, Tag } from "lucide-react";
+import { VerificationBadge } from "@/components/ui/verification-badge";
+import { Briefcase, MapPin, DollarSign, Star, AlertCircle, Edit, Save, X, Award, TrendingUp, Code, FolderOpen, Package, Calendar as CalendarIcon, Info, Tag, ShieldCheck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 import { useState as useReactState, useEffect } from "react";
@@ -1120,6 +1121,34 @@ export default function ConsultantProfile() {
                     <span className="text-sm text-muted-foreground">No skills listed</span>
                   )}
                 </div>
+              </div>
+              
+              <div>
+                <div className="text-sm text-muted-foreground mb-2">
+                  <ShieldCheck className="h-4 w-4 inline mr-1" />
+                  Verification Status
+                </div>
+                <div className="flex flex-wrap gap-2" data-testid="verification-badges">
+                  <VerificationBadge 
+                    type="email" 
+                    verified={user?.emailVerified || false} 
+                  />
+                  <VerificationBadge 
+                    type="phone" 
+                    verified={false}
+                  />
+                  <VerificationBadge 
+                    type="identity" 
+                    verified={false}
+                  />
+                  <VerificationBadge 
+                    type="business" 
+                    verified={profile?.verified || false} 
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Complete verification steps to build trust with clients
+                </p>
               </div>
             </CardContent>
           </Card>

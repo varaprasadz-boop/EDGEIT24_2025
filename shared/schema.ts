@@ -425,6 +425,28 @@ export const messages = pgTable("messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Quote Requests - Client requests for quotes from consultants' service packages
+export const quoteRequests = pgTable("quote_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  consultantId: varchar("consultant_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  packageName: text("package_name").notNull(), // Name of the service package
+  projectDescription: text("project_description").notNull(),
+  status: text("status").notNull().default('pending'), // 'pending', 'responded', 'declined'
+  consultantResponse: text("consultant_response"), // Consultant's quote response
+  quotedAmount: decimal("quoted_amount", { precision: 10, scale: 2 }), // Consultant's quoted price
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  clientIdIdx: index("quote_requests_client_id_idx").on(table.clientId),
+  consultantIdIdx: index("quote_requests_consultant_id_idx").on(table.consultantId),
+  statusIdx: index("quote_requests_status_idx").on(table.status),
+}));
+
+export const quoteStatusEnum = z.enum(['pending', 'responded', 'declined']);
+export const QUOTE_STATUSES = quoteStatusEnum.options;
+export type QuoteStatus = z.infer<typeof quoteStatusEnum>;
+
 // Payments - Transaction records
 export const payments = pgTable("payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
