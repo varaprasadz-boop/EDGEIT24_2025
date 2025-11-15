@@ -14,6 +14,15 @@ interface AuthContextValue {
   login: () => void;
   logout: () => void;
   getActiveRole: () => 'client' | 'consultant' | 'both' | null;
+  isEmailVerified: () => boolean;
+  getProfileStatus: (role?: 'client' | 'consultant') => 'incomplete' | 'complete' | 'submitted' | null;
+  getApprovalStatus: (role?: 'client' | 'consultant') => 'pending' | 'approved' | 'rejected' | 'changes_requested' | null;
+  getUniqueId: (role?: 'client' | 'consultant') => string | null;
+  isProfileComplete: (role?: 'client' | 'consultant') => boolean;
+  isProfileApproved: (role?: 'client' | 'consultant') => boolean;
+  requiresEmailVerification: () => boolean;
+  requiresProfileCompletion: (role?: 'client' | 'consultant') => boolean;
+  requiresProfileApproval: (role?: 'client' | 'consultant') => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -51,6 +60,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return user.role as 'client' | 'consultant' | null;
   };
 
+  const isEmailVerified = (): boolean => {
+    return user?.emailVerified ?? false;
+  };
+
+  const getProfileForRole = (role?: 'client' | 'consultant'): ClientProfile | ConsultantProfile | undefined => {
+    if (!user) return undefined;
+    
+    // If role explicitly provided, use that
+    if (role === 'client') return user.clientProfile;
+    if (role === 'consultant') return user.consultantProfile;
+    
+    // Otherwise use active role logic
+    const activeRole = getActiveRole();
+    if (activeRole === 'client') return user.clientProfile;
+    if (activeRole === 'consultant') return user.consultantProfile;
+    if (activeRole === 'both') return user.clientProfile; // Default to client for 'both'
+    
+    return undefined;
+  };
+
+  const getProfileStatus = (role?: 'client' | 'consultant'): 'incomplete' | 'complete' | 'submitted' | null => {
+    const profile = getProfileForRole(role);
+    return (profile?.profileStatus as 'incomplete' | 'complete' | 'submitted' | undefined) ?? null;
+  };
+
+  const getApprovalStatus = (role?: 'client' | 'consultant'): 'pending' | 'approved' | 'rejected' | 'changes_requested' | null => {
+    const profile = getProfileForRole(role);
+    return (profile?.approvalStatus as 'pending' | 'approved' | 'rejected' | 'changes_requested' | undefined) ?? null;
+  };
+
+  const getUniqueId = (role?: 'client' | 'consultant'): string | null => {
+    if (!user) return null;
+    
+    // If role explicitly provided, use that
+    if (role === 'client') return user.clientProfile?.uniqueClientId ?? null;
+    if (role === 'consultant') return user.consultantProfile?.uniqueConsultantId ?? null;
+    
+    // Otherwise use active role logic
+    const activeRole = getActiveRole();
+    if (activeRole === 'client') return user.clientProfile?.uniqueClientId ?? null;
+    if (activeRole === 'consultant') return user.consultantProfile?.uniqueConsultantId ?? null;
+    if (activeRole === 'both') return user.clientProfile?.uniqueClientId ?? user.consultantProfile?.uniqueConsultantId ?? null;
+    
+    return null;
+  };
+
+  const isProfileComplete = (role?: 'client' | 'consultant'): boolean => {
+    const status = getProfileStatus(role);
+    return status === 'complete' || status === 'submitted';
+  };
+
+  const isProfileApproved = (role?: 'client' | 'consultant'): boolean => {
+    const status = getApprovalStatus(role);
+    return status === 'approved';
+  };
+
+  const requiresEmailVerification = (): boolean => {
+    return isAuthenticated && !isEmailVerified();
+  };
+
+  const requiresProfileCompletion = (role?: 'client' | 'consultant'): boolean => {
+    return isAuthenticated && isEmailVerified() && !isProfileComplete(role);
+  };
+
+  const requiresProfileApproval = (role?: 'client' | 'consultant'): boolean => {
+    return isAuthenticated && isEmailVerified() && isProfileComplete(role) && !isProfileApproved(role);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -60,6 +137,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         getActiveRole,
+        isEmailVerified,
+        getProfileStatus,
+        getApprovalStatus,
+        getUniqueId,
+        isProfileComplete,
+        isProfileApproved,
+        requiresEmailVerification,
+        requiresProfileCompletion,
+        requiresProfileApproval,
       }}
     >
       {children}
