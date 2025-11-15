@@ -1069,6 +1069,7 @@ export const insertContentPageSchema = createInsertSchema(contentPages).omit({
   content: z.string().min(1, "Content is required"),
   pageType: contentPageTypeEnum,
   status: contentPageStatusEnum.default('draft'),
+  displayOrder: z.coerce.number().int().optional(),
 });
 
 export type InsertContentPage = z.infer<typeof insertContentPageSchema>;
@@ -1086,6 +1087,7 @@ export const insertFooterLinkSchema = createInsertSchema(footerLinks).omit({
   label: z.string().min(1, "Label is required"),
   url: z.string().min(1, "URL is required"),
   section: footerLinkSectionEnum,
+  displayOrder: z.coerce.number().int().optional(),
 });
 
 export type InsertFooterLink = z.infer<typeof insertFooterLinkSchema>;
@@ -1101,6 +1103,7 @@ export const insertHomePageSectionSchema = createInsertSchema(homePageSections).
   updatedAt: true,
 }).extend({
   sectionType: homeSectionTypeEnum,
+  displayOrder: z.coerce.number().int().optional(),
 });
 
 export type InsertHomePageSection = z.infer<typeof insertHomePageSectionSchema>;

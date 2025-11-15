@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, FileText } from "lucide-react";
 import { Link } from "wouter";
+import DOMPurify from "dompurify";
 
 interface ContentPage {
   id: string;
@@ -66,7 +67,8 @@ export default function LegalPage() {
 
   const isArabic = i18n.language === 'ar';
   const title = isArabic && page.titleAr ? page.titleAr : page.title;
-  const content = isArabic && page.contentAr ? page.contentAr : page.content;
+  const rawContent = isArabic && page.contentAr ? page.contentAr : page.content;
+  const content = DOMPurify.sanitize(rawContent);
   const metaTitle = isArabic && page.metaTitleAr ? page.metaTitleAr : page.metaTitle || title;
   const metaDescription = isArabic && page.metaDescriptionAr ? page.metaDescriptionAr : page.metaDescription;
 
