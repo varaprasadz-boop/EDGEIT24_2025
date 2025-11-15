@@ -10,6 +10,8 @@ import { Footer } from "@/components/Footer";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { CountrySelector } from "@/components/CountrySelector";
+import { CategoryTreeSelector } from "@/components/CategoryTreeSelector";
 import {
   Briefcase,
   Code,
@@ -19,20 +21,33 @@ import {
   TrendingUp,
   ArrowLeft,
   Mail,
-  Lock
+  Lock,
+  User,
+  Building,
+  Phone
 } from "lucide-react";
 
 type Role = "client" | "consultant" | null;
+type Step = "role" | "basic" | "categories";
 
 export default function Register() {
   const { isAuthenticated, isLoading } = useAuthContext();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
-  const [step, setStep] = useState<"role" | "credentials">("role");
+  const [step, setStep] = useState<Step>("role");
   const [selectedRole, setSelectedRole] = useState<Role>(null);
+  
+  // Form state
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [country, setCountry] = useState("");
+  const [phoneCountryCode, setPhoneCountryCode] = useState("");
+  const [phone, setPhone] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -43,18 +58,13 @@ export default function Register() {
 
   const handleRoleSelect = (role: "client" | "consultant") => {
     setSelectedRole(role);
-    setStep("credentials");
+    setStep("basic");
   };
 
-  const handleBack = () => {
-    setStep("role");
-    setSelectedRole(null);
-  };
-
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleBasicInfoNext = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password || !selectedRole) {
+    if (!fullName || !email || !password || !country || !phone || !companyName) {
       toast({
         variant: "destructive",
         title: "Missing Information",
@@ -72,24 +82,42 @@ export default function Register() {
       return;
     }
 
+    // If consultant, go to categories step. If client, submit directly
+    if (selectedRole === "consultant") {
+      setStep("categories");
+    } else {
+      handleSubmit();
+    }
+  };
+
+  const handleSubmit = async (categoriesOverride?: string[]) => {
     setIsSubmitting(true);
+
+    // Use override if provided, otherwise use state
+    const categoriesToSend = categoriesOverride !== undefined ? categoriesOverride : selectedCategories;
 
     try {
       const response = await apiRequest("POST", "/api/auth/signup", {
+        fullName,
         email,
         password,
+        country,
+        phoneCountryCode,
+        phone,
+        companyName,
         role: selectedRole,
+        selectedCategories: selectedRole === "consultant" ? categoriesToSend : undefined,
       });
 
       if (response.ok) {
         const data = await response.json();
         toast({
           title: "Account Created",
-          description: "Welcome to EDGEIT24! Let's complete your profile.",
+          description: "Welcome to EDGEIT24! You can now complete your profile.",
         });
         
-        // Redirect to onboarding
-        window.location.href = data.redirectPath;
+        // Redirect to dashboard or profile completion
+        window.location.href = data.redirectPath || "/dashboard";
       } else {
         const error = await response.json();
         toast({
@@ -107,6 +135,15 @@ export default function Register() {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (step === "basic") {
+      setStep("role");
+      setSelectedRole(null);
+    } else if (step === "categories") {
+      setStep("basic");
     }
   };
 
@@ -135,21 +172,25 @@ export default function Register() {
           <div className="container mx-auto px-4 md:px-6 relative">
             <div className="max-w-3xl mx-auto text-center space-y-6">
               <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/20" data-testid="badge-register">
-                {step === "role" ? "Get Started" : "Create Account"}
+                {step === "role" && "Get Started"}
+                {step === "basic" && "Step 1 of " + (selectedRole === "consultant" ? "2" : "1")}
+                {step === "categories" && "Step 2 of 2"}
               </Badge>
               <h1 className="text-3xl md:text-5xl font-bold text-white tracking-tight" data-testid="text-register-title">
-                {step === "role" ? "Join EDGEIT24" : `Sign Up as ${selectedRole === "client" ? "Client" : "Service Provider"}`}
+                {step === "role" && "Join EDGEIT24"}
+                {step === "basic" && `Sign Up as ${selectedRole === "client" ? "Client" : "Service Provider"}`}
+                {step === "categories" && "Select Your Expertise"}
               </h1>
               <p className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto" data-testid="text-register-subtitle">
-                {step === "role" 
-                  ? "Choose how you'd like to get started on our platform"
-                  : "Enter your details to create your account"
-                }
+                {step === "role" && "Choose how you'd like to get started on our platform"}
+                {step === "basic" && "Enter your details to create your account"}
+                {step === "categories" && "Select the categories that match your skills and services"}
               </p>
             </div>
           </div>
         </section>
 
+        {/* Step 1: Role Selection */}
         {step === "role" && (
           <section className="py-16 md:py-20 bg-background">
             <div className="container mx-auto px-4 md:px-6">
@@ -276,10 +317,11 @@ export default function Register() {
           </section>
         )}
 
-        {step === "credentials" && (
+        {/* Step 2: Basic Information */}
+        {step === "basic" && (
           <section className="py-16 md:py-20 bg-background">
             <div className="container mx-auto px-4 md:px-6">
-              <div className="max-w-md mx-auto">
+              <div className="max-w-2xl mx-auto">
                 <Card>
                   <CardHeader>
                     <div className="flex items-center gap-3 mb-4">
@@ -300,39 +342,115 @@ export default function Register() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <form onSubmit={handleSignup} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email Address</Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            id="email"
-                            type="email"
-                            placeholder="you@example.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="pl-10"
-                            required
-                            data-testid="input-email"
+                    <form onSubmit={handleBasicInfoNext} className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2 md:col-span-2">
+                          <Label htmlFor="fullName">Full Name *</Label>
+                          <div className="relative">
+                            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              id="fullName"
+                              type="text"
+                              placeholder="Your full name"
+                              value={fullName}
+                              onChange={(e) => setFullName(e.target.value)}
+                              className="pl-10"
+                              required
+                              data-testid="input-fullname"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                          <Label htmlFor="email">Email Address *</Label>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              id="email"
+                              type="email"
+                              placeholder="you@example.com"
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                              className="pl-10"
+                              required
+                              data-testid="input-email"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                          <Label htmlFor="password">Password *</Label>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              id="password"
+                              type="password"
+                              placeholder="Minimum 6 characters"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              className="pl-10"
+                              required
+                              minLength={6}
+                              data-testid="input-password"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                          <Label htmlFor="companyName">Company Name *</Label>
+                          <div className="relative">
+                            <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              id="companyName"
+                              type="text"
+                              placeholder="Your company name"
+                              value={companyName}
+                              onChange={(e) => setCompanyName(e.target.value)}
+                              className="pl-10"
+                              required
+                              data-testid="input-company"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                          <Label htmlFor="country">Country *</Label>
+                          <CountrySelector
+                            value={country}
+                            onChange={(countryObj) => {
+                              setCountry(countryObj?.isoCode || "");
+                            }}
+                            onPhoneCodeChange={(code) => {
+                              setPhoneCountryCode(code);
+                            }}
+                            testId="input-country"
                           />
                         </div>
-                      </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="password">Password</Label>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            id="password"
-                            type="password"
-                            placeholder="Minimum 6 characters"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="pl-10"
-                            required
-                            minLength={6}
-                            data-testid="input-password"
-                          />
+                        <div className="space-y-2 md:col-span-2">
+                          <Label htmlFor="phone">Phone Number *</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={phoneCountryCode}
+                              disabled
+                              className="w-24"
+                              placeholder="+XXX"
+                              data-testid="input-phone-code"
+                            />
+                            <div className="relative flex-1">
+                              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                id="phone"
+                                type="tel"
+                                placeholder="Phone number"
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                className="pl-10"
+                                required
+                                data-testid="input-phone"
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -342,17 +460,17 @@ export default function Register() {
                           className="w-full bg-primary text-primary-foreground"
                           size="lg"
                           disabled={isSubmitting}
-                          data-testid="button-submit-signup"
+                          data-testid="button-next-basic"
                         >
-                          {isSubmitting ? (
+                          {selectedRole === "consultant" ? (
                             <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                              Creating Account...
+                              Continue to Categories
+                              <ArrowRight className="ml-2 h-5 w-5" />
                             </>
                           ) : (
                             <>
-                              Create Account
-                              <ArrowRight className="ml-2 h-5 w-5" />
+                              {isSubmitting ? "Creating Account..." : "Create Account"}
+                              {!isSubmitting && <ArrowRight className="ml-2 h-5 w-5" />}
                             </>
                           )}
                         </Button>
@@ -371,17 +489,84 @@ export default function Register() {
                     </form>
                   </CardContent>
                 </Card>
+              </div>
+            </div>
+          </section>
+        )}
 
-                <div className="text-center mt-6">
-                  <p className="text-muted-foreground mb-4">Already have an account?</p>
-                  <Button 
-                    variant="outline"
-                    onClick={() => setLocation('/login')}
-                    data-testid="button-login-link"
-                  >
-                    Sign In Instead
-                  </Button>
-                </div>
+        {/* Step 3: Categories (Consultants Only) */}
+        {step === "categories" && selectedRole === "consultant" && (
+          <section className="py-16 md:py-20 bg-background">
+            <div className="container mx-auto px-4 md:px-6">
+              <div className="max-w-3xl mx-auto">
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center gap-3 mb-4">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleBack}
+                        disabled={isSubmitting}
+                        data-testid="button-back-categories"
+                      >
+                        <ArrowLeft className="h-5 w-5" />
+                      </Button>
+                      <div>
+                        <CardTitle>Select Your Expertise</CardTitle>
+                        <CardDescription>
+                          Choose the categories that match your skills and services
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <CategoryTreeSelector
+                      value={selectedCategories}
+                      onChange={(ids) => setSelectedCategories(ids)}
+                      disabled={isSubmitting}
+                      testId="category-selector"
+                    />
+
+                    <div className="pt-4 flex gap-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleSubmit([])}
+                        disabled={isSubmitting}
+                        data-testid="button-skip-categories"
+                      >
+                        Skip for Now
+                      </Button>
+                      <Button
+                        type="button"
+                        className="flex-1 bg-primary text-primary-foreground"
+                        onClick={() => handleSubmit()}
+                        disabled={isSubmitting || selectedCategories.length === 0}
+                        data-testid="button-submit-categories"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Creating Account...
+                          </>
+                        ) : (
+                          <>
+                            Create Account
+                            <ArrowRight className="ml-2 h-5 w-5" />
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    <p className="text-sm text-muted-foreground text-center">
+                      {selectedCategories.length > 0 
+                        ? `You've selected ${selectedCategories.length} ${selectedCategories.length === 1 ? 'category' : 'categories'}`
+                        : "Select at least one category to continue, or skip for now"
+                      }
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </section>
