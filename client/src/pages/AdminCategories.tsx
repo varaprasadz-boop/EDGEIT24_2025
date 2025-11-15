@@ -515,37 +515,49 @@ export default function AdminCategories() {
 
   return (
     <AdminLayout>
-      <div className="px-6 pb-6 pt-4">
-        {/* Action Toolbar */}
-        <div className="flex items-center justify-end gap-2 mb-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={expandAll}
-            data-testid="button-expand-all"
-          >
-            Expand All
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={collapseAll}
-            data-testid="button-collapse-all"
-          >
-            Collapse All
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => refetch()}
-            data-testid="button-refresh"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button onClick={() => handleOpenCreate()} data-testid="button-add-category">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Root Category
-          </Button>
+      <div className="space-y-6 p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight" data-testid="title-categories">
+              {t("categories.title")}
+            </h1>
+            <p className="text-muted-foreground mt-2" data-testid="subtitle-categories">
+              {t("categories.subtitle")}
+            </p>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={expandAll}
+              data-testid="button-expand-all"
+            >
+              Expand All
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={collapseAll}
+              data-testid="button-collapse-all"
+            >
+              Collapse All
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => refetch()}
+              data-testid="button-refresh"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button onClick={() => handleOpenCreate()} data-testid="button-add-category">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Root Category
+            </Button>
+          </div>
         </div>
 
         {/* Tree Table */}
