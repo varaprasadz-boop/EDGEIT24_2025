@@ -106,6 +106,27 @@ The platform uses a comprehensive 3-level category hierarchy that serves as the 
 - **Client Profile (`/profile/client`)**: Allows viewing and editing of company information, industry, size, website, location, and description.
 - **Consultant Profile (`/profile/consultant`)**: Enables creation, viewing, and editing of profiles including full name, title, bio, skills, hourly rate, experience, availability, portfolio showcases, and service packages. Features include a skills tag manager, CRUD for portfolio items, service packages, and a weekly availability calendar.
 
+### Job Posting & Category Integration
+**Job Posting** (`/post-job`):
+- **CascadingCategorySelector Component**: 3-level dropdown navigation (Level 0 → Level 1 → Level 2) for category selection
+- **Required Category**: All jobs must be assigned to a category (enforced in schema and validation)
+- **Category Path Display**: Shows full category path as breadcrumbs in selector
+- **Schema**: `jobs.categoryId` (varchar, required, foreign key to categories.id)
+- **Storage**: `createJob()` validates categoryId exists before insertion
+
+**Category Filtering** (`/browse-jobs`, `/browse-consultants`):
+- **Descendant Category Filtering**: Selecting a parent category includes all child and grandchild categories in results
+- **Performance**: O(n) filtering using adjacency map for efficient tree traversal
+- **Storage Layer**: `listJobs(options)` accepts `{ ownerClientId?, categoryId?, excludeClientId?, limit? }`
+  - `categoryId` filter includes all descendant categories automatically
+  - `excludeClientId` prevents consultants from seeing their own job postings when browsing
+  - Returns enriched jobs with `categoryPathLabel` for display
+- **API Contract**: `GET /api/jobs` returns `{ jobs: Job[], total: number }`
+  - Supports `forConsultant=true` query param for role-based filtering
+  - Supports `categoryId` for hierarchical filtering
+- **Browse Jobs Page**: Flattened category dropdown for filtering with React Query integration
+- **Browse Consultants Page**: Placeholder implementation (minimal MVP scope)
+
 ## External Dependencies
 
 ### Database
