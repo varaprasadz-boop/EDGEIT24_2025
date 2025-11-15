@@ -51,11 +51,13 @@ export const clientProfiles = pgTable("client_profiles", {
   industry: text("industry"),
   companySize: text("company_size"), // '1-10', '11-50', '51-200', '201-500', '500+'
   region: text("region"),
-  businessType: text("business_type"),
+  businessType: text("business_type"), // 'individual', 'company', 'enterprise'
   website: text("website"),
   description: text("description"),
   location: text("location"),
   avatar: text("avatar"),
+  logo: text("logo"), // Company logo URL
+  socialLinks: jsonb("social_links"), // { linkedin, twitter, facebook, etc. }
   // Profile approval fields
   profileStatus: text("profile_status").default('draft'), // 'draft', 'submitted', 'under_review', 'complete'
   approvalStatus: text("approval_status").default('pending'), // 'pending', 'approved', 'rejected', 'changes_requested'
@@ -78,8 +80,9 @@ export const consultantProfiles = pgTable("consultant_profiles", {
   hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }),
   experience: text("experience"), // 'junior', 'mid', 'senior', 'expert'
   portfolio: jsonb("portfolio"), // Array of portfolio items with title, description, url, images
-  certifications: text("certifications").array(),
-  languages: text("languages").array(),
+  certifications: text("certifications").array(), // Array of certification names
+  languages: text("languages").array(), // Array of languages (enhanced proficiency tracking is future enhancement)
+  operatingRegions: text("operating_regions").array(), // Countries/regions where consultant operates
   availability: text("availability").default('available'), // 'available', 'busy', 'unavailable'
   weeklySchedule: jsonb("weekly_schedule"), // Weekly availability: { "monday": ["morning", "afternoon", "evening"], ... }
   servicePackages: jsonb("service_packages"), // Array of service package offerings with name, description, price, deliveryTime
@@ -97,6 +100,10 @@ export const consultantProfiles = pgTable("consultant_profiles", {
   website: text("website"),
   socialLinks: jsonb("social_links"), // { linkedin, twitter, github, etc. }
   businessRegistrationNumber: varchar("business_registration_number"),
+  // KYC, Education, and Banking information
+  kycDocuments: jsonb("kyc_documents"), // { idType, idNumber, validity, documentUrl }
+  education: jsonb("education"), // [{ degree, institution, field, startDate, endDate }]
+  bankInfo: jsonb("bank_info"), // { bankName, accountHolder, iban, swift, currency }
   // Profile approval fields
   profileStatus: text("profile_status").default('draft'), // 'draft', 'submitted', 'under_review', 'complete'
   approvalStatus: text("approval_status").default('pending'), // 'pending', 'approved', 'rejected', 'changes_requested'

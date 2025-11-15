@@ -29,11 +29,15 @@ The Admin Portal features an i18n system with RTL support using `i18next` and `r
 The platform uses a 3-level category hierarchy (Level 0: Primary, Level 1: Subcategories, Level 2: Super-subcategories) with bilingual content (English/Arabic). This system is central to job postings, consultant services, and marketplace navigation. Server-side validation enforces hierarchy rules, slug uniqueness, and delete protection. Public and Admin API routes support fetching, managing, and reordering categories. The frontend displays root categories on the homepage and dynamic landing pages for all levels with breadcrumbs.
 
 ### Dashboard & Profile Management
-**Client Dashboard**: Displays active jobs, bids, spending, and messages, with an approval status banner showing profile completion progress and unique client ID upon approval.
+**Client Dashboard**: Displays active jobs, bids, spending, and messages, with an approval status banner showing profile completion progress and unique client ID upon approval. Role switcher allows dual-role users to toggle between client and consultant views.
 **Consultant Dashboard**: Shows available jobs, active bids, earnings, and ratings, with an approval status banner showing profile completion progress and unique consultant ID upon approval.
 Both dashboards integrate with React Query for role-specific data and display approval states (Approved, Pending, Rejected, Draft) with profile completion percentages.
-**Client Profile**: Allows editing company information, industry, size, website, location, and description.
-**Consultant Profile**: Enables creation and editing of profiles including personal details, bio, skills, hourly rate, experience, portfolio, and service packages, with features like a skills tag manager and availability calendar.
+
+**User Layout**: Role-specific sidebar navigation with Dashboard, Profile, Jobs/Work, Messages, and Settings sections. Dual-role users see a role switcher button with localStorage persistence.
+
+**Client Profile**: Supports company information, industry, size, website, location, description, business type (individual/company/enterprise), logo, and social media links (LinkedIn, Twitter, Facebook).
+
+**Consultant Profile**: Comprehensive profile system including personal details, bio, skills, hourly rate, experience, portfolio, service packages, certifications, languages with proficiency levels (speaking/reading/writing), operating regions, year established, employee count, business registration number, social links, KYC documents, education records, and bank information. Features include skills tag manager and weekly availability calendar.
 
 ### Security & State Machine
 **Protected Field Stripping**: Profile update endpoints use explicit destructuring to strip protected fields (profileStatus, approvalStatus, uniqueId, reviewedBy, reviewedAt) from user payloads before storage persistence, preventing privilege escalation attacks.
