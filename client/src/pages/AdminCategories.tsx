@@ -406,7 +406,7 @@ export default function AdminCategories() {
 
           {/* Order */}
           <div className="w-12 text-sm text-muted-foreground" data-testid={`order-${category.id}`}>
-            {category.displayOrder}
+            {category.displayOrder + 1}
           </div>
 
           {/* Icon */}

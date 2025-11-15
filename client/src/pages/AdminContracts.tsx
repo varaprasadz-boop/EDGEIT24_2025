@@ -269,9 +269,11 @@ export default function AdminContracts() {
         searchValue={searchValue}
         onSearchChange={setSearchValue}
         searchPlaceholder={t("admin.contracts.searchPlaceholder")}
-        filters={filters}
-        onFiltersChange={setFilters}
-        filterConfig={filterConfig}
+        filters={filterConfig}
+        onFiltersChange={(newFilters) => {
+          setFilters(newFilters);
+          setPagination({ ...pagination, pageIndex: 0 });
+        }}
         onReset={() => {
           setSearchValue("");
           setFilters({});
