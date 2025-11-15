@@ -1,0 +1,102 @@
+2.1 Client/Buyer Profile
+•	Personal/company information
+•	Company name and logo
+•	Business type (individual, company, enterprise)
+•	Industry sector
+•	Company size
+•	Location/Region
+•	Company description
+•	Contact information
+•	Website and social media links
+•	Verification status badge
+•	Requirements posted history
+•	Active projects count
+•	Reviews received
+•	Spending history
+•	Team members list
+2.2 Vendor/Service Provider Profile
+Base Profile (All Vendors):
+•	Company/individual name
+•	Business type (individual, startup, SME, enterprise)
+•	Profile photo/logo
+•	Year established
+•	Employee count
+•	Business registration/license info
+•	Contact information
+•	Operating regions/countries
+•	Primary expertise area
+•	Certifications and licenses (ISO, Microsoft Partner, AWS Partner, etc.)
+•	Website & social media links
+•	Categories they serve (admin-approved)
+•	Verification badges
+•	Performance Score (calculated based on quality, speed, reviews)
+
+For Human Service Providers (Freelancers/Consultants):
+•	Professional title/headline
+•	Detailed bio/overview
+•	Skills list with proficiency levels
+•	Hourly rate
+•	Team size
+•	Vendor Portfolio:
+o	Case studies with detailed descriptions
+o	Past project showcases
+o	Project images/screenshots
+o	Project links
+o	Testimonials
+o	Success metrics
+o	Industry-specific projects
+•	Work history/experience
+•	Education background
+•	Languages spoken (English & Arabic with selecting Speak, read & write proficiency like basic, good & advanced)
+•	Availability status
+•	Availability Calendar (shows when vendor can take new work)
+
+For Hardware Suppliers:
+•	Product catalog/brands carried
+•	Inventory availability indicators
+•	Shipping capabilities and regions
+•	Return/warranty policy
+•	Bulk discount structure
+•	Quality certifications (ISO, CE, RoHS, etc.)
+•	Import/export capabilities
+•	Warehouse locations
+•	Authorized reseller badges
+For Software Service Providers:
+•	Technology stack
+•	Software/licenses offered
+•	Support/maintenance terms
+•	Demo/trial availability
+•	Integration capabilities
+•	Security certifications (SOC 2, ISO 27001, etc.)
+•	SLA (Service Level Agreement) standards
+•	Partner badges (Microsoft, AWS, Google Cloud, etc.)
+For Marketing Agencies:
+•	Service specializations (SEO, PPC, content, social media)
+•	Case studies
+•	Client portfolio
+•	Tools and platforms used
+•	Team expertise
+•	Campaign management approach
+2.3 Service Packages (Vendor)
+•	Create predefined service bundles:
+o	Package name (e.g., "Basic", "Pro", "Enterprise")
+o	Package description
+o	Included services/features
+o	Pricing
+o	Delivery timeline
+o	Support included
+o	Revisions allowed
+o	Add-on options
+•	Display packages on vendor profile
+•	Clients can reference packages when posting requirements
+•	Quick quote from packages
+2.4 Dynamic Pricing Templates (Vendor)
+•	Create reusable pricing structures:
+o	Template name
+o	Cost breakdown by item/service
+o	Hourly rates by expertise level
+o	Volume-based pricing tiers
+o	Recurring service pricing
+o	Maintenance/support pricing
+•	Use templates when submitting bids
+•	Save time on similar projects

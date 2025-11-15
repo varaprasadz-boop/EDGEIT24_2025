@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { Header } from "@/components/Header";
+import { UserLayout } from "@/components/UserLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,12 +52,12 @@ interface ProfileStatus {
 }
 
 export default function Dashboard() {
-  const { user, isLoading, getActiveRole } = useAuthContext();
-  const activeRole = getActiveRole();
+  const { user, isLoading, getSelectedRole } = useAuthContext();
+  const selectedRole = getSelectedRole();
   const [, setLocation] = useLocation();
 
   // All hooks at top level (React hooks rules)
-  // Profile status queries with explicit queryFn for query parameters
+  // Profile status queries - only fetch for selected role
   const { data: clientProfileStatus } = useQuery<ProfileStatus>({
     queryKey: ['/api/profile/status', 'client'],
     queryFn: async () => {
@@ -67,7 +67,7 @@ export default function Dashboard() {
       }
       return res.json();
     },
-    enabled: !!user && (activeRole === 'client' || activeRole === 'both'),
+    enabled: !!user && selectedRole === 'client',
   });
 
   const { data: consultantProfileStatus } = useQuery<ProfileStatus>({
@@ -79,18 +79,18 @@ export default function Dashboard() {
       }
       return res.json();
     },
-    enabled: !!user && (activeRole === 'consultant' || activeRole === 'both'),
+    enabled: !!user && selectedRole === 'consultant',
   });
 
-  // Dashboard stats queries
+  // Dashboard stats queries - only fetch for selected role
   const { data: clientStats, isLoading: clientStatsLoading, isError: clientStatsError, refetch: refetchClientStats } = useQuery<DashboardStats>({
     queryKey: ['/api/dashboard/client/stats'],
-    enabled: !!user && (activeRole === 'client' || activeRole === 'both'),
+    enabled: !!user && selectedRole === 'client',
   });
 
   const { data: consultantStats, isLoading: consultantStatsLoading, isError: consultantStatsError, refetch: refetchConsultantStats } = useQuery<ConsultantDashboardStats>({
     queryKey: ['/api/dashboard/consultant/stats'],
-    enabled: !!user && (activeRole === 'consultant' || activeRole === 'both'),
+    enabled: !!user && selectedRole === 'consultant',
   });
 
   // Redirect admin users to admin portal
@@ -127,6 +127,8 @@ export default function Dashboard() {
   // Render approval status banner for a specific role
   const renderApprovalBanner = (profileStatus: ProfileStatus | undefined) => {
     if (!profileStatus) return null;
+
+    const profileRoute = `/profile/${profileStatus.role}`;
 
     if (profileStatus.approvalStatus === 'approved') {
       return (
@@ -175,7 +177,7 @@ export default function Dashboard() {
               <Button 
                 size="sm" 
                 className="mt-2"
-                onClick={() => setLocation('/profile-completion')}
+                onClick={() => setLocation(profileRoute)}
                 data-testid="button-update-profile"
               >
                 Update & Resubmit
@@ -204,7 +206,7 @@ export default function Dashboard() {
               <Button 
                 size="sm" 
                 className="mt-3"
-                onClick={() => setLocation('/profile-completion')}
+                onClick={() => setLocation(profileRoute)}
                 data-testid="button-complete-profile-banner"
               >
                 Complete Profile
@@ -603,9 +605,8 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Header />
-      <main className="flex-1 container mx-auto px-4 md:px-6 py-8">
+    <UserLayout>
+      <div className="container mx-auto px-4 md:px-6 py-8">
         {activeRole === 'both' && renderDualRoleDashboard()}
         {activeRole === 'client' && renderClientDashboard()}
         {activeRole === 'consultant' && renderConsultantDashboard()}
@@ -618,7 +619,7 @@ export default function Dashboard() {
             </Button>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </UserLayout>
   );
 }

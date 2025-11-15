@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode, useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { User, ClientProfile, ConsultantProfile } from "@shared/schema";
 
@@ -14,6 +14,8 @@ interface AuthContextValue {
   login: () => void;
   logout: () => void;
   getActiveRole: () => 'client' | 'consultant' | 'both' | null;
+  getSelectedRole: () => 'client' | 'consultant' | null;
+  setActiveRole: (role: 'client' | 'consultant') => void;
   isEmailVerified: () => boolean;
   getProfileStatus: (role?: 'client' | 'consultant') => 'incomplete' | 'complete' | 'submitted' | null;
   getApprovalStatus: (role?: 'client' | 'consultant') => 'pending' | 'approved' | 'rejected' | 'changes_requested' | null;
@@ -27,8 +29,19 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const ACTIVE_ROLE_KEY = 'edgeit24_active_role';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated, isLoading } = useAuth();
+  
+  // State for active role with localStorage persistence
+  const [selectedRole, setSelectedRole] = useState<'client' | 'consultant' | null>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(ACTIVE_ROLE_KEY);
+      return stored as 'client' | 'consultant' | null;
+    }
+    return null;
+  });
 
   const login = () => {
     window.location.href = '/login';
@@ -40,23 +53,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         credentials: 'include',
       });
+      localStorage.removeItem(ACTIVE_ROLE_KEY);
       window.location.href = '/';
     } catch (error) {
       console.error('Logout error:', error);
+      localStorage.removeItem(ACTIVE_ROLE_KEY);
       window.location.href = '/';
     }
   };
 
+  const setActiveRole = (role: 'client' | 'consultant') => {
+    setSelectedRole(role);
+    localStorage.setItem(ACTIVE_ROLE_KEY, role);
+  };
+
+  // Returns the user's actual role (can be 'both' for dual-role users)
   const getActiveRole = (): 'client' | 'consultant' | 'both' | null => {
     if (!user) return null;
+    return user.role as 'client' | 'consultant' | 'both' | null;
+  };
+
+  // Returns the selected role for dual-role users (never returns 'both')
+  const getSelectedRole = (): 'client' | 'consultant' | null => {
+    if (!user) return null;
     
-    const hasClientProfile = !!user.clientProfile;
-    const hasConsultantProfile = !!user.consultantProfile;
+    // For dual-role users, check profile availability and use selection
+    if (user.role === 'both') {
+      const hasClientProfile = !!user.clientProfile;
+      const hasConsultantProfile = !!user.consultantProfile;
+      
+      // If user has selected a role and that profile exists, use it
+      if (selectedRole === 'client' && hasClientProfile) return 'client';
+      if (selectedRole === 'consultant' && hasConsultantProfile) return 'consultant';
+      
+      // Otherwise default to whichever profile exists
+      if (hasClientProfile) return 'client';
+      if (hasConsultantProfile) return 'consultant';
+      
+      // Fallback to client
+      return 'client';
+    }
     
-    if (hasClientProfile && hasConsultantProfile) return 'both';
-    if (hasClientProfile) return 'client';
-    if (hasConsultantProfile) return 'consultant';
-    
+    // For single-role users, return their role
     return user.role as 'client' | 'consultant' | null;
   };
 
@@ -137,6 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         getActiveRole,
+        getSelectedRole,
+        setActiveRole,
         isEmailVerified,
         getProfileStatus,
         getApprovalStatus,

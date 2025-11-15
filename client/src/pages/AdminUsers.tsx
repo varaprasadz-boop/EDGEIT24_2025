@@ -29,15 +29,47 @@ interface User {
   createdAt: string;
 }
 
+interface UsersResponse {
+  users: User[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export default function AdminUsers() {
   const { t } = useTranslation();
   const [searchValue, setSearchValue] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
 
-  // Fetch users from API
-  const { data: users = [], isLoading } = useQuery<User[]>({
+  // Fetch users from API with proper query parameters
+  const { data, isLoading } = useQuery<UsersResponse>({
     queryKey: ["/api/admin/users", filters, searchValue],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      
+      // Add filters to query params
+      if (filters.role) params.set('role', filters.role);
+      if (filters.status) params.set('status', filters.status);
+      if (filters.verified) params.set('verified', filters.verified);
+      
+      // Server handles pagination, we fetch all for now (can add pagination later)
+      params.set('limit', '1000');
+      params.set('page', '1');
+      
+      const response = await fetch(`/api/admin/users?${params.toString()}`, {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
+      }
+      
+      return response.json();
+    },
   });
+
+  const users = data?.users || [];
 
   // Filter columns configuration
   const filterConfig = [
@@ -220,27 +252,16 @@ export default function AdminUsers() {
     },
   ];
 
-  // Filter data based on search and filters
+  // Client-side search filtering (role/status/verified are handled server-side)
   const filteredUsers = users.filter((user) => {
-    // Search filter
-    const searchMatch = searchValue
-      ? user.email.toLowerCase().includes(searchValue.toLowerCase()) ||
-        user.firstName?.toLowerCase().includes(searchValue.toLowerCase()) ||
-        user.lastName?.toLowerCase().includes(searchValue.toLowerCase())
-      : true;
-
-    // Role filter
-    const roleMatch = filters.role ? user.role === filters.role : true;
-
-    // Status filter
-    const statusMatch = filters.status ? user.status === filters.status : true;
-
-    // Verified filter
-    const verifiedMatch = filters.verified
-      ? user.emailVerified === (filters.verified === "true")
-      : true;
-
-    return searchMatch && roleMatch && statusMatch && verifiedMatch;
+    if (!searchValue) return true;
+    
+    const searchLower = searchValue.toLowerCase();
+    return (
+      user.email.toLowerCase().includes(searchLower) ||
+      user.firstName?.toLowerCase().includes(searchLower) ||
+      user.lastName?.toLowerCase().includes(searchLower)
+    );
   });
 
   return (

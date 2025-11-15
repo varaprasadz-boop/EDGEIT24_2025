@@ -20,12 +20,10 @@ import { z } from "zod";
 import { useState as useReactState, useEffect } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CategorySelector } from "@/components/CategorySelector";
+import { UserLayout } from "@/components/UserLayout";
 
 const updateProfileSchema = insertConsultantProfileSchema.omit({
-  id: true,
   userId: true,
-  createdAt: true,
-  updatedAt: true,
   verified: true,
   rating: true,
   totalReviews: true,
@@ -71,7 +69,7 @@ const TIME_SLOT_LABELS: Record<typeof TIME_SLOTS[number], string> = {
 };
 
 export default function ConsultantProfile() {
-  const { user, isLoading: authLoading } = useAuthContext();
+  const { user, isLoading: authLoading, getSelectedRole } = useAuthContext();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
@@ -331,68 +329,75 @@ export default function ConsultantProfile() {
 
   if (authLoading || isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[600px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
+      <UserLayout>
+        <div className="flex items-center justify-center min-h-[600px]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </UserLayout>
     );
   }
 
   if (isError) {
     return (
-      <div className="flex items-center justify-center min-h-[600px]">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" />
-              Failed to Load Profile
-            </CardTitle>
-            <CardDescription>
-              Unable to fetch your profile information. Please try refreshing.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              onClick={() => refetch()}
-              className="w-full bg-primary text-primary-foreground"
-              data-testid="button-retry-profile"
-            >
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <UserLayout>
+        <div className="flex items-center justify-center min-h-[600px]">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-5 w-5" />
+                Failed to Load Profile
+              </CardTitle>
+              <CardDescription>
+                Unable to fetch your profile information. Please try refreshing.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={() => refetch()}
+                className="w-full bg-primary text-primary-foreground"
+                data-testid="button-retry-profile"
+              >
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </UserLayout>
     );
   }
 
   // Show Create Profile button when no profile exists (and not in edit mode)
   if (!profile && !isLoading && !isError && !isEditing) {
     return (
-      <div className="container max-w-4xl mx-auto p-6">
-        <div className="flex items-center justify-center min-h-[600px]">
-          <Card className="max-w-md">
-            <CardHeader>
-              <CardTitle>No Consultant Profile</CardTitle>
-              <CardDescription>
-                You don't have a consultant profile yet. Create one to showcase your expertise and start receiving job opportunities.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={() => setIsEditing(true)}
-                className="w-full"
-                data-testid="button-create-profile"
-              >
-                Create Profile
-              </Button>
-            </CardContent>
-          </Card>
+      <UserLayout>
+        <div className="container max-w-4xl mx-auto p-6">
+          <div className="flex items-center justify-center min-h-[600px]">
+            <Card className="max-w-md">
+              <CardHeader>
+                <CardTitle>No Consultant Profile</CardTitle>
+                <CardDescription>
+                  You don't have a consultant profile yet. Create one to showcase your expertise and start receiving job opportunities.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={() => setIsEditing(true)}
+                  className="w-full"
+                  data-testid="button-create-profile"
+                >
+                  Create Profile
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
+      </UserLayout>
     );
   }
 
   return (
-    <div className="container max-w-4xl mx-auto p-6 space-y-6">
+    <UserLayout>
+      <div className="container max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold" data-testid="text-profile-title">Consultant Profile</h1>
@@ -1088,6 +1093,7 @@ export default function ConsultantProfile() {
           )}
         </div>
       )}
-    </div>
+      </div>
+    </UserLayout>
   );
 }

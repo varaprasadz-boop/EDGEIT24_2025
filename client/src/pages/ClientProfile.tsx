@@ -16,18 +16,16 @@ import { useToast } from "@/hooks/use-toast";
 import { Building2, Globe, MapPin, AlertCircle, Edit, Save, X, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
+import { UserLayout } from "@/components/UserLayout";
 
 const updateProfileSchema = insertClientProfileSchema.omit({
-  id: true,
   userId: true,
-  createdAt: true,
-  updatedAt: true,
 });
 
 type UpdateProfile = z.infer<typeof updateProfileSchema>;
 
 export default function ClientProfile() {
-  const { user, isLoading: authLoading } = useAuthContext();
+  const { user, isLoading: authLoading, getSelectedRole } = useAuthContext();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
@@ -132,73 +130,80 @@ export default function ClientProfile() {
 
   if (authLoading || isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[600px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
+      <UserLayout>
+        <div className="flex items-center justify-center min-h-[600px]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </UserLayout>
     );
   }
 
   if (isError) {
     return (
-      <div className="flex items-center justify-center min-h-[600px]">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" />
-              Failed to Load Profile
-            </CardTitle>
-            <CardDescription>
-              Unable to fetch your profile information. Please try refreshing.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              onClick={() => refetch()}
-              className="w-full bg-primary text-primary-foreground"
-              data-testid="button-retry-profile"
-            >
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <UserLayout>
+        <div className="flex items-center justify-center min-h-[600px]">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-5 w-5" />
+                Failed to Load Profile
+              </CardTitle>
+              <CardDescription>
+                Unable to fetch your profile information. Please try refreshing.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={() => refetch()}
+                className="w-full bg-primary text-primary-foreground"
+                data-testid="button-retry-profile"
+              >
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </UserLayout>
     );
   }
 
   // Show Create Profile button when no profile exists (and not in edit mode)
   if (!profile && !isLoading && !isError && !isEditing) {
     return (
-      <div className="container max-w-4xl mx-auto p-6">
-        <div className="flex items-center justify-center min-h-[600px]">
-          <Card className="max-w-md">
-            <CardHeader>
-              <CardTitle>No Client Profile</CardTitle>
-              <CardDescription>
-                You don't have a client profile yet. Create one to start posting requirements and receiving bids.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={() => setIsEditing(true)}
-                className="w-full"
-                data-testid="button-create-profile"
-              >
-                Create Profile
-              </Button>
-            </CardContent>
-          </Card>
+      <UserLayout>
+        <div className="container max-w-4xl mx-auto p-6">
+          <div className="flex items-center justify-center min-h-[600px]">
+            <Card className="max-w-md">
+              <CardHeader>
+                <CardTitle>No Client Profile</CardTitle>
+                <CardDescription>
+                  You don't have a client profile yet. Create one to start posting requirements and receiving bids.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={() => setIsEditing(true)}
+                  className="w-full"
+                  data-testid="button-create-profile"
+                >
+                  Create Profile
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
+      </UserLayout>
     );
   }
 
   return (
-    <div className="container max-w-4xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold" data-testid="text-profile-title">Client Profile</h1>
-          <p className="text-muted-foreground">Manage your company information and preferences</p>
-        </div>
+    <UserLayout>
+      <div className="container max-w-4xl mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold" data-testid="text-profile-title">Client Profile</h1>
+            <p className="text-muted-foreground">Manage your company information and preferences</p>
+          </div>
         {!isEditing && (
           <Button
             onClick={() => setIsEditing(true)}
@@ -441,6 +446,7 @@ export default function ClientProfile() {
           </Card>
         </div>
       )}
-    </div>
+      </div>
+    </UserLayout>
   );
 }
