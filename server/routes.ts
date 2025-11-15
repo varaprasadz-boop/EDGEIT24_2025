@@ -1021,6 +1021,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/consultant/metrics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const metrics = await storage.getConsultantMetrics(userId);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching consultant metrics:", error);
+      res.status(500).json({ message: "Failed to fetch consultant metrics" });
+    }
+  });
+
   // Profile submission for review
   app.post('/api/profiles/client/submit', isAuthenticated, async (req: any, res) => {
     try {

@@ -124,6 +124,7 @@ export interface IStorage {
   
   // Project operations
   getClientProjects(clientId: string, options?: { limit?: number }): Promise<any[]>;
+  getConsultantMetrics(consultantId: string): Promise<{ completionRate: number; totalProjects: number; completedProjects: number }>;
   
   // Profile Approval operations
   createApprovalEvent(event: InsertProfileApprovalEvent): Promise<ProfileApprovalEvent>;
@@ -646,6 +647,23 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
     
     return clientProjects;
+  }
+
+  async getConsultantMetrics(consultantId: string): Promise<{ completionRate: number; totalProjects: number; completedProjects: number }> {
+    const allProjects = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.consultantId, consultantId));
+    
+    const totalProjects = allProjects.length;
+    const completedProjects = allProjects.filter(p => p.status === 'completed').length;
+    const completionRate = totalProjects > 0 ? (completedProjects / totalProjects) * 100 : 0;
+    
+    return {
+      completionRate,
+      totalProjects,
+      completedProjects
+    };
   }
 
   // Profile Approval operations

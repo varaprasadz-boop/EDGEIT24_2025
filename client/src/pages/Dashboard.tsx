@@ -106,6 +106,31 @@ export default function Dashboard() {
     enabled: !!user && selectedRole === 'consultant',
   });
 
+  // Consultant metrics query
+  const { data: consultantMetrics } = useQuery<{ completionRate: number; totalProjects: number; completedProjects: number }>({
+    queryKey: ['/api/consultant/metrics'],
+    queryFn: async () => {
+      const res = await fetch('/api/consultant/metrics', { credentials: 'include' });
+      if (!res.ok) {
+        throw new Error(`${res.status}: ${await res.text() || res.statusText}`);
+      }
+      return res.json();
+    },
+    enabled: !!user && selectedRole === 'consultant',
+  });
+
+  // Consultant review stats query
+  const { data: consultantReviewStats } = useQuery<{ averageRating: number; totalReviews: number; ratingBreakdown: Record<number, number> }>({
+    queryKey: ['/api/reviews', user?.id, 'stats'],
+    queryFn: async () => {
+      if (!user?.id) return { averageRating: 0, totalReviews: 0, ratingBreakdown: {} };
+      const res = await fetch(`/api/reviews/${user.id}/stats`, { credentials: 'include' });
+      if (!res.ok) return { averageRating: 0, totalReviews: 0, ratingBreakdown: {} };
+      return res.json();
+    },
+    enabled: !!user && selectedRole === 'consultant',
+  });
+
   // Redirect admin users to admin portal
   useEffect(() => {
     if (user?.role === 'admin') {
@@ -553,41 +578,54 @@ export default function Dashboard() {
         </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card data-testid="card-profile-completion">
+        <Card data-testid="card-performance-metrics">
           <CardHeader>
-            <CardTitle>Profile Completion</CardTitle>
-            <CardDescription>Complete your profile to increase visibility</CardDescription>
+            <CardTitle>Performance Metrics</CardTitle>
+            <CardDescription>Your work quality and completion stats</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Progress</span>
-                <span className="text-sm text-muted-foreground" data-testid="text-profile-progress">20%</span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-md border">
+                <div>
+                  <p className="text-sm font-medium">Completion Rate</p>
+                  <p className="text-xs text-muted-foreground">
+                    {consultantMetrics?.completedProjects || 0} of {consultantMetrics?.totalProjects || 0} projects
+                  </p>
+                </div>
+                <div className="text-2xl font-bold text-primary" data-testid="text-completion-rate">
+                  {(consultantMetrics?.completionRate ?? 0).toFixed(0)}%
+                </div>
               </div>
-              <Progress value={20} className="h-2" data-testid="progress-profile" />
+
+              {consultantReviewStats && consultantReviewStats.totalReviews > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Rating Breakdown</p>
+                  {[5, 4, 3, 2, 1].map((rating) => {
+                    const count = consultantReviewStats.ratingBreakdown[rating] || 0;
+                    const percentage = consultantReviewStats.totalReviews > 0 ? (count / consultantReviewStats.totalReviews) * 100 : 0;
+                    return (
+                      <div key={rating} className="flex items-center gap-2" data-testid={`rating-breakdown-${rating}`}>
+                        <span className="text-xs w-6">{rating}★</span>
+                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary" 
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground w-8 text-right">{count}</span>
+                      </div>
+                    );
+                  })}
+                  <p className="text-xs text-muted-foreground text-center pt-1">
+                    Based on {consultantReviewStats.totalReviews} review{consultantReviewStats.totalReviews !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center py-4 text-sm text-muted-foreground">
+                  No reviews yet
+                </div>
+              )}
             </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-primary" />
-                <span>Basic information added</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <AlertCircle className="h-4 w-4" />
-                <span>Add portfolio items</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <AlertCircle className="h-4 w-4" />
-                <span>Add skills and certifications</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <AlertCircle className="h-4 w-4" />
-                <span>Set hourly rates</span>
-              </div>
-            </div>
-            <Button className="w-full bg-primary text-primary-foreground" data-testid="button-complete-profile">
-              Complete Profile
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
           </CardContent>
         </Card>
 
