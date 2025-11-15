@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { AdminLayout } from "@/components/AdminLayout";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -508,45 +507,46 @@ export default function AdminCategories() {
     );
   };
 
+  // Filter out test categories
+  const filteredTree = tree.filter(category => 
+    !category.slug.startsWith('automation-') && 
+    !category.slug.startsWith('test-')
+  );
+
   return (
     <AdminLayout>
-      <div className="space-y-6 p-6">
-        <AdminPageHeader
-          title="Categories"
-          description="Manage 3-level category hierarchy for services and consultants"
-          actions={
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={expandAll}
-                data-testid="button-expand-all"
-              >
-                Expand All
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={collapseAll}
-                data-testid="button-collapse-all"
-              >
-                Collapse All
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => refetch()}
-                data-testid="button-refresh"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-              <Button onClick={() => handleOpenCreate()} data-testid="button-add-category">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Root Category
-              </Button>
-            </>
-          }
-        />
+      <div className="p-6">
+        {/* Action Toolbar */}
+        <div className="flex items-center justify-end gap-2 mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={expandAll}
+            data-testid="button-expand-all"
+          >
+            Expand All
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={collapseAll}
+            data-testid="button-collapse-all"
+          >
+            Collapse All
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => refetch()}
+            data-testid="button-refresh"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button onClick={() => handleOpenCreate()} data-testid="button-add-category">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Root Category
+          </Button>
+        </div>
 
         {/* Tree Table */}
         <div className="border rounded-lg overflow-hidden bg-card">
@@ -563,11 +563,11 @@ export default function AdminCategories() {
           {/* Rows */}
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">Loading categories...</div>
-          ) : tree.length === 0 ? (
+          ) : filteredTree.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">No categories found</div>
           ) : (
             <div>
-              {tree.map(category => renderCategoryRow(category, 0))}
+              {filteredTree.map(category => renderCategoryRow(category, 0))}
             </div>
           )}
         </div>
