@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CascadingCategorySelector } from "@/components/CascadingCategorySelector";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -30,6 +31,7 @@ export default function PostJob() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [categoryPath, setCategoryPath] = useState<string>("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const { user, isLoading, getActiveRole } = useAuthContext();
 
   // Check if user has client role (safely after user is loaded)
@@ -80,6 +82,15 @@ export default function PostJob() {
       toast({
         title: "Authorization Required",
         description: "You must have a client profile to post jobs.",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Check if terms are accepted
+    if (!termsAccepted) {
+      toast({
+        title: "Terms Required",
+        description: "Please accept the Terms & Conditions to continue.",
         variant: "destructive",
       });
       return;
@@ -308,6 +319,25 @@ export default function PostJob() {
               </div>
             </CardContent>
           </Card>
+
+          <div className="flex items-center space-x-2 pt-2 pb-4" data-testid="container-terms-checkbox">
+            <Checkbox
+              id="terms-job"
+              checked={termsAccepted}
+              onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+              data-testid="checkbox-terms-acceptance"
+            />
+            <label
+              htmlFor="terms-job"
+              className="text-sm text-muted-foreground cursor-pointer"
+              data-testid="label-terms-acceptance"
+            >
+              I agree to the{" "}
+              <Link href="/legal/terms-and-conditions" className="text-primary hover:underline" data-testid="link-terms">
+                Terms & Conditions
+              </Link>
+            </label>
+          </div>
 
           <div className="flex justify-end gap-4">
             <Button
