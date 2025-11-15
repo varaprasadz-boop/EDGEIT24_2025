@@ -7,7 +7,9 @@ export function Breadcrumb() {
   const [location] = useLocation();
   const { t } = useTranslation();
 
-  const pathSegments = location.split('/').filter(Boolean);
+  // Strip query parameters and hash from location
+  const pathname = location.split('?')[0].split('#')[0];
+  const pathSegments = pathname.split('/').filter(Boolean);
   
   if (pathSegments[0] !== 'admin' || pathSegments.length < 2) {
     return null;
