@@ -50,10 +50,55 @@ The Admin Portal features a comprehensive i18n system with RTL support, using `i
 - Fully bilingual with i18n support
 
 **Completed Screens**:
-- Categories Management (`/admin/categories`): Server-side pagination, bilingual name display, Featured/Active filters, search across name/nameAr/slug fields
+- Categories Management (`/admin/categories`): Tree table view with hierarchy indentation (L0/L1/L2 badges), create/edit forms with Lucide icon picker, bilingual fields (name/nameAr, description/descriptionAr, hero sections), parent dropdown with depth-limited options, display order, featured/active/visible toggles, delete protection warnings. Server-side validation enforces 3-level hierarchy (level 0-2), prevents level 3+ creation, validates parent.level + 1 consistency, checks slug uniqueness. Includes reorder endpoint for display_order management
 - Bids Management (`/admin/bids`): Server-side pagination, status filtering (pending, shortlisted, accepted, rejected, withdrawn), job filtering, search across consultant name/email/job title/cover letter, displays bid details with consultant info, client info, proposed budget (SAR), duration, submission date, and viewed status. Uses proper table aliasing (`consultantUser`, `clientUser`) via `drizzle-orm/pg-core` for multi-table joins
 - Payments Management (`/admin/payments`): Server-side pagination, status filtering (pending, processing, completed, failed, refunded), type filtering (deposit, release, refund, withdrawal), search across transaction ID/project title/payer-payee names & emails/description, displays payment details with transaction ID, project title, payer info, payee info, amount (SAR with 2 decimals), type, status, payment method, and transaction date. Uses proper table aliasing (`payerUser`, `payeeUser`) via `drizzle-orm/pg-core` for multi-table joins. Requires `finance:view` permission
 - Contracts Management (`/admin/contracts`): Server-side pagination, status filtering (not_started, in_progress, paused, completed, cancelled, disputed), client/consultant ID filtering, date-range filtering, search across project title/description/job title/client-consultant names & emails, displays contract details with project title, job title, client info, consultant info, budget (SAR), bid amount (SAR), status, milestone progress, payment totals (SAR with transaction count), dispute count, and creation date. Uses proper table aliasing (`clientUser`, `consultantUser`) and joins with jobs, bids, payments, and disputes tables. Includes aggregated payment totals and dispute counts via subqueries. Requires `finance:view` permission
+
+### 3-Level Hierarchical Category System
+The platform uses a comprehensive 3-level category hierarchy that serves as the primary segmentation for job postings, consultant services, and marketplace navigation.
+
+**Architecture**:
+- **Level 0 (Primary Categories)**: 4 root categories (Software Services, Digital Marketing, HR, Infra & Hardware)
+- **Level 1 (Subcategories)**: 16 subcategories (4 per primary category)
+- **Level 2 (Super-subcategories)**: 64 super-subcategories (4 per subcategory)
+- **Total**: 84 categories across 3 levels with bilingual content (English/Arabic)
+
+**Schema Features** (`shared/schema.ts`):
+- Level constraint: 0-2 (enforced server-side to prevent hierarchy beyond 3 levels)
+- Landing page fields: heroTitle/heroTitleAr, heroDescription/heroDescriptionAr
+- Junction table: `consultant_categories` with `isPrimary` flag for consultant service offerings
+- Fields: name/nameAr, description/descriptionAr, slug (unique), icon (Lucide), displayOrder, featured, active, visible
+
+**Public API Routes**:
+- `GET /api/categories/root`: Fetches root categories (level 0) for homepage
+- `GET /api/categories/slug/:slug`: Fetches category by slug with children and breadcrumb path (parent traversal)
+
+**Admin API Routes**:
+- `GET /api/admin/categories/tree`: Full tree hierarchy view
+- `GET /api/admin/categories/:id/children`: Child categories of specific parent
+- `POST /api/admin/categories`: Create category (with depth and parent validation)
+- `PUT /api/admin/categories/:id`: Update category
+- `DELETE /api/admin/categories/:id`: Delete category
+- `PATCH /api/admin/categories/:id/toggle`: Toggle active status
+- `PUT /api/admin/categories/reorder`: Bulk reorder by display_order
+
+**Server-Side Validation**:
+- Level enforcement: Prevents creation of level 3+ categories
+- Parent validation: Ensures level = parent.level + 1
+- Slug uniqueness: Checks before creation/update
+- Delete protection: (Planned) prevents deletion if category has children/jobs/consultants
+
+**Frontend Pages**:
+- **Homepage** (`/`): Displays 4 root categories with "Explore Services" and "Find Consultant" buttons
+- **Category Landing** (`/services/:slug`): Dynamic pages for all 3 levels with breadcrumbs, hero section, and child category grid
+- **Admin Categories** (`/admin/categories`): Tree table management with hierarchy indentation, L0/L1/L2 badges
+
+**Navigation Pattern**:
+- Each category has a unique single-segment slug (e.g., "software-services", "web-development")
+- Navigation: Home → /services/software-services → /services/web-development → /services/frontend-development
+- Breadcrumbs built by API traversing parent relationships
+- Leaf pages (level 2) show featured consultants (planned)
 
 ### Dashboard & Profile Management
 - **Client Dashboard**: Displays active jobs, bids, spending, and messages.
