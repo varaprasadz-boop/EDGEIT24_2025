@@ -185,6 +185,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public: Get root categories (level 0) for homepage
+  app.get('/api/categories/root', async (req, res) => {
+    try {
+      const rootCategories = await db
+        .select()
+        .from(categories)
+        .where(and(
+          eq(categories.level, 0),
+          eq(categories.active, true),
+          eq(categories.visible, true)
+        ))
+        .orderBy(categories.displayOrder, categories.name);
+      
+      res.json(rootCategories);
+    } catch (error) {
+      console.error("Error fetching root categories:", error);
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
+  // Public: Get category by slug (with children and breadcrumb path)
+  app.get('/api/categories/slug/:slug', async (req, res) => {
+    try {
+      const { slug } = req.params;
+      
+      // Get category by slug
+      const [category] = await db
+        .select()
+        .from(categories)
+        .where(and(
+          eq(categories.slug, slug),
+          eq(categories.active, true),
+          eq(categories.visible, true)
+        ))
+        .limit(1);
+      
+      if (!category) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+      
+      // Get children (if any)
+      const children = await db
+        .select()
+        .from(categories)
+        .where(and(
+          eq(categories.parentId, category.id),
+          eq(categories.active, true),
+          eq(categories.visible, true)
+        ))
+        .orderBy(categories.displayOrder, categories.name);
+      
+      // Build breadcrumb path (get all ancestors)
+      const breadcrumbs = [];
+      let currentCategory = category;
+      breadcrumbs.unshift(currentCategory);
+      
+      while (currentCategory.parentId) {
+        const [parent] = await db
+          .select()
+          .from(categories)
+          .where(eq(categories.id, currentCategory.parentId))
+          .limit(1);
+        
+        if (parent) {
+          breadcrumbs.unshift(parent);
+          currentCategory = parent;
+        } else {
+          break;
+        }
+      }
+      
+      res.json({
+        category,
+        children,
+        breadcrumbs,
+      });
+    } catch (error) {
+      console.error("Error fetching category by slug:", error);
+      res.status(500).json({ message: "Failed to fetch category" });
+    }
+  });
+
   // Dashboard endpoints
   app.get('/api/dashboard/client/stats', isAuthenticated, async (req: any, res) => {
     try {
@@ -623,6 +705,254 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching categories:", error);
       res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
+  // Get category tree (full hierarchy)
+  app.get('/api/admin/categories/tree', isAuthenticated, isAdmin, hasPermission('categories:view'), async (req, res) => {
+    try {
+      // Fetch all categories
+      const allCategories = await db.select().from(categories).orderBy(categories.level, categories.displayOrder, categories.name);
+      
+      // Build tree structure
+      const buildTree = (parentId: string | null = null): any[] => {
+        return allCategories
+          .filter(cat => cat.parentId === parentId)
+          .map(cat => ({
+            ...cat,
+            children: buildTree(cat.id),
+          }));
+      };
+      
+      const tree = buildTree(null);
+      res.json({ tree });
+    } catch (error) {
+      console.error("Error fetching category tree:", error);
+      res.status(500).json({ message: "Failed to fetch category tree" });
+    }
+  });
+
+  // Get category children
+  app.get('/api/admin/categories/:id/children', isAuthenticated, isAdmin, hasPermission('categories:view'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const children = await db.select().from(categories).where(eq(categories.parentId, id)).orderBy(categories.displayOrder, categories.name);
+      res.json({ children });
+    } catch (error) {
+      console.error("Error fetching category children:", error);
+      res.status(500).json({ message: "Failed to fetch category children" });
+    }
+  });
+
+  // Create category
+  app.post('/api/admin/categories', isAuthenticated, isAdmin, hasPermission('categories:create'), async (req, res) => {
+    try {
+      const { parentId, level, name, nameAr, slug, description, descriptionAr, heroTitle, heroTitleAr, heroDescription, heroDescriptionAr, icon, displayOrder, featured, active, visible } = req.body;
+      
+      // Validate level (0-2 for 3-level hierarchy)
+      if (level < 0 || level > 2) {
+        return res.status(400).json({ message: "Level must be between 0 and 2 (3-level hierarchy)" });
+      }
+      
+      // If parentId is provided, validate parent level
+      if (parentId) {
+        const parent = await db.select().from(categories).where(eq(categories.id, parentId)).limit(1);
+        if (!parent || parent.length === 0) {
+          return res.status(400).json({ message: "Parent category not found" });
+        }
+        
+        // Ensure level is parent.level + 1
+        if (level !== parent[0].level + 1) {
+          return res.status(400).json({ message: `Level must be ${parent[0].level + 1} for this parent` });
+        }
+        
+        // Prevent creating level 3+ (exceeding max depth)
+        if (parent[0].level >= 2) {
+          return res.status(400).json({ message: "Cannot create categories beyond level 2 (3-level maximum)" });
+        }
+      } else if (level !== 0) {
+        return res.status(400).json({ message: "Root categories must have level 0" });
+      }
+      
+      // Check slug uniqueness
+      const existing = await db.select().from(categories).where(eq(categories.slug, slug)).limit(1);
+      if (existing && existing.length > 0) {
+        return res.status(400).json({ message: "Category with this slug already exists" });
+      }
+      
+      // Create category
+      const [newCategory] = await db.insert(categories).values({
+        parentId: parentId || null,
+        level,
+        name,
+        nameAr,
+        slug,
+        description,
+        descriptionAr,
+        heroTitle,
+        heroTitleAr,
+        heroDescription,
+        heroDescriptionAr,
+        icon,
+        displayOrder: displayOrder || 0,
+        featured: featured || false,
+        active: active !== false, // default true
+        visible: visible !== false, // default true
+      }).returning();
+      
+      res.status(201).json(newCategory);
+    } catch (error) {
+      console.error("Error creating category:", error);
+      res.status(500).json({ message: "Failed to create category" });
+    }
+  });
+
+  // Update category
+  app.put('/api/admin/categories/:id', isAuthenticated, isAdmin, hasPermission('categories:edit'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { parentId, level, name, nameAr, slug, description, descriptionAr, heroTitle, heroTitleAr, heroDescription, heroDescriptionAr, icon, displayOrder, featured, active, visible } = req.body;
+      
+      // Get existing category
+      const existing = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+      if (!existing || existing.length === 0) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+      
+      // Validate level if provided
+      if (level !== undefined && (level < 0 || level > 2)) {
+        return res.status(400).json({ message: "Level must be between 0 and 2" });
+      }
+      
+      // If changing parentId, validate it
+      if (parentId !== undefined && parentId !== existing[0].parentId) {
+        if (parentId) {
+          const parent = await db.select().from(categories).where(eq(categories.id, parentId)).limit(1);
+          if (!parent || parent.length === 0) {
+            return res.status(400).json({ message: "Parent category not found" });
+          }
+          
+          // Check if setting parent to itself or a descendant (prevent cycles)
+          if (parent[0].id === id) {
+            return res.status(400).json({ message: "Cannot set category as its own parent" });
+          }
+          
+          // Ensure new level matches parent level + 1
+          const newLevel = level !== undefined ? level : parent[0].level + 1;
+          if (newLevel !== parent[0].level + 1) {
+            return res.status(400).json({ message: `Level must be ${parent[0].level + 1} for this parent` });
+          }
+        }
+      }
+      
+      // Check slug uniqueness if changed
+      if (slug && slug !== existing[0].slug) {
+        const slugExists = await db.select().from(categories).where(eq(categories.slug, slug)).limit(1);
+        if (slugExists && slugExists.length > 0) {
+          return res.status(400).json({ message: "Category with this slug already exists" });
+        }
+      }
+      
+      // Update category
+      const [updated] = await db.update(categories).set({
+        parentId: parentId !== undefined ? parentId : existing[0].parentId,
+        level: level !== undefined ? level : existing[0].level,
+        name: name || existing[0].name,
+        nameAr: nameAr !== undefined ? nameAr : existing[0].nameAr,
+        slug: slug || existing[0].slug,
+        description: description !== undefined ? description : existing[0].description,
+        descriptionAr: descriptionAr !== undefined ? descriptionAr : existing[0].descriptionAr,
+        heroTitle: heroTitle !== undefined ? heroTitle : existing[0].heroTitle,
+        heroTitleAr: heroTitleAr !== undefined ? heroTitleAr : existing[0].heroTitleAr,
+        heroDescription: heroDescription !== undefined ? heroDescription : existing[0].heroDescription,
+        heroDescriptionAr: heroDescriptionAr !== undefined ? heroDescriptionAr : existing[0].heroDescriptionAr,
+        icon: icon !== undefined ? icon : existing[0].icon,
+        displayOrder: displayOrder !== undefined ? displayOrder : existing[0].displayOrder,
+        featured: featured !== undefined ? featured : existing[0].featured,
+        active: active !== undefined ? active : existing[0].active,
+        visible: visible !== undefined ? visible : existing[0].visible,
+        updatedAt: new Date(),
+      }).where(eq(categories.id, id)).returning();
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating category:", error);
+      res.status(500).json({ message: "Failed to update category" });
+    }
+  });
+
+  // Delete category
+  app.delete('/api/admin/categories/:id', isAuthenticated, isAdmin, hasPermission('categories:delete'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Check if category has children
+      const children = await db.select().from(categories).where(eq(categories.parentId, id)).limit(1);
+      if (children && children.length > 0) {
+        return res.status(400).json({ message: "Cannot delete category with children. Delete children first or disable this category." });
+      }
+      
+      // Check if category is used in jobs
+      const jobsUsingCategory = await db.select().from(jobs).where(eq(jobs.categoryId, id)).limit(1);
+      if (jobsUsingCategory && jobsUsingCategory.length > 0) {
+        return res.status(400).json({ message: "Cannot delete category used in active jobs. Disable this category instead." });
+      }
+      
+      // Delete category
+      await db.delete(categories).where(eq(categories.id, id));
+      
+      res.json({ message: "Category deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      res.status(500).json({ message: "Failed to delete category" });
+    }
+  });
+
+  // Toggle category active status
+  app.patch('/api/admin/categories/:id/toggle', isAuthenticated, isAdmin, hasPermission('categories:edit'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get current category
+      const existing = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+      if (!existing || existing.length === 0) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+      
+      // Toggle active status
+      const [updated] = await db.update(categories).set({
+        active: !existing[0].active,
+        updatedAt: new Date(),
+      }).where(eq(categories.id, id)).returning();
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error toggling category:", error);
+      res.status(500).json({ message: "Failed to toggle category" });
+    }
+  });
+
+  // Reorder categories
+  app.put('/api/admin/categories/reorder', isAuthenticated, isAdmin, hasPermission('categories:edit'), async (req, res) => {
+    try {
+      const { updates } = req.body; // Array of { id, displayOrder }
+      
+      if (!Array.isArray(updates)) {
+        return res.status(400).json({ message: "Updates must be an array" });
+      }
+      
+      // Update each category's display order
+      for (const update of updates) {
+        await db.update(categories).set({
+          displayOrder: update.displayOrder,
+          updatedAt: new Date(),
+        }).where(eq(categories.id, update.id));
+      }
+      
+      res.json({ message: "Categories reordered successfully" });
+    } catch (error) {
+      console.error("Error reordering categories:", error);
+      res.status(500).json({ message: "Failed to reorder categories" });
     }
   });
 

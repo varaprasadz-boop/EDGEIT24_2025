@@ -11,6 +11,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useAuthContext } from "@/contexts/AuthContext";
 import type { SubscriptionPlan } from "@shared/schema";
+import * as LucideIcons from "lucide-react";
 import {
   Users,
   Code,
@@ -26,6 +27,16 @@ import {
   Clock,
   Zap
 } from "lucide-react";
+
+interface Category {
+  id: string;
+  name: string;
+  nameAr: string | null;
+  slug: string;
+  description: string | null;
+  descriptionAr: string | null;
+  icon: string | null;
+}
 
 // Helper to create stable test ID slug from plan name
 function createPlanSlug(name: string): string {
@@ -140,9 +151,21 @@ export default function Home() {
     queryKey: ['/api/subscription-plans'],
   });
 
+  // Fetch root categories for homepage
+  const { data: rootCategories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
+    queryKey: ['/api/categories/root'],
+  });
+
   // Filter plans by audience
   const clientPlans = allPlans.filter(plan => plan.audience === 'client');
   const consultantPlans = allPlans.filter(plan => plan.audience === 'consultant');
+
+  // Get icon component from Lucide
+  const getIconComponent = (iconName: string | null) => {
+    if (!iconName) return Code;
+    const Icon = (LucideIcons as any)[iconName];
+    return Icon || Code;
+  };
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -331,80 +354,73 @@ export default function Home() {
         <section className="py-20 bg-muted/30">
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-services-title">IT Services We Offer</h2>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-services-title">Services We Offer</h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto" data-testid="text-services-subtitle">
                 Comprehensive IT solutions across all major technology domains
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-              <Card className="group hover-elevate cursor-pointer" data-testid="card-service-human">
-                <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-                    <Users className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-xl" data-testid="text-service-human-title">Human Resources</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription data-testid="text-service-human-desc">
-                    IT consultants, developers, designers, and project managers on demand.
-                  </CardDescription>
-                  <Button variant="ghost" className="mt-4 text-primary" data-testid="button-explore-human">
-                    Explore <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="group hover-elevate cursor-pointer" data-testid="card-service-software">
-                <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-                    <Code className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-xl" data-testid="text-service-software-title">Software Services</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription data-testid="text-service-software-desc">
-                    Custom software development, ERP implementation, and SaaS solutions.
-                  </CardDescription>
-                  <Button variant="ghost" className="mt-4 text-primary" data-testid="button-explore-software">
-                    Explore <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="group hover-elevate cursor-pointer" data-testid="card-service-marketing">
-                <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-                    <Megaphone className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-xl" data-testid="text-service-marketing-title">Digital Marketing</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription data-testid="text-service-marketing-desc">
-                    SEO, PPC, content marketing, and social media management services.
-                  </CardDescription>
-                  <Button variant="ghost" className="mt-4 text-primary" data-testid="button-explore-marketing">
-                    Explore <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="group hover-elevate cursor-pointer" data-testid="card-service-hardware">
-                <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-                    <HardDrive className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-xl" data-testid="text-service-hardware-title">Hardware Supply</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription data-testid="text-service-hardware-desc">
-                    Servers, networking equipment, workstations, and IT infrastructure.
-                  </CardDescription>
-                  <Button variant="ghost" className="mt-4 text-primary" data-testid="button-explore-hardware">
-                    Explore <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+            
+            {categoriesLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+                {[1, 2, 3, 4].map(i => (
+                  <Card key={i} className="hover-elevate">
+                    <CardHeader>
+                      <Skeleton className="w-12 h-12 rounded-lg mb-4" />
+                      <Skeleton className="h-6 w-32" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-16 w-full mb-4" />
+                      <Skeleton className="h-10 w-full" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+                {rootCategories.map((category) => {
+                  const Icon = getIconComponent(category.icon);
+                  return (
+                    <Card key={category.id} className="group hover-elevate" data-testid={`card-service-${category.slug}`}>
+                      <CardHeader>
+                        <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+                          <Icon className="h-6 w-6 text-primary" />
+                        </div>
+                        <CardTitle className="text-xl" data-testid={`text-service-${category.slug}-title`}>
+                          {category.name}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <CardDescription data-testid={`text-service-${category.slug}-desc`}>
+                          {category.description}
+                        </CardDescription>
+                        <div className="flex flex-col gap-2 pt-2">
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-start text-primary"
+                            asChild
+                            data-testid={`button-explore-${category.slug}`}
+                          >
+                            <Link href={`/services/${category.slug}`}>
+                              Explore Services <ArrowRight className="ml-auto h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start"
+                            asChild
+                            data-testid={`button-find-consultant-${category.slug}`}
+                          >
+                            <Link href={`/browse-consultants?category=${category.id}`}>
+                              Find Consultant <Users className="ml-auto h-4 w-4" />
+                            </Link>
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </section>
 

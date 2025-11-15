@@ -77,6 +77,21 @@ export const consultantProfiles = pgTable("consultant_profiles", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Consultant Categories - Junction table for consultant service offerings
+// NOTE: One primary service per consultant is enforced at application level via transactional validation
+export const consultantCategories = pgTable("consultant_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  consultantProfileId: varchar("consultant_profile_id").notNull().references(() => consultantProfiles.id, { onDelete: "cascade" }),
+  categoryId: varchar("category_id").notNull().references(() => categories.id, { onDelete: "cascade" }),
+  isPrimary: boolean("is_primary").default(false), // One primary service per consultant (enforced in API)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  consultantIdIdx: index("consultant_categories_consultant_id_idx").on(table.consultantProfileId),
+  categoryIdIdx: index("consultant_categories_category_id_idx").on(table.categoryId),
+  // Prevent duplicate category selections
+  uniqueConsultantCategory: uniqueIndex("unique_consultant_category").on(table.consultantProfileId, table.categoryId),
+}));
+
 // Admin Roles - For RBAC system
 export const adminRoles = pgTable("admin_roles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -113,9 +128,14 @@ export const categories = pgTable("categories", {
   slug: text("slug").notNull().unique(),
   description: text("description"),
   descriptionAr: text("description_ar"), // Arabic translation
+  heroTitle: text("hero_title"), // Landing page hero title
+  heroTitleAr: text("hero_title_ar"), // Arabic hero title
+  heroDescription: text("hero_description"), // Landing page hero description
+  heroDescriptionAr: text("hero_description_ar"), // Arabic hero description
   icon: text("icon"), // lucide-react icon name
   image: text("image"), // Category image URL
   parentId: varchar("parent_id").references((): any => categories.id, { onDelete: "set null" }), // Self-reference for subcategories
+  level: integer("level").notNull().default(0), // 0 = root, 1 = subcategory, 2 = super-subcategory (max depth = 2)
   customFields: jsonb("custom_fields"), // Array of field definitions for category forms
   requirementApprovalRequired: boolean("requirement_approval_required").default(false),
   bidLimit: integer("bid_limit"),
@@ -133,6 +153,7 @@ export const categories = pgTable("categories", {
 }, (table) => ({
   parentIdIdx: index("categories_parent_id_idx").on(table.parentId),
   activeIdx: index("categories_active_idx").on(table.active),
+  levelIdx: index("categories_level_idx").on(table.level),
 }));
 
 // Vendor Category Requests - Vendors requesting access to categories
@@ -464,10 +485,21 @@ export const insertConsultantProfileSchema = createInsertSchema(consultantProfil
 export type InsertConsultantProfile = z.infer<typeof insertConsultantProfileSchema>;
 export type ConsultantProfile = typeof consultantProfiles.$inferSelect;
 
+// Consultant Categories
+export const insertConsultantCategorySchema = createInsertSchema(consultantCategories).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertConsultantCategory = z.infer<typeof insertConsultantCategorySchema>;
+export type ConsultantCategory = typeof consultantCategories.$inferSelect;
+
 // Categories
 export const insertCategorySchema = createInsertSchema(categories).omit({
   id: true,
   createdAt: true,
+}).extend({
+  level: z.number().min(0).max(2).default(0), // Enforce 3-level hierarchy (0, 1, 2)
 });
 
 export type InsertCategory = z.infer<typeof insertCategorySchema>;

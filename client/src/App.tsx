@@ -11,6 +11,7 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import ClientProfile from "@/pages/ClientProfile";
 import ConsultantProfile from "@/pages/ConsultantProfile";
+import CategoryLanding from "@/pages/CategoryLanding";
 import AdminLogin from "@/pages/AdminLogin";
 import NotFound from "@/pages/not-found";
 
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/profile/client" component={ClientProfile} />
       <Route path="/profile/consultant" component={ConsultantProfile} />
+      <Route path="/services/:slug" component={CategoryLanding} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/:rest*" component={AdminRouter} />
       <Route component={NotFound} />
