@@ -515,7 +515,7 @@ export default function AdminCategories() {
 
   return (
     <AdminLayout>
-      <div className="p-6">
+      <div className="px-6 pb-6 pt-4">
         {/* Action Toolbar */}
         <div className="flex items-center justify-end gap-2 mb-4">
           <Button
