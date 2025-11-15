@@ -224,18 +224,16 @@ export default function CategoryLanding({ params }: { params: { slug: string } }
                           {child.description}
                         </CardDescription>
                         <div className="flex flex-col gap-2 pt-2">
-                          {child.level < 2 && (
-                            <Button
-                              variant="ghost"
-                              className="w-full justify-start text-primary"
-                              asChild
-                              data-testid={`button-explore-${child.slug}`}
-                            >
-                              <Link href={`/services/${child.slug}`}>
-                                Explore Services <ArrowRight className="ml-auto h-4 w-4" />
-                              </Link>
-                            </Button>
-                          )}
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-start text-primary"
+                            asChild
+                            data-testid={`button-explore-${child.slug}`}
+                          >
+                            <Link href={`/services/${child.slug}`}>
+                              Explore Services <ArrowRight className="ml-auto h-4 w-4" />
+                            </Link>
+                          </Button>
                           <Button
                             variant="outline"
                             className="w-full justify-start"

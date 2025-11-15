@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Briefcase, ArrowLeft } from "lucide-react";
 import { insertJobSchema } from "@shared/schema";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 // Extend schema with validation
 const postJobSchema = insertJobSchema.extend({
@@ -29,6 +30,19 @@ export default function PostJob() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [categoryPath, setCategoryPath] = useState<string>("");
+  const { user, isLoading, getActiveRole } = useAuthContext();
+
+  // Redirect to login if not authenticated (only after loading completes)
+  useEffect(() => {
+    if (!isLoading && !user) {
+      const redirectUrl = `/login?redirect=${encodeURIComponent('/post-job')}`;
+      setLocation(redirectUrl);
+    }
+  }, [isLoading, user, setLocation]);
+
+  // Check if user has client role (safely after user is loaded)
+  const activeRole = user ? getActiveRole() : null;
+  const isClient = activeRole === 'client' || activeRole === 'both';
 
   const form = useForm<PostJobFormData>({
     resolver: zodResolver(postJobSchema),
@@ -69,8 +83,54 @@ export default function PostJob() {
   });
 
   const onSubmit = (data: PostJobFormData) => {
+    // Guard against submission if not client
+    if (!isClient) {
+      toast({
+        title: "Authorization Required",
+        description: "You must have a client profile to post jobs.",
+        variant: "destructive",
+      });
+      return;
+    }
     createJobMutation.mutate(data);
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="container max-w-4xl mx-auto p-6">
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect handled by useEffect, show nothing while redirecting
+  if (!user) {
+    return null;
+  }
+
+  // Show message if user is not a client
+  if (!isClient) {
+    return (
+      <div className="container max-w-4xl mx-auto p-6 space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Client Profile Required</CardTitle>
+            <CardDescription>
+              You need to create a client profile before posting jobs.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => setLocation('/profile/client')} data-testid="button-create-profile">
+              Create Client Profile
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container max-w-4xl mx-auto p-6 space-y-6">
@@ -235,7 +295,7 @@ export default function PostJob() {
             </Button>
             <Button
               type="submit"
-              disabled={createJobMutation.isPending}
+              disabled={createJobMutation.isPending || !isClient}
               data-testid="button-submit"
             >
               {createJobMutation.isPending ? "Posting..." : "Post Job"}
