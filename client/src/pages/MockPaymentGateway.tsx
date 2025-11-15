@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Shield } from "lucide-react";
 
 export default function MockPaymentGateway() {
   const [location, navigate] = useLocation();
@@ -85,6 +86,18 @@ export default function MockPaymentGateway() {
               />
             </div>
           </div>
+          
+          <div className="flex items-start gap-2 p-3 rounded-md bg-muted/50 border" data-testid="container-privacy-notice">
+            <Shield className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+            <p className="text-xs text-muted-foreground" data-testid="text-privacy-notice">
+              Your payment information is secure and encrypted. By proceeding, you agree to our{" "}
+              <Link href="/legal/privacy-policy" className="text-primary hover:underline" data-testid="link-privacy-policy">
+                Privacy Policy
+              </Link>
+              .
+            </p>
+          </div>
+
           <Button
             onClick={handlePayment}
             disabled={processing}
