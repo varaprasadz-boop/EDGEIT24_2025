@@ -14,6 +14,8 @@ import AdminDisputes from "@/pages/AdminDisputes";
 import AdminVendors from "@/pages/AdminVendors";
 import AdminSettings from "@/pages/AdminSettings";
 import AdminEmailTemplates from "@/pages/AdminEmailTemplates";
+import AdminContentPages from "@/pages/admin/AdminContentPages";
+import AdminFooterLinks from "@/pages/admin/AdminFooterLinks";
 
 export function AdminRouter() {
   return (
@@ -34,6 +36,8 @@ export function AdminRouter() {
         <Route path="/admin/vendors" component={AdminVendors} />
         <Route path="/admin/settings" component={AdminSettings} />
         <Route path="/admin/email-templates" component={AdminEmailTemplates} />
+        <Route path="/admin/content-pages" component={AdminContentPages} />
+        <Route path="/admin/footer-links" component={AdminFooterLinks} />
       </Switch>
     </AdminLayout>
   );

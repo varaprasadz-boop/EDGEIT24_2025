@@ -628,6 +628,76 @@ export const platformSettings = pgTable("platform_settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// CMS - Content Pages (Terms, Privacy, About, etc.)
+export const contentPages = pgTable("content_pages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug: text("slug").notNull().unique(), // 'terms-client', 'terms-consultant', 'privacy-policy', 'about-us'
+  title: text("title").notNull(),
+  titleAr: text("title_ar"),
+  content: text("content").notNull(), // Rich text content (HTML)
+  contentAr: text("content_ar"),
+  pageType: text("page_type").notNull(), // 'legal', 'company', 'support'
+  status: text("status").notNull().default('draft'), // 'draft', 'published', 'archived'
+  metaTitle: text("meta_title"),
+  metaTitleAr: text("meta_title_ar"),
+  metaDescription: text("meta_description"),
+  metaDescriptionAr: text("meta_description_ar"),
+  displayOrder: integer("display_order").default(0),
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  slugIdx: index("content_pages_slug_idx").on(table.slug),
+  pageTypeIdx: index("content_pages_page_type_idx").on(table.pageType),
+  statusIdx: index("content_pages_status_idx").on(table.status),
+}));
+
+// CMS - Footer Links
+export const footerLinks = pgTable("footer_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  label: text("label").notNull(),
+  labelAr: text("label_ar"),
+  url: text("url").notNull(),
+  section: text("section").notNull(), // 'company', 'legal', 'support'
+  displayOrder: integer("display_order").default(0),
+  isExternal: boolean("is_external").default(false),
+  openInNewTab: boolean("open_in_new_tab").default(false),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  sectionIdx: index("footer_links_section_idx").on(table.section),
+  activeIdx: index("footer_links_active_idx").on(table.active),
+  orderIdx: index("footer_links_order_idx").on(table.displayOrder),
+}));
+
+// CMS - Home Page Sections (Hero, Features, Testimonials, etc.)
+export const homePageSections = pgTable("home_page_sections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sectionType: text("section_type").notNull(), // 'hero', 'features', 'testimonials', 'stats', 'cta'
+  title: text("title"),
+  titleAr: text("title_ar"),
+  subtitle: text("subtitle"),
+  subtitleAr: text("subtitle_ar"),
+  content: text("content"), // Rich text or JSON content
+  contentAr: text("content_ar"),
+  imageUrl: text("image_url"),
+  ctaText: text("cta_text"),
+  ctaTextAr: text("cta_text_ar"),
+  ctaLink: text("cta_link"),
+  displayOrder: integer("display_order").default(0),
+  active: boolean("active").default(true),
+  settings: jsonb("settings"), // Additional settings as JSON
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  typeIdx: index("home_page_sections_type_idx").on(table.sectionType),
+  activeIdx: index("home_page_sections_active_idx").on(table.active),
+  orderIdx: index("home_page_sections_order_idx").on(table.displayOrder),
+}));
+
 // Email Templates - Predefined email templates for various triggers
 export const emailTemplates = pgTable("email_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -981,3 +1051,57 @@ export const insertUniqueIdCounterSchema = createInsertSchema(uniqueIdCounters).
 
 export type InsertUniqueIdCounter = z.infer<typeof insertUniqueIdCounterSchema>;
 export type UniqueIdCounter = typeof uniqueIdCounters.$inferSelect;
+
+// Content Pages (CMS)
+export const contentPageTypeEnum = z.enum(['legal', 'company', 'support']);
+export const contentPageStatusEnum = z.enum(['draft', 'published', 'archived']);
+export const CONTENT_PAGE_TYPES = contentPageTypeEnum.options;
+export const CONTENT_PAGE_STATUSES = contentPageStatusEnum.options;
+
+export const insertContentPageSchema = createInsertSchema(contentPages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  publishedAt: true,
+}).extend({
+  slug: z.string().min(1, "Slug is required").regex(/^[a-z0-9-]+$/, "Slug must contain only lowercase letters, numbers, and hyphens"),
+  title: z.string().min(1, "Title is required"),
+  content: z.string().min(1, "Content is required"),
+  pageType: contentPageTypeEnum,
+  status: contentPageStatusEnum.default('draft'),
+});
+
+export type InsertContentPage = z.infer<typeof insertContentPageSchema>;
+export type ContentPage = typeof contentPages.$inferSelect;
+
+// Footer Links (CMS)
+export const footerLinkSectionEnum = z.enum(['company', 'legal', 'support']);
+export const FOOTER_LINK_SECTIONS = footerLinkSectionEnum.options;
+
+export const insertFooterLinkSchema = createInsertSchema(footerLinks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  label: z.string().min(1, "Label is required"),
+  url: z.string().min(1, "URL is required"),
+  section: footerLinkSectionEnum,
+});
+
+export type InsertFooterLink = z.infer<typeof insertFooterLinkSchema>;
+export type FooterLink = typeof footerLinks.$inferSelect;
+
+// Home Page Sections (CMS)
+export const homeSectionTypeEnum = z.enum(['hero', 'features', 'testimonials', 'stats', 'cta']);
+export const HOME_SECTION_TYPES = homeSectionTypeEnum.options;
+
+export const insertHomePageSectionSchema = createInsertSchema(homePageSections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  sectionType: homeSectionTypeEnum,
+});
+
+export type InsertHomePageSection = z.infer<typeof insertHomePageSectionSchema>;
+export type HomePageSection = typeof homePageSections.$inferSelect;

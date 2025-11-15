@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminRouter } from "@/components/AdminRouter";
 import Home from "@/pages/Home";
@@ -19,6 +20,7 @@ import Profile from "@/pages/Profile";
 import CategoryLanding from "@/pages/CategoryLanding";
 import AdminLogin from "@/pages/AdminLogin";
 import MockPaymentGateway from "@/pages/MockPaymentGateway";
+import LegalPage from "@/pages/LegalPage";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -36,6 +38,7 @@ function Router() {
       <Route path="/profile/consultant" component={ConsultantProfile} />
       <Route path="/profile" component={Profile} />
       <Route path="/services/:slug" component={CategoryLanding} />
+      <Route path="/legal/:slug" component={LegalPage} />
       <Route path="/mock-payment" component={MockPaymentGateway} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/:rest*" component={AdminRouter} />
@@ -47,12 +50,14 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </AuthProvider>
+      <HelmetProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </AuthProvider>
+      </HelmetProvider>
     </QueryClientProvider>
   );
 }

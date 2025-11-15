@@ -549,11 +549,23 @@ export default function Register() {
 
                       <div className="text-center pt-4 text-sm text-muted-foreground">
                         By signing up, you agree to our{" "}
-                        <a href="/terms" className="text-primary hover:underline">
-                          Terms of Service
+                        <a 
+                          href={selectedRole === "consultant" ? "/legal/terms-consultant" : "/legal/terms-client"} 
+                          className="text-primary hover:underline"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          data-testid="link-terms"
+                        >
+                          Terms & Conditions
                         </a>{" "}
                         and{" "}
-                        <a href="/privacy" className="text-primary hover:underline">
+                        <a 
+                          href="/legal/privacy-policy" 
+                          className="text-primary hover:underline"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          data-testid="link-privacy"
+                        >
                           Privacy Policy
                         </a>
                       </div>

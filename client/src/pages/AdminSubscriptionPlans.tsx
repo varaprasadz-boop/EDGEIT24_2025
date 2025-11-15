@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ColumnDef } from "@tanstack/react-table";
 import { AdminLayout } from "@/components/AdminLayout";
@@ -15,8 +15,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { MoreHorizontal, Edit, Trash2, Plus, Star } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { PlanForm } from "@/components/admin/PlanForm";
 
 interface SubscriptionPlan {
   id: string;
@@ -37,12 +57,16 @@ interface SubscriptionPlan {
 
 export default function AdminSubscriptionPlans() {
   const { t, i18n } = useTranslation();
+  const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 10,
   });
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
 
   // Fetch subscription plans from API
   const { data, isLoading } = useQuery({
@@ -203,12 +227,16 @@ export default function AdminSubscriptionPlans() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>{t("common.actions")}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem data-testid={`button-edit-${plan.id}`}>
+              <DropdownMenuItem 
+                onClick={() => handleEdit(plan)}
+                data-testid={`button-edit-${plan.id}`}
+              >
                 <Edit className="mr-2 h-4 w-4" />
                 {t("subscriptionPlans.editPlan")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
+                onClick={() => handleDelete(plan)}
                 className="text-destructive"
                 data-testid={`button-delete-${plan.id}`}
               >
@@ -231,6 +259,107 @@ export default function AdminSubscriptionPlans() {
     setPagination({ pageIndex: 0, pageSize: pagination.pageSize });
   };
 
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: async (data: Partial<SubscriptionPlan>) => {
+      const response = await apiRequest("PATCH", `/api/admin/subscription-plans/${data.id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/subscription-plans"] });
+      setEditDialogOpen(false);
+      setSelectedPlan(null);
+      toast({
+        title: t("common.success"),
+        description: t("subscriptionPlans.planUpdated"),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("subscriptionPlans.updateError"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create mutation
+  const createMutation = useMutation({
+    mutationFn: async (data: Partial<SubscriptionPlan>) => {
+      const response = await apiRequest("POST", "/api/admin/subscription-plans", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/subscription-plans"] });
+      setEditDialogOpen(false);
+      setSelectedPlan(null);
+      toast({
+        title: t("common.success"),
+        description: t("subscriptionPlans.planCreated"),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("subscriptionPlans.createError"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/admin/subscription-plans/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/subscription-plans"] });
+      setDeleteDialogOpen(false);
+      setSelectedPlan(null);
+      toast({
+        title: t("common.success"),
+        description: t("subscriptionPlans.planDeleted"),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("subscriptionPlans.deleteError"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEdit = (plan: SubscriptionPlan) => {
+    setSelectedPlan(plan);
+    setEditDialogOpen(true);
+  };
+
+  const handleAdd = () => {
+    setSelectedPlan(null);
+    setEditDialogOpen(true);
+  };
+
+  const handleDelete = (plan: SubscriptionPlan) => {
+    setSelectedPlan(plan);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedPlan) {
+      deleteMutation.mutate(selectedPlan.id);
+    }
+  };
+
+  const handleSubmit = (data: Partial<SubscriptionPlan>) => {
+    if (selectedPlan?.id) {
+      updateMutation.mutate({ ...data, id: selectedPlan.id });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6 p-6">
@@ -250,7 +379,7 @@ export default function AdminSubscriptionPlans() {
               {t("subscriptionPlans.subtitle")}
             </p>
           </div>
-          <Button data-testid="button-add-plan">
+          <Button onClick={handleAdd} data-testid="button-add-plan">
             <Plus className="mr-2 h-4 w-4" />
             {t("subscriptionPlans.addPlan")}
           </Button>
@@ -281,6 +410,49 @@ export default function AdminSubscriptionPlans() {
           pagination={pagination}
           onPaginationChange={handlePaginationChange}
         />
+
+        {/* Edit/Create Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedPlan ? t("subscriptionPlans.editPlan") : t("subscriptionPlans.addPlan")}
+              </DialogTitle>
+              <DialogDescription>
+                {selectedPlan 
+                  ? t("subscriptionPlans.editPlanDescription") 
+                  : t("subscriptionPlans.addPlanDescription")}
+              </DialogDescription>
+            </DialogHeader>
+            <PlanForm
+              plan={selectedPlan}
+              onSubmit={handleSubmit}
+              onCancel={() => setEditDialogOpen(false)}
+              isPending={updateMutation.isPending || createMutation.isPending}
+            />
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("subscriptionPlans.deletePlanConfirm")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("subscriptionPlans.deletePlanWarning", { name: selectedPlan?.name })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleteMutation.isPending ? t("common.deleting") : t("common.delete")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminLayout>
   );

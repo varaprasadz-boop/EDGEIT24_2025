@@ -23,6 +23,7 @@ import {
   Layers,
   Mail,
   CheckCircle,
+  Link as LinkIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -172,6 +173,23 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           url: '/admin/refunds',
           icon: RotateCcw,
           testId: 'nav-refunds',
+        },
+      ],
+    },
+    {
+      label: 'Content Management',
+      items: [
+        {
+          title: 'Content Pages',
+          url: '/admin/content-pages',
+          icon: FileText,
+          testId: 'nav-content-pages',
+        },
+        {
+          title: 'Footer Links',
+          url: '/admin/footer-links',
+          icon: LinkIcon,
+          testId: 'nav-footer-links',
         },
       ],
     },

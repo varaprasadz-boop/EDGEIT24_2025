@@ -6,7 +6,7 @@ import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertQuoteRequestSchema } from "@shared/schema";
 import { db } from "./db";
-import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema } from "@shared/schema";
+import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, contentPages, footerLinks, homePageSections, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
@@ -3840,6 +3840,440 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting email template:", error);
       res.status(500).json({ message: "Failed to delete email template" });
+    }
+  });
+
+  // ============================================================================
+  // CMS - CONTENT PAGES MANAGEMENT
+  // ============================================================================
+  
+  // Get all content pages (admin)
+  app.get('/api/admin/content-pages', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { pageType, status, search, page = '1', limit = '20' } = req.query;
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+      
+      const conditions = [];
+      
+      if (pageType && pageType !== 'all') {
+        conditions.push(eq(contentPages.pageType, pageType as string));
+      }
+      
+      if (status && status !== 'all') {
+        conditions.push(eq(contentPages.status, status as string));
+      }
+      
+      if (search && typeof search === 'string' && search.trim()) {
+        const searchTerm = `%${search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(contentPages.title, searchTerm),
+            ilike(contentPages.titleAr, searchTerm),
+            ilike(contentPages.slug, searchTerm)
+          )
+        );
+      }
+      
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      
+      let query = db.select().from(contentPages);
+      if (whereClause) {
+        query = query.where(whereClause) as any;
+      }
+      
+      const pagesResult = await query
+        .limit(limitNum)
+        .offset(offset)
+        .orderBy(contentPages.displayOrder, contentPages.title);
+      
+      let countQuery = db.select({ count: count() }).from(contentPages);
+      if (whereClause) {
+        countQuery = countQuery.where(whereClause) as any;
+      }
+      const [totalResult] = await countQuery;
+      
+      res.json({
+        pages: pagesResult,
+        total: totalResult?.count || 0,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil((totalResult?.count || 0) / limitNum),
+      });
+    } catch (error) {
+      console.error("Error fetching content pages:", error);
+      res.status(500).json({ message: "Failed to fetch content pages" });
+    }
+  });
+
+  // Create content page
+  app.post('/api/admin/content-pages', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const adminId = getUserIdFromRequest(req);
+      const validatedData = insertContentPageSchema.parse(req.body);
+      
+      // Check if slug already exists
+      const [existing] = await db.select()
+        .from(contentPages)
+        .where(eq(contentPages.slug, validatedData.slug))
+        .limit(1);
+      
+      if (existing) {
+        return res.status(400).json({ message: "A page with this slug already exists" });
+      }
+      
+      const [newPage] = await db.insert(contentPages)
+        .values({ 
+          ...validatedData, 
+          createdBy: adminId,
+          updatedBy: adminId,
+          publishedAt: validatedData.status === 'published' ? new Date() : null
+        })
+        .returning();
+      
+      res.status(201).json(newPage);
+    } catch (error: any) {
+      console.error("Error creating content page:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create content page" });
+    }
+  });
+
+  // Update content page
+  app.patch('/api/admin/content-pages/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const adminId = getUserIdFromRequest(req);
+      const validatedData = insertContentPageSchema.partial().parse(req.body);
+      
+      // If slug is being changed, check if it already exists
+      if (validatedData.slug) {
+        const [existing] = await db.select()
+          .from(contentPages)
+          .where(and(
+            eq(contentPages.slug, validatedData.slug),
+            sql`${contentPages.id} != ${id}`
+          ))
+          .limit(1);
+        
+        if (existing) {
+          return res.status(400).json({ message: "A page with this slug already exists" });
+        }
+      }
+      
+      // Update publishedAt if status changed to published
+      const updateData: any = { ...validatedData, updatedBy: adminId, updatedAt: new Date() };
+      if (validatedData.status === 'published') {
+        const [current] = await db.select().from(contentPages).where(eq(contentPages.id, id)).limit(1);
+        if (current && current.status !== 'published') {
+          updateData.publishedAt = new Date();
+        }
+      }
+      
+      const [updatedPage] = await db.update(contentPages)
+        .set(updateData)
+        .where(eq(contentPages.id, id))
+        .returning();
+      
+      if (!updatedPage) {
+        return res.status(404).json({ message: "Content page not found" });
+      }
+      
+      res.json(updatedPage);
+    } catch (error: any) {
+      console.error("Error updating content page:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update content page" });
+    }
+  });
+
+  // Delete content page
+  app.delete('/api/admin/content-pages/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const [deletedPage] = await db.delete(contentPages)
+        .where(eq(contentPages.id, id))
+        .returning();
+      
+      if (!deletedPage) {
+        return res.status(404).json({ message: "Content page not found" });
+      }
+      
+      res.json({ message: "Content page deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting content page:", error);
+      res.status(500).json({ message: "Failed to delete content page" });
+    }
+  });
+
+  // ============================================================================
+  // CMS - FOOTER LINKS MANAGEMENT
+  // ============================================================================
+  
+  // Get all footer links (admin)
+  app.get('/api/admin/footer-links', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { section, active } = req.query;
+      
+      const conditions = [];
+      
+      if (section && section !== 'all') {
+        conditions.push(eq(footerLinks.section, section as string));
+      }
+      
+      if (active && active !== 'all') {
+        conditions.push(eq(footerLinks.active, active === 'true'));
+      }
+      
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      
+      let query = db.select().from(footerLinks);
+      if (whereClause) {
+        query = query.where(whereClause) as any;
+      }
+      
+      const linksResult = await query.orderBy(footerLinks.section, footerLinks.displayOrder);
+      
+      res.json({ links: linksResult });
+    } catch (error) {
+      console.error("Error fetching footer links:", error);
+      res.status(500).json({ message: "Failed to fetch footer links" });
+    }
+  });
+
+  // Create footer link
+  app.post('/api/admin/footer-links', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const validatedData = insertFooterLinkSchema.parse(req.body);
+      
+      const [newLink] = await db.insert(footerLinks)
+        .values(validatedData)
+        .returning();
+      
+      res.status(201).json(newLink);
+    } catch (error: any) {
+      console.error("Error creating footer link:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create footer link" });
+    }
+  });
+
+  // Update footer link
+  app.patch('/api/admin/footer-links/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertFooterLinkSchema.partial().parse(req.body);
+      
+      const [updatedLink] = await db.update(footerLinks)
+        .set({ ...validatedData, updatedAt: new Date() })
+        .where(eq(footerLinks.id, id))
+        .returning();
+      
+      if (!updatedLink) {
+        return res.status(404).json({ message: "Footer link not found" });
+      }
+      
+      res.json(updatedLink);
+    } catch (error: any) {
+      console.error("Error updating footer link:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update footer link" });
+    }
+  });
+
+  // Delete footer link
+  app.delete('/api/admin/footer-links/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const [deletedLink] = await db.delete(footerLinks)
+        .where(eq(footerLinks.id, id))
+        .returning();
+      
+      if (!deletedLink) {
+        return res.status(404).json({ message: "Footer link not found" });
+      }
+      
+      res.json({ message: "Footer link deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting footer link:", error);
+      res.status(500).json({ message: "Failed to delete footer link" });
+    }
+  });
+
+  // ============================================================================
+  // CMS - HOME PAGE SECTIONS MANAGEMENT
+  // ============================================================================
+  
+  // Get all home page sections (admin)
+  app.get('/api/admin/home-sections', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { sectionType, active } = req.query;
+      
+      const conditions = [];
+      
+      if (sectionType && sectionType !== 'all') {
+        conditions.push(eq(homePageSections.sectionType, sectionType as string));
+      }
+      
+      if (active && active !== 'all') {
+        conditions.push(eq(homePageSections.active, active === 'true'));
+      }
+      
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      
+      let query = db.select().from(homePageSections);
+      if (whereClause) {
+        query = query.where(whereClause) as any;
+      }
+      
+      const sectionsResult = await query.orderBy(homePageSections.displayOrder);
+      
+      res.json({ sections: sectionsResult });
+    } catch (error) {
+      console.error("Error fetching home sections:", error);
+      res.status(500).json({ message: "Failed to fetch home sections" });
+    }
+  });
+
+  // Create home section
+  app.post('/api/admin/home-sections', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const validatedData = insertHomePageSectionSchema.parse(req.body);
+      
+      const [newSection] = await db.insert(homePageSections)
+        .values(validatedData)
+        .returning();
+      
+      res.status(201).json(newSection);
+    } catch (error: any) {
+      console.error("Error creating home section:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create home section" });
+    }
+  });
+
+  // Update home section
+  app.patch('/api/admin/home-sections/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertHomePageSectionSchema.partial().parse(req.body);
+      
+      const [updatedSection] = await db.update(homePageSections)
+        .set({ ...validatedData, updatedAt: new Date() })
+        .where(eq(homePageSections.id, id))
+        .returning();
+      
+      if (!updatedSection) {
+        return res.status(404).json({ message: "Home section not found" });
+      }
+      
+      res.json(updatedSection);
+    } catch (error: any) {
+      console.error("Error updating home section:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update home section" });
+    }
+  });
+
+  // Delete home section
+  app.delete('/api/admin/home-sections/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const [deletedSection] = await db.delete(homePageSections)
+        .where(eq(homePageSections.id, id))
+        .returning();
+      
+      if (!deletedSection) {
+        return res.status(404).json({ message: "Home section not found" });
+      }
+      
+      res.json({ message: "Home section deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting home section:", error);
+      res.status(500).json({ message: "Failed to delete home section" });
+    }
+  });
+
+  // ============================================================================
+  // PUBLIC CMS APIS
+  // ============================================================================
+  
+  // Get published content page by slug (public)
+  app.get('/api/content-pages/:slug', async (req, res) => {
+    try {
+      const { slug } = req.params;
+      
+      const [page] = await db.select()
+        .from(contentPages)
+        .where(and(
+          eq(contentPages.slug, slug),
+          eq(contentPages.status, 'published')
+        ))
+        .limit(1);
+      
+      if (!page) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+      
+      res.json(page);
+    } catch (error) {
+      console.error("Error fetching content page:", error);
+      res.status(500).json({ message: "Failed to fetch content page" });
+    }
+  });
+
+  // Get active footer links (public)
+  app.get('/api/footer-links', async (req, res) => {
+    try {
+      const linksResult = await db.select()
+        .from(footerLinks)
+        .where(eq(footerLinks.active, true))
+        .orderBy(footerLinks.section, footerLinks.displayOrder);
+      
+      // Group by section
+      const grouped = linksResult.reduce((acc, link) => {
+        if (!acc[link.section]) {
+          acc[link.section] = [];
+        }
+        acc[link.section].push(link);
+        return acc;
+      }, {} as Record<string, typeof linksResult>);
+      
+      res.json(grouped);
+    } catch (error) {
+      console.error("Error fetching footer links:", error);
+      res.status(500).json({ message: "Failed to fetch footer links" });
+    }
+  });
+
+  // Get active home page sections (public)
+  app.get('/api/home-sections', async (req, res) => {
+    try {
+      const sectionsResult = await db.select()
+        .from(homePageSections)
+        .where(eq(homePageSections.active, true))
+        .orderBy(homePageSections.displayOrder);
+      
+      res.json({ sections: sectionsResult });
+    } catch (error) {
+      console.error("Error fetching home sections:", error);
+      res.status(500).json({ message: "Failed to fetch home sections" });
     }
   });
 
