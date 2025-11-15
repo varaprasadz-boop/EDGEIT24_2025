@@ -11,6 +11,7 @@ import {
   kycDocuments,
   educationRecords,
   bankInformation,
+  pricingTemplates,
   profileApprovalEvents,
   uniqueIdCounters,
   type User,
@@ -30,6 +31,8 @@ import {
   type InsertEducationRecord,
   type BankInformation,
   type InsertBankInformation,
+  type PricingTemplate,
+  type InsertPricingTemplate,
   type ProfileApprovalEvent,
   type InsertProfileApprovalEvent,
   type UniqueIdCounter,
@@ -103,6 +106,12 @@ export interface IStorage {
   getBankInformation(consultantProfileId: string): Promise<BankInformation | undefined>;
   saveBankInformation(info: InsertBankInformation): Promise<BankInformation>;
   updateBankInformation(consultantProfileId: string, data: Partial<InsertBankInformation>): Promise<BankInformation>;
+  
+  // Pricing Template operations
+  getPricingTemplates(consultantProfileId: string): Promise<PricingTemplate[]>;
+  createPricingTemplate(template: InsertPricingTemplate): Promise<PricingTemplate>;
+  updatePricingTemplate(id: string, data: Partial<InsertPricingTemplate>): Promise<PricingTemplate>;
+  deletePricingTemplate(id: string): Promise<void>;
   
   // Profile Approval operations
   createApprovalEvent(event: InsertProfileApprovalEvent): Promise<ProfileApprovalEvent>;
@@ -499,6 +508,38 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bankInformation.consultantProfileId, consultantProfileId))
       .returning();
     return updated;
+  }
+
+  // Pricing Template operations
+  async getPricingTemplates(consultantProfileId: string): Promise<PricingTemplate[]> {
+    return await db
+      .select()
+      .from(pricingTemplates)
+      .where(eq(pricingTemplates.consultantProfileId, consultantProfileId))
+      .orderBy(desc(pricingTemplates.createdAt));
+  }
+
+  async createPricingTemplate(template: InsertPricingTemplate): Promise<PricingTemplate> {
+    const [created] = await db
+      .insert(pricingTemplates)
+      .values(template)
+      .returning();
+    return created;
+  }
+
+  async updatePricingTemplate(id: string, data: Partial<InsertPricingTemplate>): Promise<PricingTemplate> {
+    const [updated] = await db
+      .update(pricingTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(pricingTemplates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePricingTemplate(id: string): Promise<void> {
+    await db
+      .delete(pricingTemplates)
+      .where(eq(pricingTemplates.id, id));
   }
 
   // Profile Approval operations

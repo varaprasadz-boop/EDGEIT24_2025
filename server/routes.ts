@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { z } from "zod";
-import { insertClientProfileSchema, insertConsultantProfileSchema } from "@shared/schema";
+import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema } from "@shared/schema";
 import { db } from "./db";
 import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
@@ -814,6 +814,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error updating consultant categories:", error);
       const message = error instanceof Error ? error.message : "Failed to update consultant categories";
       res.status(500).json({ message });
+    }
+  });
+
+  // Pricing Templates endpoints
+  app.get('/api/profile/consultant/pricing-templates', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      // Get consultant profile to get consultantProfileId
+      const profile = await storage.getConsultantProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Consultant profile not found" });
+      }
+      
+      const templates = await storage.getPricingTemplates(profile.id);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching pricing templates:", error);
+      res.status(500).json({ message: "Failed to fetch pricing templates" });
+    }
+  });
+
+  app.post('/api/profile/consultant/pricing-templates', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      // Get consultant profile to get consultantProfileId
+      const profile = await storage.getConsultantProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Consultant profile not found" });
+      }
+      
+      // Validate request body
+      const validation = insertPricingTemplateSchema.omit({ consultantProfileId: true }).safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid template data", errors: validation.error });
+      }
+      
+      const newTemplate = await storage.createPricingTemplate({
+        ...validation.data,
+        consultantProfileId: profile.id,
+      });
+      
+      res.status(201).json(newTemplate);
+    } catch (error) {
+      console.error("Error creating pricing template:", error);
+      res.status(500).json({ message: "Failed to create pricing template" });
+    }
+  });
+
+  app.put('/api/profile/consultant/pricing-templates/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const { id } = req.params;
+      
+      // Validate request body
+      const validation = insertPricingTemplateSchema.omit({ consultantProfileId: true }).partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid template data", errors: validation.error });
+      }
+      
+      const updatedTemplate = await storage.updatePricingTemplate(id, validation.data);
+      res.json(updatedTemplate);
+    } catch (error) {
+      console.error("Error updating pricing template:", error);
+      res.status(500).json({ message: "Failed to update pricing template" });
+    }
+  });
+
+  app.delete('/api/profile/consultant/pricing-templates/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const { id } = req.params;
+      await storage.deletePricingTemplate(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting pricing template:", error);
+      res.status(500).json({ message: "Failed to delete pricing template" });
     }
   });
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertConsultantProfileSchema, type ConsultantProfile } from "@shared/schema";
+import { insertConsultantProfileSchema, insertPricingTemplateSchema, type ConsultantProfile, type PricingTemplate } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
@@ -47,6 +47,15 @@ interface ServicePackage {
   deliveryTime: string;
 }
 
+interface PricingTemplateForm {
+  id?: string;
+  name: string;
+  description: string;
+  basePrice: string;
+  hourlyRate: string;
+  estimatedHours: string;
+}
+
 type WeeklySchedule = {
   [key in 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday']?: ('morning' | 'afternoon' | 'evening')[];
 };
@@ -75,6 +84,7 @@ export default function ConsultantProfile() {
   const [isEditing, setIsEditing] = useState(false);
   const [portfolioItems, setPortfolioItems] = useReactState<PortfolioItem[]>([]);
   const [servicePackages, setServicePackages] = useReactState<ServicePackage[]>([]);
+  const [pricingTemplates, setPricingTemplates] = useReactState<PricingTemplateForm[]>([]);
   const [weeklySchedule, setWeeklySchedule] = useReactState<WeeklySchedule>({});
   const [selectedCategories, setSelectedCategories] = useReactState<string[]>([]);
   const [primaryCategoryId, setPrimaryCategoryId] = useReactState<string | null>(null);
@@ -100,6 +110,69 @@ export default function ConsultantProfile() {
     },
     enabled: !!user,
     retry: false,
+  });
+
+  // Fetch pricing templates
+  const { data: fetchedTemplates } = useQuery<PricingTemplate[]>({
+    queryKey: ['/api/profile/consultant/pricing-templates'],
+    enabled: !!profile,
+    retry: false,
+  });
+
+  // Initialize pricing templates from API
+  useEffect(() => {
+    if (fetchedTemplates && !isEditing) {
+      setPricingTemplates(fetchedTemplates.map(t => ({
+        id: t.id,
+        name: t.name,
+        description: t.description || '',
+        basePrice: t.basePrice?.toString() || '',
+        hourlyRate: t.hourlyRate?.toString() || '',
+        estimatedHours: t.estimatedHours?.toString() || '',
+      })));
+    }
+  }, [fetchedTemplates, isEditing]);
+
+  // Create pricing template mutation
+  const createTemplateMutation = useMutation({
+    mutationFn: async (template: Omit<PricingTemplateForm, 'id'>) => {
+      return apiRequest('POST', '/api/profile/consultant/pricing-templates', template);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant/pricing-templates'] });
+      toast({
+        title: "Template created",
+        description: "Pricing template created successfully.",
+      });
+    },
+  });
+
+  // Update pricing template mutation
+  const updateTemplateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<PricingTemplateForm> }) => {
+      return apiRequest('PUT', `/api/profile/consultant/pricing-templates/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant/pricing-templates'] });
+      toast({
+        title: "Template updated",
+        description: "Pricing template updated successfully.",
+      });
+    },
+  });
+
+  // Delete pricing template mutation
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest('DELETE', `/api/profile/consultant/pricing-templates/${id}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant/pricing-templates'] });
+      toast({
+        title: "Template deleted",
+        description: "Pricing template deleted successfully.",
+      });
+    },
   });
 
   // Form setup
@@ -230,6 +303,66 @@ export default function ConsultantProfile() {
     const updated = servicePackages.filter((_, i) => i !== index);
     setServicePackages(updated);
     form.setValue('servicePackages', updated.length > 0 ? updated as any : undefined);
+  };
+
+  // Pricing template management functions
+  const addPricingTemplate = () => {
+    setPricingTemplates([...pricingTemplates, { name: "", description: "", basePrice: "", hourlyRate: "", estimatedHours: "" }]);
+  };
+
+  const updatePricingTemplate = (index: number, field: keyof PricingTemplateForm, value: string) => {
+    const updated = [...pricingTemplates];
+    updated[index] = { ...updated[index], [field]: value };
+    setPricingTemplates(updated);
+  };
+
+  const removePricingTemplate = async (index: number) => {
+    const template = pricingTemplates[index];
+    if (template.id) {
+      try {
+        await deleteTemplateMutation.mutateAsync(template.id);
+        const updated = pricingTemplates.filter((_, i) => i !== index);
+        setPricingTemplates(updated);
+      } catch (error) {
+        toast({
+          title: "Delete failed",
+          description: "Failed to delete pricing template",
+          variant: "destructive",
+        });
+      }
+    } else {
+      const updated = pricingTemplates.filter((_, i) => i !== index);
+      setPricingTemplates(updated);
+    }
+  };
+
+  const savePricingTemplate = async (index: number) => {
+    const template = pricingTemplates[index];
+    if (!template.name || !template.basePrice) {
+      toast({
+        title: "Validation error",
+        description: "Template name and base price are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      if (template.id) {
+        await updateTemplateMutation.mutateAsync({ id: template.id, data: template });
+      } else {
+        const created = await createTemplateMutation.mutateAsync(template);
+        const updated = [...pricingTemplates];
+        updated[index] = { ...template, id: (created as any).id };
+        setPricingTemplates(updated);
+      }
+    } catch (error) {
+      toast({
+        title: "Save failed",
+        description: "Failed to save pricing template",
+        variant: "destructive",
+      });
+    }
   };
 
   // Update mutation
@@ -770,6 +903,99 @@ export default function ConsultantProfile() {
                   </div>
                 </div>
 
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <FormLabel className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Pricing Templates
+                    </FormLabel>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={addPricingTemplate}
+                      data-testid="button-add-pricing-template"
+                    >
+                      Add Template
+                    </Button>
+                  </div>
+                  <div className="space-y-4">
+                    {pricingTemplates.map((template, index) => (
+                      <Card key={index}>
+                        <CardContent className="pt-6 space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-1 space-y-3">
+                              <Input
+                                placeholder="Template name (e.g., Basic Website Development)"
+                                value={template.name}
+                                onChange={(e) => updatePricingTemplate(index, 'name', e.target.value)}
+                                data-testid={`input-template-name-${index}`}
+                              />
+                              <Textarea
+                                placeholder="Template description"
+                                value={template.description}
+                                onChange={(e) => updatePricingTemplate(index, 'description', e.target.value)}
+                                className="min-h-[80px] resize-none"
+                                data-testid={`input-template-description-${index}`}
+                              />
+                              <div className="grid grid-cols-3 gap-3">
+                                <Input
+                                  type="number"
+                                  placeholder="Base Price (﷼)"
+                                  value={template.basePrice}
+                                  onChange={(e) => updatePricingTemplate(index, 'basePrice', e.target.value)}
+                                  data-testid={`input-template-baseprice-${index}`}
+                                />
+                                <Input
+                                  type="number"
+                                  placeholder="Hourly Rate (﷼)"
+                                  value={template.hourlyRate}
+                                  onChange={(e) => updatePricingTemplate(index, 'hourlyRate', e.target.value)}
+                                  data-testid={`input-template-hourlyrate-${index}`}
+                                />
+                                <Input
+                                  type="number"
+                                  placeholder="Est. Hours"
+                                  value={template.estimatedHours}
+                                  onChange={(e) => updatePricingTemplate(index, 'estimatedHours', e.target.value)}
+                                  data-testid={`input-template-hours-${index}`}
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  type="button"
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => savePricingTemplate(index)}
+                                  disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}
+                                  data-testid={`button-save-template-${index}`}
+                                >
+                                  <Save className="h-3 w-3 mr-1" />
+                                  {template.id ? 'Update' : 'Save'}
+                                </Button>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removePricingTemplate(index)}
+                              data-testid={`button-remove-template-${index}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {pricingTemplates.length === 0 && (
+                      <div className="text-sm text-muted-foreground text-center py-4">
+                        No pricing templates added yet. Click "Add Template" to create reusable pricing structures.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex gap-3 justify-end">
                   {isOnboarding && (
                     <Button
@@ -1052,6 +1278,55 @@ export default function ConsultantProfile() {
                           {pkg.deliveryTime}
                         </div>
                       </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {pricingTemplates && pricingTemplates.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-primary" />
+                  Pricing Templates
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {pricingTemplates.map((template, index) => (
+                  <Card key={index} data-testid={`pricing-template-${index}`}>
+                    <CardHeader>
+                      <CardTitle className="text-lg" data-testid={`text-template-name-${index}`}>{template.name}</CardTitle>
+                      {template.description && (
+                        <CardDescription data-testid={`text-template-description-${index}`}>
+                          {template.description}
+                        </CardDescription>
+                      )}
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Base Price</span>
+                        <span className="text-xl font-bold text-primary" data-testid={`text-template-baseprice-${index}`}>
+                          ﷼{parseFloat(template.basePrice || '0').toFixed(2)}
+                        </span>
+                      </div>
+                      {template.hourlyRate && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Hourly Rate</span>
+                          <span className="text-sm font-medium" data-testid={`text-template-hourlyrate-${index}`}>
+                            ﷼{parseFloat(template.hourlyRate).toFixed(2)}/hr
+                          </span>
+                        </div>
+                      )}
+                      {template.estimatedHours && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Est. Hours</span>
+                          <span className="text-sm font-medium" data-testid={`text-template-hours-${index}`}>
+                            {template.estimatedHours} hours
+                          </span>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
