@@ -146,10 +146,7 @@ export default function AdminSettings() {
   // Mutation to save settings
   const saveMutation = useMutation({
     mutationFn: async (settingData: { key: string; value: string; dataType: string; category: string; description?: string }) => {
-      return apiRequest('/api/admin/settings', {
-        method: 'POST',
-        body: JSON.stringify(settingData),
-      });
+      return apiRequest('POST', '/api/admin/settings', settingData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/settings'] });
@@ -269,7 +266,7 @@ export default function AdminSettings() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="smtp_host" data-testid="label-smtp-host">SMTP Host</Label>
+                  <Label htmlFor="smtp_host" data-testid="label-smtp-host">{t('admin.settings.smtp.host')}</Label>
                   <Input
                     id="smtp_host"
                     data-testid="input-smtp-host"
@@ -279,7 +276,7 @@ export default function AdminSettings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="smtp_port" data-testid="label-smtp-port">SMTP Port</Label>
+                  <Label htmlFor="smtp_port" data-testid="label-smtp-port">{t('admin.settings.smtp.port')}</Label>
                   <Input
                     id="smtp_port"
                     data-testid="input-smtp-port"
@@ -292,7 +289,7 @@ export default function AdminSettings() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="smtp_username" data-testid="label-smtp-username">SMTP Username</Label>
+                  <Label htmlFor="smtp_username" data-testid="label-smtp-username">{t('admin.settings.smtp.username')}</Label>
                   <Input
                     id="smtp_username"
                     data-testid="input-smtp-username"
@@ -302,7 +299,7 @@ export default function AdminSettings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="smtp_password" data-testid="label-smtp-password">SMTP Password</Label>
+                  <Label htmlFor="smtp_password" data-testid="label-smtp-password">{t('admin.settings.smtp.password')}</Label>
                   <Input
                     id="smtp_password"
                     type="password"
@@ -316,7 +313,7 @@ export default function AdminSettings() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="smtp_from_email" data-testid="label-smtp-from-email">From Email</Label>
+                  <Label htmlFor="smtp_from_email" data-testid="label-smtp-from-email">{t('admin.settings.smtp.fromEmail')}</Label>
                   <Input
                     id="smtp_from_email"
                     data-testid="input-smtp-from-email"
@@ -326,7 +323,7 @@ export default function AdminSettings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="smtp_from_name" data-testid="label-smtp-from-name">From Name</Label>
+                  <Label htmlFor="smtp_from_name" data-testid="label-smtp-from-name">{t('admin.settings.smtp.fromName')}</Label>
                   <Input
                     id="smtp_from_name"
                     data-testid="input-smtp-from-name"
@@ -364,7 +361,7 @@ export default function AdminSettings() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="brand_name" data-testid="label-brand-name">Platform Name</Label>
+                  <Label htmlFor="brand_name" data-testid="label-brand-name">{t('admin.settings.branding.platformName')}</Label>
                   <Input
                     id="brand_name"
                     data-testid="input-brand-name"
@@ -374,7 +371,7 @@ export default function AdminSettings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="brand_primary_color" data-testid="label-brand-color">Primary Color</Label>
+                  <Label htmlFor="brand_primary_color" data-testid="label-brand-color">{t('admin.settings.branding.primaryColor')}</Label>
                   <div className="flex gap-2">
                     <Input
                       id="brand_primary_color"
@@ -396,7 +393,7 @@ export default function AdminSettings() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="brand_logo_url" data-testid="label-brand-logo">Logo URL</Label>
+                  <Label htmlFor="brand_logo_url" data-testid="label-brand-logo">{t('admin.settings.branding.logoUrl')}</Label>
                   <Input
                     id="brand_logo_url"
                     data-testid="input-brand-logo"
@@ -406,7 +403,7 @@ export default function AdminSettings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="brand_favicon_url" data-testid="label-brand-favicon">Favicon URL</Label>
+                  <Label htmlFor="brand_favicon_url" data-testid="label-brand-favicon">{t('admin.settings.branding.faviconUrl')}</Label>
                   <Input
                     id="brand_favicon_url"
                     data-testid="input-brand-favicon"
@@ -419,7 +416,7 @@ export default function AdminSettings() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="brand_support_email" data-testid="label-brand-email">Support Email</Label>
+                  <Label htmlFor="brand_support_email" data-testid="label-brand-email">{t('admin.settings.branding.supportEmail')}</Label>
                   <Input
                     id="brand_support_email"
                     type="email"
@@ -430,7 +427,7 @@ export default function AdminSettings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="brand_support_phone" data-testid="label-brand-phone">Support Phone</Label>
+                  <Label htmlFor="brand_support_phone" data-testid="label-brand-phone">{t('admin.settings.branding.supportPhone')}</Label>
                   <Input
                     id="brand_support_phone"
                     data-testid="input-brand-phone"
@@ -568,7 +565,7 @@ export default function AdminSettings() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="finance_platform_fee_percentage" data-testid="label-platform-fee">Platform Fee (%)</Label>
+                  <Label htmlFor="finance_platform_fee_percentage" data-testid="label-platform-fee">{t('admin.settings.finance.platformFee')}</Label>
                   <Input
                     id="finance_platform_fee_percentage"
                     type="number"
@@ -581,11 +578,11 @@ export default function AdminSettings() {
                     placeholder="5"
                   />
                   <p className="text-xs text-muted-foreground" data-testid="text-platform-fee-help">
-                    Percentage charged on each transaction
+                    {t('admin.settings.finance.platformFeeHelp')}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="finance_minimum_payout" data-testid="label-minimum-payout">Minimum Payout (SAR)</Label>
+                  <Label htmlFor="finance_minimum_payout" data-testid="label-minimum-payout">{t('admin.settings.finance.minimumPayout')}</Label>
                   <Input
                     id="finance_minimum_payout"
                     type="number"
@@ -597,14 +594,14 @@ export default function AdminSettings() {
                     placeholder="100"
                   />
                   <p className="text-xs text-muted-foreground" data-testid="text-minimum-payout-help">
-                    Minimum amount required for payout requests
+                    {t('admin.settings.finance.minimumPayoutHelp')}
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="finance_currency" data-testid="label-currency">Currency</Label>
+                  <Label htmlFor="finance_currency" data-testid="label-currency">{t('admin.settings.finance.currency')}</Label>
                   <Input
                     id="finance_currency"
                     data-testid="input-currency"
@@ -614,11 +611,11 @@ export default function AdminSettings() {
                     maxLength={3}
                   />
                   <p className="text-xs text-muted-foreground" data-testid="text-currency-help">
-                    Platform currency code (e.g., SAR, USD, EUR)
+                    {t('admin.settings.finance.currencyHelp')}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="finance_tax_rate" data-testid="label-tax-rate">Tax Rate (%)</Label>
+                  <Label htmlFor="finance_tax_rate" data-testid="label-tax-rate">{t('admin.settings.finance.taxRate')}</Label>
                   <Input
                     id="finance_tax_rate"
                     type="number"
@@ -631,7 +628,7 @@ export default function AdminSettings() {
                     placeholder="15"
                   />
                   <p className="text-xs text-muted-foreground" data-testid="text-tax-rate-help">
-                    VAT/Sales tax rate applied to transactions
+                    {t('admin.settings.finance.taxRateHelp')}
                   </p>
                 </div>
               </div>

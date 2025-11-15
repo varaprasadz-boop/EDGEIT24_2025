@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { DataTable } from "@/components/admin/DataTable";
-import { FilterBar, type Filter } from "@/components/admin/FilterBar";
+import { FilterBar, type FilterConfig } from "@/components/admin/FilterBar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -68,7 +68,6 @@ export default function AdminEmailTemplates() {
     subjectAr: '',
     body: '',
     bodyAr: '',
-    description: '',
   });
 
   // Fetch templates with pagination and filters
@@ -95,10 +94,7 @@ export default function AdminEmailTemplates() {
   // Create template mutation
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return apiRequest('/api/admin/email-templates', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
+      return apiRequest('POST', '/api/admin/email-templates', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/email-templates'] });
@@ -114,10 +110,7 @@ export default function AdminEmailTemplates() {
   // Update template mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-      return apiRequest(`/api/admin/email-templates/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      });
+      return apiRequest('PATCH', `/api/admin/email-templates/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/email-templates'] });
@@ -133,7 +126,7 @@ export default function AdminEmailTemplates() {
   // Delete template mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/admin/email-templates/${id}`, { method: 'DELETE' });
+      return apiRequest('DELETE', `/api/admin/email-templates/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/email-templates'] });
@@ -155,7 +148,6 @@ export default function AdminEmailTemplates() {
       subjectAr: '',
       body: '',
       bodyAr: '',
-      description: '',
     });
   };
 
@@ -175,7 +167,6 @@ export default function AdminEmailTemplates() {
       subjectAr: template.subjectAr || '',
       body: template.body,
       bodyAr: template.bodyAr || '',
-      description: template.description || '',
     });
     setIsEditOpen(true);
   };
@@ -273,21 +264,19 @@ export default function AdminEmailTemplates() {
   ];
 
   // Filter configuration
-  const filters: Filter[] = [
+  const filters: FilterConfig[] = [
     {
       key: 'audience',
+      type: 'select',
       label: t('admin.emailTemplates.filters.audience'),
       options: audienceOptions,
     },
   ];
 
-  const activeFilters = selectedAudience !== 'all' ? [{ key: 'audience', value: selectedAudience }] : [];
-
-  const handleFilterChange = (key: string, value: string | null) => {
-    if (key === 'audience') {
-      setSelectedAudience(value || 'all');
-      setPagination({ ...pagination, pageIndex: 0 });
-    }
+  const handleFiltersChange = (filters: Record<string, string>) => {
+    const audienceFilter = filters.audience;
+    setSelectedAudience(audienceFilter || 'all');
+    setPagination({ ...pagination, pageIndex: 0 });
   };
 
   return (
@@ -319,8 +308,7 @@ export default function AdminEmailTemplates() {
         }}
         searchPlaceholder={t('admin.emailTemplates.searchPlaceholder')}
         filters={filters}
-        activeFilters={activeFilters}
-        onFilterChange={handleFilterChange}
+        onFiltersChange={handleFiltersChange}
       />
 
       <DataTable
@@ -374,7 +362,7 @@ export default function AdminEmailTemplates() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {AUDIENCE_OPTIONS.slice(1).map(opt => (
+                    {audienceOptions.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value} data-testid={`option-audience-${opt.value}`}>
                         {opt.label}
                       </SelectItem>
@@ -429,17 +417,6 @@ export default function AdminEmailTemplates() {
                 value={formData.bodyAr}
                 onChange={(e) => setFormData({ ...formData, bodyAr: e.target.value })}
                 placeholder="مرحباً {{userName}}،&#10;&#10;أهلاً بك في منصتنا!..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description" data-testid="label-description">{t('admin.emailTemplates.form.description')}</Label>
-              <Input
-                id="description"
-                data-testid="input-description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Brief description of when this template is used"
               />
             </div>
           </div>
@@ -528,13 +505,6 @@ export default function AdminEmailTemplates() {
                       <pre className="whitespace-pre-wrap text-sm text-right" dir="rtl" data-testid="text-view-body-ar">{selectedTemplate.bodyAr}</pre>
                     </CardContent>
                   </Card>
-                </div>
-              )}
-
-              {selectedTemplate.description && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Description</Label>
-                  <p className="mt-1 text-sm" data-testid="text-view-description">{selectedTemplate.description}</p>
                 </div>
               )}
             </div>
