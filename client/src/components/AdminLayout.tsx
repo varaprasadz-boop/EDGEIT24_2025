@@ -38,7 +38,6 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { Breadcrumb } from "@/components/Breadcrumb";
 import { apiRequest } from "@/lib/queryClient";
 
 const sidebarStyle = {
@@ -268,8 +267,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </Sidebar>
 
         <div className="flex flex-col flex-1">
-          <header className="flex items-center justify-between gap-4 p-4 border-b">
-            <Breadcrumb />
+          <header className="flex items-center justify-end gap-4 p-4 border-b">
             <LanguageSwitcher />
           </header>
           <main className="flex-1 overflow-auto">
