@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useLocation, Redirect } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   Briefcase,
   FileText,
@@ -38,6 +39,14 @@ interface ConsultantDashboardStats {
 export default function Dashboard() {
   const { user, isLoading, getActiveRole } = useAuthContext();
   const activeRole = getActiveRole();
+  const [, setLocation] = useLocation();
+
+  // Redirect admin users to admin portal
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      setLocation('/admin/dashboard');
+    }
+  }, [user, setLocation]);
 
   if (isLoading) {
     return (
@@ -61,11 +70,6 @@ export default function Dashboard() {
         </div>
       </div>
     );
-  }
-
-  // Redirect admin users to admin portal
-  if (user.role === 'admin') {
-    return <Redirect to="/admin/dashboard" />;
   }
 
   const renderClientDashboard = () => {

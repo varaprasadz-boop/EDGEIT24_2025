@@ -129,9 +129,11 @@ export default function Home() {
   const [, setLocation] = useLocation();
 
   // Redirect admin users to admin portal
-  if (user?.role === 'admin') {
-    return <Redirect to="/admin/dashboard" />;
-  }
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      setLocation('/admin/dashboard');
+    }
+  }, [user, setLocation]);
 
   // Fetch all subscription plans (single query, filter client-side)
   const { data: allPlans = [], isLoading: plansLoading, error: plansError } = useQuery<SubscriptionPlan[]>({
