@@ -86,6 +86,27 @@
     "emailTemplates": "Email Templates",
     "rolesPermissions": "Roles & Permissions"
   },
+  "breadcrumb": {
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "vendors": "Vendor Directory",
+    "categories": "Categories",
+    "vendorRequests": "Vendor Requests",
+    "requirements": "Requirements",
+    "bids": "Bids",
+    "messages": "Messages",
+    "reviews": "Reviews",
+    "notifications": "Notifications",
+    "contracts": "Contracts",
+    "payments": "Payments",
+    "withdrawals": "Withdrawals",
+    "disputes": "Disputes",
+    "analytics": "Analytics",
+    "reports": "Reports",
+    "settings": "Settings",
+    "subscriptionPlans": "Subscription Plans",
+    "emailTemplates": "Email Templates"
+  },
   "dashboard": {
     "title": "Dashboard",
     "subtitle": "Monitor platform metrics and performance",

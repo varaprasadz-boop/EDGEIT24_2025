@@ -86,6 +86,27 @@
     "emailTemplates": "قوالب البريد الإلكتروني",
     "rolesPermissions": "الأدوار والصلاحيات"
   },
+  "breadcrumb": {
+    "dashboard": "لوحة القيادة",
+    "users": "المستخدمون",
+    "vendors": "دليل المستشارين",
+    "categories": "الفئات",
+    "vendorRequests": "طلبات المستشارين",
+    "requirements": "المتطلبات",
+    "bids": "العروض",
+    "messages": "الرسائل",
+    "reviews": "التقييمات",
+    "notifications": "الإشعارات",
+    "contracts": "العقود",
+    "payments": "المدفوعات",
+    "withdrawals": "السحوبات",
+    "disputes": "النزاعات",
+    "analytics": "التحليلات",
+    "reports": "التقارير",
+    "settings": "الإعدادات",
+    "subscriptionPlans": "خطط الاشتراك",
+    "emailTemplates": "قوالب البريد الإلكتروني"
+  },
   "dashboard": {
     "title": "لوحة القيادة",
     "subtitle": "مراقبة مقاييس وأداء المنصة",
