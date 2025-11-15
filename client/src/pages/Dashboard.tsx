@@ -36,10 +36,38 @@ interface ConsultantDashboardStats {
   rating: string;
 }
 
+interface ProfileStatus {
+  role: 'client' | 'consultant';
+  profileStatus: 'draft' | 'submitted' | 'complete';
+  approvalStatus: 'pending' | 'approved' | 'rejected';
+  uniqueId: string | null;
+  adminNotes: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  completionPercentage: number;
+  companyName?: string;
+  industry?: string;
+  fullName?: string;
+  title?: string;
+}
+
 export default function Dashboard() {
   const { user, isLoading, getActiveRole } = useAuthContext();
   const activeRole = getActiveRole();
   const [, setLocation] = useLocation();
+
+  // Fetch profile statuses at top level (React hooks rules)
+  const { data: clientProfileStatus } = useQuery<ProfileStatus>({
+    queryKey: ['/api/profile/status', 'client'],
+    queryFn: () => fetch('/api/profile/status?role=client').then(r => r.json()),
+    enabled: !!user && (activeRole === 'client' || activeRole === 'both'),
+  });
+
+  const { data: consultantProfileStatus } = useQuery<ProfileStatus>({
+    queryKey: ['/api/profile/status', 'consultant'],
+    queryFn: () => fetch('/api/profile/status?role=consultant').then(r => r.json()),
+    enabled: !!user && (activeRole === 'consultant' || activeRole === 'both'),
+  });
 
   // Redirect admin users to admin portal
   useEffect(() => {
@@ -71,6 +99,100 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  // Render approval status banner for a specific role
+  const renderApprovalBanner = (profileStatus: ProfileStatus | undefined) => {
+    if (!profileStatus) return null;
+
+    if (profileStatus.approvalStatus === 'approved') {
+      return (
+        <Card className="border-primary bg-primary/5" data-testid="card-approval-approved">
+          <CardContent className="flex items-center gap-3 p-4">
+            <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium text-primary">Profile Approved</p>
+              <p className="text-sm text-muted-foreground">
+                Your unique ID: <span className="font-mono font-semibold text-foreground">{profileStatus.uniqueId}</span>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (profileStatus.approvalStatus === 'pending' && profileStatus.profileStatus === 'submitted') {
+      return (
+        <Card className="border-amber-500 bg-amber-500/5" data-testid="card-approval-pending">
+          <CardContent className="flex items-center gap-3 p-4">
+            <Clock className="h-5 w-5 text-amber-600 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium text-amber-700 dark:text-amber-500">Awaiting Admin Review</p>
+              <p className="text-sm text-muted-foreground">
+                Your profile has been submitted for review. We'll notify you once it's approved.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (profileStatus.approvalStatus === 'rejected') {
+      return (
+        <Card className="border-destructive bg-destructive/5" data-testid="card-approval-rejected">
+          <CardContent className="flex items-center gap-3 p-4">
+            <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium text-destructive">Profile Rejected</p>
+              {profileStatus.adminNotes && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Reason: {profileStatus.adminNotes}
+                </p>
+              )}
+              <Button 
+                size="sm" 
+                className="mt-2"
+                onClick={() => setLocation('/profile-completion')}
+                data-testid="button-update-profile"
+              >
+                Update & Resubmit
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    // Draft status - needs completion
+    if (profileStatus.profileStatus === 'draft' && profileStatus.completionPercentage < 100) {
+      return (
+        <Card className="border-blue-500 bg-blue-500/5" data-testid="card-profile-incomplete">
+          <CardContent className="flex items-center gap-3 p-4">
+            <UserCircle className="h-5 w-5 text-blue-600 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium text-blue-700 dark:text-blue-500">Complete Your Profile</p>
+              <div className="mt-2 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Profile completion</span>
+                  <span className="font-medium">{profileStatus.completionPercentage}%</span>
+                </div>
+                <Progress value={profileStatus.completionPercentage} className="h-2" />
+              </div>
+              <Button 
+                size="sm" 
+                className="mt-3"
+                onClick={() => setLocation('/profile-completion')}
+                data-testid="button-complete-profile-banner"
+              >
+                Complete Profile
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return null;
+  };
 
   const renderClientDashboard = () => {
     const { data: stats, isLoading: statsLoading, isError, refetch } = useQuery<DashboardStats>({
@@ -121,6 +243,8 @@ export default function Dashboard() {
             Manage your projects and find the right IT professionals
           </p>
         </div>
+
+        {renderApprovalBanner(clientProfileStatus)}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card data-testid="card-stat-active-jobs">
@@ -281,6 +405,8 @@ export default function Dashboard() {
             Find opportunities and manage your bids
           </p>
         </div>
+
+        {renderApprovalBanner(consultantProfileStatus)}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card data-testid="card-stat-available-jobs">

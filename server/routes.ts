@@ -6,7 +6,7 @@ import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema } from "@shared/schema";
 import { db } from "./db";
-import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, consultantProfiles, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema } from "@shared/schema";
+import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
@@ -873,6 +873,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to submit profile for review" });
     }
   });
+
+  // Profile Status endpoint - returns approval status and completion info
+  app.get('/api/profile/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Support multi-role users - check active role from query param or headers
+      const requestedRole = req.query.role || req.headers['x-active-role'];
+
+      let profileData = null;
+      
+      // Security: Validate user has the requested role before returning data
+      if (requestedRole === 'client') {
+        const profile = await storage.getClientProfile(userId);
+        if (!profile) {
+          return res.status(403).json({ message: "User does not have a client profile" });
+        }
+        if (profile) {
+          profileData = {
+            role: 'client' as const,
+            profileStatus: profile.profileStatus || 'draft',
+            approvalStatus: profile.approvalStatus || 'pending',
+            uniqueId: profile.uniqueClientId || null,
+            adminNotes: profile.adminNotes || null,
+            reviewedBy: profile.reviewedBy || null,
+            reviewedAt: profile.reviewedAt || null,
+            companyName: profile.companyName || null,
+            industry: profile.industry || null,
+            completionPercentage: calculateClientProfileCompletion(profile),
+          };
+        }
+      } else if (requestedRole === 'consultant') {
+        const profile = await storage.getConsultantProfile(userId);
+        if (!profile) {
+          return res.status(403).json({ message: "User does not have a consultant profile" });
+        }
+        if (profile) {
+          profileData = {
+            role: 'consultant' as const,
+            profileStatus: profile.profileStatus || 'draft',
+            approvalStatus: profile.approvalStatus || 'pending',
+            uniqueId: profile.uniqueConsultantId || null,
+            adminNotes: profile.adminNotes || null,
+            reviewedBy: profile.reviewedBy || null,
+            reviewedAt: profile.reviewedAt || null,
+            fullName: profile.fullName || null,
+            title: profile.title || null,
+            completionPercentage: calculateConsultantProfileCompletion(profile),
+          };
+        }
+      } else {
+        // No role specified or invalid role - return error
+        return res.status(400).json({ message: "Invalid or missing role parameter. Must be 'client' or 'consultant'" });
+      }
+
+      res.json(profileData);
+    } catch (error) {
+      console.error("Error fetching profile status:", error);
+      res.status(500).json({ message: "Failed to fetch profile status" });
+    }
+  });
+
+  // Helper functions for profile completion calculation
+  function calculateClientProfileCompletion(profile: any): number {
+    // Simple check: if profile_status is 'submitted' or 'complete', consider it 100%
+    if (profile.profileStatus === 'submitted' || profile.profileStatus === 'complete') {
+      return 100;
+    }
+
+    // Helper to check if a value is actually filled
+    const isFilled = (value: any): boolean => {
+      if (value == null) return false;
+      if (typeof value === 'string') return value.trim().length > 0;
+      if (typeof value === 'number') return !isNaN(value);
+      return Boolean(value);
+    };
+
+    // Count filled basic fields (aligned with Business Info section)
+    const fields = [
+      profile.companyName,
+      profile.industry,
+      profile.companySize,
+      profile.description,
+      profile.location,
+    ];
+
+    const filledCount = fields.filter(isFilled).length;
+    // Consider profile ready to submit at 80% (4/5 core fields)
+    return Math.round((filledCount / fields.length) * 100);
+  }
+
+  function calculateConsultantProfileCompletion(profile: any): number {
+    // Simple check: if profile_status is 'submitted' or 'complete', consider it 100%
+    if (profile.profileStatus === 'submitted' || profile.profileStatus === 'complete') {
+      return 100;
+    }
+
+    // Helper to check if a value is actually filled
+    const isFilled = (value: any): boolean => {
+      if (value == null) return false;
+      if (typeof value === 'string') return value.trim().length > 0;
+      if (typeof value === 'number') return !isNaN(value);
+      return Boolean(value);
+    };
+
+    // Count filled basic fields (aligned with Business Info section)
+    const fields = [
+      profile.fullName,
+      profile.title,
+      profile.bio,
+      profile.hourlyRate,
+      profile.experience,
+      profile.location,
+    ];
+
+    const filledCount = fields.filter(isFilled).length;
+    // Consider profile ready to submit at ~83% (5/6 core fields)
+    return Math.round((filledCount / fields.length) * 100);
+  }
 
   // KYC Document endpoints
   app.get('/api/profiles/kyc', isAuthenticated, async (req: any, res) => {
