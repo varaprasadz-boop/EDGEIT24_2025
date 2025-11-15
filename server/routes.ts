@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { z } from "zod";
-import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema } from "@shared/schema";
+import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertQuoteRequestSchema } from "@shared/schema";
 import { db } from "./db";
 import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
@@ -703,7 +703,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Consultant profile not found" });
       }
       
-      res.json(profile);
+      // Get user data for phone verification status
+      const user = await storage.getUser(userId);
+      
+      // Compute identity verification based on kycDocuments
+      let identityVerified = false;
+      if (profile.kycDocuments && typeof profile.kycDocuments === 'object') {
+        const kycDocs = profile.kycDocuments as any;
+        // Consider identity verified if KYC documents exist with required fields
+        identityVerified = !!(kycDocs.idType && kycDocs.idNumber && kycDocs.documentUrl);
+      }
+      
+      // Return profile with additional verification fields
+      res.json({
+        ...profile,
+        phoneVerified: user?.phoneVerified || false,
+        identityVerified,
+      });
     } catch (error) {
       console.error("Error fetching consultant profile:", error);
       res.status(500).json({ message: "Failed to fetch consultant profile" });
@@ -1054,6 +1070,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching performance score:", error);
       res.status(500).json({ message: "Failed to fetch performance score" });
+    }
+  });
+  
+  // Quote Request endpoints
+  app.post('/api/quotes', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      // Verify user has client role
+      const user = await storage.getUser(userId);
+      if (!user || (user.role !== 'client' && user.role !== 'both')) {
+        return res.status(403).json({ message: "Forbidden: Only clients can request quotes" });
+      }
+      
+      const validation = insertQuoteRequestSchema.safeParse({
+        ...req.body,
+        clientId: userId,
+      });
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid quote request data", errors: validation.error });
+      }
+      
+      const quoteRequest = await storage.createQuoteRequest(validation.data);
+      res.status(201).json(quoteRequest);
+    } catch (error) {
+      console.error("Error creating quote request:", error);
+      res.status(500).json({ message: "Failed to create quote request" });
+    }
+  });
+  
+  app.get('/api/quotes', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Determine role for filtering
+      const role = user.role === 'consultant' || user.role === 'both' ? 'consultant' : 'client';
+      const quoteRequests = await storage.getQuoteRequests(userId, role);
+      res.json(quoteRequests);
+    } catch (error) {
+      console.error("Error fetching quote requests:", error);
+      res.status(500).json({ message: "Failed to fetch quote requests" });
+    }
+  });
+  
+  app.patch('/api/quotes/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      // Verify user has consultant role
+      const user = await storage.getUser(userId);
+      if (!user || (user.role !== 'consultant' && user.role !== 'both')) {
+        return res.status(403).json({ message: "Forbidden: Only consultants can respond to quotes" });
+      }
+      
+      const { id } = req.params;
+      const updateSchema = z.object({
+        status: z.enum(['pending', 'responded', 'declined']).optional(),
+        consultantResponse: z.string().optional(),
+        quotedAmount: z.string().optional(),
+      });
+      
+      const validation = updateSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid update data", errors: validation.error });
+      }
+      
+      const updated = await storage.updateQuoteRequest(id, validation.data as any);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating quote request:", error);
+      res.status(500).json({ message: "Failed to update quote request" });
     }
   });
 

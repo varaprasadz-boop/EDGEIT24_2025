@@ -15,6 +15,7 @@ import {
   pricingTemplates,
   profileApprovalEvents,
   uniqueIdCounters,
+  quoteRequests,
   type User,
   type InsertUser,
   type UpsertUser,
@@ -39,6 +40,8 @@ import {
   type ProfileApprovalEvent,
   type InsertProfileApprovalEvent,
   type UniqueIdCounter,
+  type QuoteRequest,
+  type InsertQuoteRequest,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, sql, desc, inArray } from "drizzle-orm";
@@ -145,6 +148,11 @@ export interface IStorage {
   // Job operations
   createJob(job: InsertJob): Promise<Job>;
   listJobs(options?: { ownerClientId?: string; categoryId?: string; excludeClientId?: string; limit?: number }): Promise<(Job & { categoryPathLabel: string })[]>;
+  
+  // Quote Request operations
+  createQuoteRequest(quoteRequest: InsertQuoteRequest): Promise<QuoteRequest>;
+  getQuoteRequests(userId: string, role: 'client' | 'consultant'): Promise<QuoteRequest[]>;
+  updateQuoteRequest(id: string, data: Partial<InsertQuoteRequest>): Promise<QuoteRequest>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1015,6 +1023,31 @@ export class DatabaseStorage implements IStorage {
       ...job,
       categoryPathLabel: buildCategoryPath(job.categoryId),
     }));
+  }
+  
+  // Quote Request operations
+  async createQuoteRequest(quoteRequest: InsertQuoteRequest): Promise<QuoteRequest> {
+    const [created] = await db.insert(quoteRequests).values(quoteRequest).returning();
+    return created;
+  }
+  
+  async getQuoteRequests(userId: string, role: 'client' | 'consultant'): Promise<QuoteRequest[]> {
+    const column = role === 'client' ? quoteRequests.clientId : quoteRequests.consultantId;
+    const requests = await db
+      .select()
+      .from(quoteRequests)
+      .where(eq(column, userId))
+      .orderBy(desc(quoteRequests.createdAt));
+    return requests;
+  }
+  
+  async updateQuoteRequest(id: string, data: Partial<InsertQuoteRequest>): Promise<QuoteRequest> {
+    const [updated] = await db
+      .update(quoteRequests)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(quoteRequests.id, id))
+      .returning();
+    return updated;
   }
 }
 

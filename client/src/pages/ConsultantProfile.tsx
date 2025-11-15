@@ -1135,11 +1135,11 @@ export default function ConsultantProfile() {
                   />
                   <VerificationBadge 
                     type="phone" 
-                    verified={false}
+                    verified={(profile as any)?.phoneVerified || false}
                   />
                   <VerificationBadge 
                     type="identity" 
-                    verified={false}
+                    verified={(profile as any)?.identityVerified || false}
                   />
                   <VerificationBadge 
                     type="business" 

@@ -27,6 +27,10 @@ export const users = pgTable("users", {
   emailVerificationToken: varchar("email_verification_token"),
   emailTokenExpiry: timestamp("email_token_expiry"),
   emailVerifiedAt: timestamp("email_verified_at"),
+  phoneVerified: boolean("phone_verified").default(false),
+  phoneVerificationToken: varchar("phone_verification_token"),
+  phoneTokenExpiry: timestamp("phone_token_expiry"),
+  phoneVerifiedAt: timestamp("phone_verified_at"),
   authProvider: text("auth_provider").default('local'), // 'local', 'replit', 'google', 'github'
   replitSub: varchar("replit_sub").unique(), // OIDC subject ID for linking accounts
   // Basic registration fields
@@ -446,6 +450,10 @@ export const quoteRequests = pgTable("quote_requests", {
 export const quoteStatusEnum = z.enum(['pending', 'responded', 'declined']);
 export const QUOTE_STATUSES = quoteStatusEnum.options;
 export type QuoteStatus = z.infer<typeof quoteStatusEnum>;
+
+export type QuoteRequest = typeof quoteRequests.$inferSelect;
+export const insertQuoteRequestSchema = createInsertSchema(quoteRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertQuoteRequest = z.infer<typeof insertQuoteRequestSchema>;
 
 // Payments - Transaction records
 export const payments = pgTable("payments", {
