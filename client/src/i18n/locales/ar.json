@@ -574,5 +574,30 @@
     "filterByVerified": "تصفية حسب التحقق",
     "filterByExperience": "تصفية حسب الخبرة",
     "filterByRating": "الحد الأدنى للتقييم"
+  },
+  "services": {
+    "title": "الخدمات",
+    "servicesWeOffer": "الخدمات التي نقدمها",
+    "exploreServices": "استكشف الخدمات",
+    "findConsultant": "ابحث عن مستشار",
+    "selectCategory": "اختر الفئة",
+    "categoryPath": "مسار الفئة",
+    "selectPrimaryService": "اختر الخدمة الأساسية",
+    "primaryService": "الخدمة الأساسية",
+    "selectedCategories": "الفئات المحددة",
+    "chooseServices": "اختر الخدمات",
+    "serviceOfferings": "عروض الخدمات",
+    "browseJobs": "تصفح الوظائف",
+    "browseConsultants": "تصفح المستشارين",
+    "browseAvailableJobs": "تصفح الوظائف المتاحة",
+    "postJob": "انشر وظيفة",
+    "allCategories": "كل الفئات",
+    "filterByCategory": "تصفية حسب الفئة",
+    "noCategorySelected": "لم يتم اختيار فئة",
+    "selectACategory": "الرجاء اختيار فئة",
+    "categoryRequired": "الفئة مطلوبة",
+    "level0": "الفئة الأساسية",
+    "level1": "الفئة الفرعية",
+    "level2": "التخصص"
   }
 }

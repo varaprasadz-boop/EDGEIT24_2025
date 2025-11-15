@@ -199,12 +199,21 @@ export default function AdminCategories() {
       }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/categories/tree"] });
-      toast({
-        title: "Success",
-        description: "Category toggled successfully",
-      });
+      // Check if there's a warning in the response
+      if (data.warning) {
+        toast({
+          title: "Success with Warning",
+          description: data.warning,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Category toggled successfully",
+        });
+      }
     },
     onError: (error: Error) => {
       toast({

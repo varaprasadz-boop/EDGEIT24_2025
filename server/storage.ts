@@ -41,7 +41,7 @@ export interface ConsultantDashboardStats {
 export interface ConsultantCategoryWithDetails {
   id: string;
   categoryId: string;
-  isPrimary: boolean;
+  isPrimary: boolean | null;
   category: Category;
 }
 
@@ -366,9 +366,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async listClientBids(userId: string, limit: number = 10): Promise<Bid[]> {
-    // Get bids on jobs posted by this client - select all bid fields
+    // Get bids on jobs posted by this client - select all bid fields explicitly
     return await db
-      .select(bids)
+      .select({
+        id: bids.id,
+        createdAt: bids.createdAt,
+        updatedAt: bids.updatedAt,
+        status: bids.status,
+        attachments: bids.attachments,
+        jobId: bids.jobId,
+        consultantId: bids.consultantId,
+        coverLetter: bids.coverLetter,
+        proposedBudget: bids.proposedBudget,
+        proposedDuration: bids.proposedDuration,
+        milestones: bids.milestones,
+        clientViewed: bids.clientViewed,
+      })
       .from(bids)
       .innerJoin(jobs, eq(bids.jobId, jobs.id))
       .where(eq(jobs.clientId, userId))

@@ -574,5 +574,30 @@
     "filterByVerified": "Filter by Verification",
     "filterByExperience": "Filter by Experience",
     "filterByRating": "Minimum Rating"
+  },
+  "services": {
+    "title": "Services",
+    "servicesWeOffer": "Services We Offer",
+    "exploreServices": "Explore Services",
+    "findConsultant": "Find Consultant",
+    "selectCategory": "Select Category",
+    "categoryPath": "Category Path",
+    "selectPrimaryService": "Select Primary Service",
+    "primaryService": "Primary Service",
+    "selectedCategories": "Selected Categories",
+    "chooseServices": "Choose Services",
+    "serviceOfferings": "Service Offerings",
+    "browseJobs": "Browse Jobs",
+    "browseConsultants": "Browse Consultants",
+    "browseAvailableJobs": "Browse Available Jobs",
+    "postJob": "Post a Job",
+    "allCategories": "All Categories",
+    "filterByCategory": "Filter by Category",
+    "noCategorySelected": "No category selected",
+    "selectACategory": "Please select a category",
+    "categoryRequired": "Category is required",
+    "level0": "Primary Category",
+    "level1": "Subcategory",
+    "level2": "Specialty"
   }
 }

@@ -6,7 +6,7 @@ import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema } from "@shared/schema";
 import { db } from "./db";
-import { users, adminRoles, categories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, consultantProfiles, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema } from "@shared/schema";
+import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, consultantProfiles, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
@@ -1036,6 +1036,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Cannot delete category used in active jobs. Disable this category instead." });
       }
       
+      // Check if category is used by consultants
+      const consultantsUsingCategory = await db.select().from(consultantCategories).where(eq(consultantCategories.categoryId, id)).limit(1);
+      if (consultantsUsingCategory && consultantsUsingCategory.length > 0) {
+        return res.status(400).json({ message: "Cannot delete category used by active consultants. Disable this category instead." });
+      }
+      
       // Delete category
       await db.delete(categories).where(eq(categories.id, id));
       
@@ -1057,9 +1063,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Category not found" });
       }
       
+      const newActiveStatus = !existing[0].active;
+      
+      // If deactivating, check for active children and provide warnings
+      if (!newActiveStatus) {
+        const activeChildren = await db.select().from(categories).where(
+          and(
+            eq(categories.parentId, id),
+            eq(categories.active, true)
+          )
+        );
+        
+        if (activeChildren && activeChildren.length > 0) {
+          // Return warning with children count but allow the operation
+          const [updated] = await db.update(categories).set({
+            active: newActiveStatus,
+            updatedAt: new Date(),
+          }).where(eq(categories.id, id)).returning();
+          
+          return res.json({
+            ...updated,
+            warning: `This category has ${activeChildren.length} active child categories. Consider deactivating them as well.`
+          });
+        }
+      }
+      
       // Toggle active status
       const [updated] = await db.update(categories).set({
-        active: !existing[0].active,
+        active: newActiveStatus,
         updatedAt: new Date(),
       }).where(eq(categories.id, id)).returning();
       
