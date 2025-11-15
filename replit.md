@@ -87,12 +87,13 @@ The platform uses a comprehensive 3-level category hierarchy that serves as the 
 - Level enforcement: Prevents creation of level 3+ categories
 - Parent validation: Ensures level = parent.level + 1
 - Slug uniqueness: Checks before creation/update
-- Delete protection: (Planned) prevents deletion if category has children/jobs/consultants
+- **Delete protection**: Prevents deletion if category has children/jobs/consultants (checks all associations)
+- **Cascade warnings**: Toggle endpoint returns warnings when deactivating parents with active descendants
 
 **Frontend Pages**:
 - **Homepage** (`/`): Displays 4 root categories with "Explore Services" and "Find Consultant" buttons
-- **Category Landing** (`/services/:slug`): Dynamic pages for all 3 levels with breadcrumbs, hero section, and child category grid
-- **Admin Categories** (`/admin/categories`): Tree table management with hierarchy indentation, L0/L1/L2 badges
+- **Category Landing** (`/services/:slug`): Dynamic pages for all 3 levels with breadcrumbs, hero section, and child category grid. All subcategory cards (L0/L1/L2) display BOTH action buttons for consistent navigation
+- **Admin Categories** (`/admin/categories`): Tree table management with hierarchy indentation, L0/L1/L2 badges, delete protection warnings, and cascade deactivation alerts
 
 **Navigation Pattern**:
 - Each category has a unique single-segment slug (e.g., "software-services", "web-development")
@@ -108,6 +109,7 @@ The platform uses a comprehensive 3-level category hierarchy that serves as the 
 
 ### Job Posting & Category Integration
 **Job Posting** (`/post-job`):
+- **Authentication Guard**: Shows appropriate UI states for loading, unauthenticated users (login/register buttons), non-clients (create profile prompt), and authenticated clients (job form)
 - **CascadingCategorySelector Component**: 3-level dropdown navigation (Level 0 → Level 1 → Level 2) for category selection
 - **Required Category**: All jobs must be assigned to a category (enforced in schema and validation)
 - **Category Path Display**: Shows full category path as breadcrumbs in selector
@@ -136,6 +138,17 @@ The platform uses a comprehensive 3-level category hierarchy that serves as the 
 ### UI Components
 - **Radix UI**: Unstyled, accessible component primitives (Accordion, Alert Dialog, Avatar, Checkbox, Dialog, Dropdown Menu, Form controls, Navigation Menu, Popover, Select, Tabs, Toast notifications, Tooltip).
 - **Lucide React**: Icon library.
+
+### Internationalization (i18n)
+- **Framework**: `react-i18next` with `i18next` for translations and RTL support
+- **Languages**: English (en) and Arabic (ar)
+- **Translation Structure**:
+  - `common`: Shared UI elements (buttons, labels, navigation)
+  - `services`: Category system translations (24 keys covering Explore Services, Find Consultant, Select Category, etc.)
+  - `categories`: Admin category management translations
+  - Additional sections for auth, profiles, jobs, admin modules
+- **RTL Support**: Automatic layout switching for Arabic with `dir` attribute
+- **Category System**: Fully bilingual with nameAr, descriptionAr, heroTitleAr, heroDescriptionAr fields
 
 ### Development Tools
 - **Replit Plugins**: Development banner and cartographer.

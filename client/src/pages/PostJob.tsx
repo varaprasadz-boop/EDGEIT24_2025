@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
@@ -31,14 +31,6 @@ export default function PostJob() {
   const { toast } = useToast();
   const [categoryPath, setCategoryPath] = useState<string>("");
   const { user, isLoading, getActiveRole } = useAuthContext();
-
-  // Redirect to login if not authenticated (only after loading completes)
-  useEffect(() => {
-    if (!isLoading && !user) {
-      const redirectUrl = `/login?redirect=${encodeURIComponent('/post-job')}`;
-      setLocation(redirectUrl);
-    }
-  }, [isLoading, user, setLocation]);
 
   // Check if user has client role (safely after user is loaded)
   const activeRole = user ? getActiveRole() : null;
@@ -106,9 +98,40 @@ export default function PostJob() {
     );
   }
 
-  // Redirect handled by useEffect, show nothing while redirecting
+  // Show login prompt if not authenticated
   if (!user) {
-    return null;
+    return (
+      <div className="container max-w-4xl mx-auto p-6 space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Login Required</CardTitle>
+            <CardDescription>
+              You must be logged in to post a job.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Please log in with your client account to post jobs and connect with IT consultants.
+            </p>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => setLocation(`/login?redirect=${encodeURIComponent('/post-job')}`)}
+                data-testid="button-login"
+              >
+                Log In
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setLocation('/register')}
+                data-testid="button-register"
+              >
+                Create Account
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   // Show message if user is not a client
@@ -122,7 +145,10 @@ export default function PostJob() {
               You need to create a client profile before posting jobs.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              As a client, you can post jobs, review bids from consultants, and manage your projects.
+            </p>
             <Button onClick={() => setLocation('/profile/client')} data-testid="button-create-profile">
               Create Client Profile
             </Button>
