@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { HomeSectionRenderer } from "@/components/HomeSectionRenderer";
 import { useAuthContext } from "@/contexts/AuthContext";
 import type { SubscriptionPlan } from "@shared/schema";
 import * as LucideIcons from "lucide-react";
@@ -27,6 +28,24 @@ import {
   Clock,
   Zap
 } from "lucide-react";
+
+interface HomeSection {
+  id: string;
+  sectionType: 'hero' | 'features' | 'testimonials' | 'stats' | 'cta';
+  title: string | null;
+  titleAr: string | null;
+  subtitle: string | null;
+  subtitleAr: string | null;
+  content: string | null;
+  contentAr: string | null;
+  imageUrl: string | null;
+  ctaText: string | null;
+  ctaTextAr: string | null;
+  ctaLink: string | null;
+  displayOrder: number;
+  active: boolean;
+  settings: any;
+}
 
 interface Category {
   id: string;
@@ -155,6 +174,13 @@ export default function Home() {
   const { data: rootCategories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
     queryKey: ['/api/categories/root'],
   });
+
+  // Fetch CMS home sections
+  const { data: cmsSectionsData } = useQuery({
+    queryKey: ['/api/content/home-sections'],
+  });
+  const cmsSections = (cmsSectionsData as any)?.sections || [];
+  const activeCMSSections = cmsSections.filter((s: HomeSection) => s.active).sort((a: HomeSection, b: HomeSection) => a.displayOrder - b.displayOrder);
 
   // Filter plans by audience
   const clientPlans = allPlans.filter(plan => plan.audience === 'client');
@@ -597,6 +623,10 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {activeCMSSections.length > 0 && activeCMSSections.map((section: HomeSection) => (
+          <HomeSectionRenderer key={section.id} section={section} />
+        ))}
       </main>
 
       <Footer />
