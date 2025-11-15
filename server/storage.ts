@@ -8,6 +8,7 @@ import {
   bids,
   projects,
   payments,
+  reviews,
   kycDocuments,
   educationRecords,
   bankInformation,
@@ -25,6 +26,8 @@ import {
   type InsertJob,
   type Bid,
   type Category,
+  type Review,
+  type InsertReview,
   type KycDocument,
   type InsertKycDocument,
   type EducationRecord,
@@ -112,6 +115,12 @@ export interface IStorage {
   createPricingTemplate(template: InsertPricingTemplate): Promise<PricingTemplate>;
   updatePricingTemplate(id: string, data: Partial<InsertPricingTemplate>): Promise<PricingTemplate>;
   deletePricingTemplate(id: string): Promise<void>;
+  
+  // Review operations
+  getReviews(consultantId: string, options?: { limit?: number; offset?: number }): Promise<Review[]>;
+  createReview(review: InsertReview): Promise<Review>;
+  markReviewHelpful(reviewId: string): Promise<void>;
+  getReviewStats(consultantId: string): Promise<{ averageRating: number; totalReviews: number; ratingBreakdown: Record<number, number> }>;
   
   // Profile Approval operations
   createApprovalEvent(event: InsertProfileApprovalEvent): Promise<ProfileApprovalEvent>;
@@ -540,6 +549,86 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(pricingTemplates)
       .where(eq(pricingTemplates.id, id));
+  }
+
+  // Review operations
+  async getReviews(consultantId: string, options?: { limit?: number; offset?: number }): Promise<Review[]> {
+    const limit = options?.limit || 20;
+    const offset = options?.offset || 0;
+    
+    return await db
+      .select()
+      .from(reviews)
+      .where(eq(reviews.revieweeId, consultantId))
+      .orderBy(desc(reviews.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async createReview(review: InsertReview): Promise<Review> {
+    return await db.transaction(async (tx) => {
+      // Create the review
+      const [created] = await tx
+        .insert(reviews)
+        .values(review)
+        .returning();
+
+      // Update consultant profile stats
+      const consultant = await tx
+        .select()
+        .from(consultantProfiles)
+        .where(eq(consultantProfiles.userId, review.revieweeId))
+        .limit(1);
+
+      if (consultant.length > 0) {
+        const currentTotalReviews = consultant[0].totalReviews || 0;
+        const currentRating = parseFloat(consultant[0].rating || '0');
+        const newTotalReviews = currentTotalReviews + 1;
+        const newRating = ((currentRating * currentTotalReviews) + review.rating) / newTotalReviews;
+
+        await tx
+          .update(consultantProfiles)
+          .set({
+            rating: newRating.toFixed(2),
+            totalReviews: newTotalReviews,
+            updatedAt: new Date()
+          })
+          .where(eq(consultantProfiles.userId, review.revieweeId));
+      }
+
+      return created;
+    });
+  }
+
+  async markReviewHelpful(reviewId: string): Promise<void> {
+    await db
+      .update(reviews)
+      .set({ helpful: sql`${reviews.helpful} + 1` })
+      .where(eq(reviews.id, reviewId));
+  }
+
+  async getReviewStats(consultantId: string): Promise<{ averageRating: number; totalReviews: number; ratingBreakdown: Record<number, number> }> {
+    const allReviews = await db
+      .select()
+      .from(reviews)
+      .where(eq(reviews.revieweeId, consultantId));
+
+    const totalReviews = allReviews.length;
+    const ratingBreakdown: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    
+    if (totalReviews === 0) {
+      return { averageRating: 0, totalReviews: 0, ratingBreakdown };
+    }
+
+    let totalRating = 0;
+    allReviews.forEach(review => {
+      totalRating += review.rating;
+      ratingBreakdown[review.rating] = (ratingBreakdown[review.rating] || 0) + 1;
+    });
+
+    const averageRating = totalRating / totalReviews;
+
+    return { averageRating, totalReviews, ratingBreakdown };
   }
 
   // Profile Approval operations

@@ -175,6 +175,51 @@ export default function ConsultantProfile() {
     },
   });
 
+  // Reviews state and queries
+  const [reviewsPage, setReviewsPage] = useState(0);
+  const reviewsPerPage = 5;
+
+  // Fetch reviews
+  const { data: reviewsData } = useQuery<{ items: any[]; total: number }>({
+    queryKey: ['/api/reviews', user?.id, reviewsPage],
+    queryFn: async () => {
+      if (!user?.id) return { items: [], total: 0 };
+      const response = await fetch(`/api/reviews/${user.id}?limit=${reviewsPerPage}&offset=${reviewsPage * reviewsPerPage}`, {
+        credentials: 'include'
+      });
+      if (!response.ok) return { items: [], total: 0 };
+      return response.json();
+    },
+    enabled: !!user?.id && !isEditing,
+  });
+  
+  const reviews = reviewsData?.items || [];
+  const totalReviews = reviewsData?.total || 0;
+
+  // Fetch review stats
+  const { data: reviewStats } = useQuery<{ averageRating: number; totalReviews: number; ratingBreakdown: Record<number, number> }>({
+    queryKey: ['/api/reviews', user?.id, 'stats'],
+    queryFn: async () => {
+      if (!user?.id) return { averageRating: 0, totalReviews: 0, ratingBreakdown: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
+      const response = await fetch(`/api/reviews/${user.id}/stats`, {
+        credentials: 'include'
+      });
+      if (!response.ok) return { averageRating: 0, totalReviews: 0, ratingBreakdown: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
+      return response.json();
+    },
+    enabled: !!user?.id && !isEditing,
+  });
+
+  // Mark review helpful mutation
+  const markHelpfulMutation = useMutation({
+    mutationFn: async (reviewId: string) => {
+      return apiRequest('POST', `/api/reviews/${reviewId}/helpful`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/reviews', user?.id] });
+    },
+  });
+
   // Form setup
   const form = useForm<UpdateProfile>({
     resolver: zodResolver(updateProfileSchema),
@@ -1330,6 +1375,125 @@ export default function ConsultantProfile() {
                     </CardContent>
                   </Card>
                 ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {reviewStats && reviewStats.totalReviews > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Star className="h-5 w-5 text-primary" />
+                  Reviews & Ratings
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="text-center">
+                    <div className="text-5xl font-bold" data-testid="text-average-rating">
+                      {reviewStats.averageRating.toFixed(1)}
+                    </div>
+                    <div className="flex items-center justify-center gap-1 my-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`h-5 w-5 ${star <= Math.round(reviewStats.averageRating) ? 'fill-primary text-primary' : 'text-muted-foreground'}`}
+                        />
+                      ))}
+                    </div>
+                    <div className="text-sm text-muted-foreground" data-testid="text-total-reviews">
+                      Based on {reviewStats.totalReviews} review{reviewStats.totalReviews !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {[5, 4, 3, 2, 1].map((rating) => {
+                      const count = reviewStats.ratingBreakdown[rating] || 0;
+                      const percentage = reviewStats.totalReviews > 0 ? (count / reviewStats.totalReviews) * 100 : 0;
+                      return (
+                        <div key={rating} className="flex items-center gap-2" data-testid={`rating-breakdown-${rating}`}>
+                          <span className="text-sm w-8">{rating}★</span>
+                          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-primary" 
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                          <span className="text-sm text-muted-foreground w-12 text-right">{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {reviews && reviews.length > 0 && (
+                  <div className="space-y-4 border-t pt-6">
+                    <h4 className="font-semibold">Recent Reviews</h4>
+                    {reviews.map((review: any, index: number) => (
+                      <Card key={review.id} data-testid={`review-${index}`}>
+                        <CardContent className="pt-6 space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex gap-1">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`h-4 w-4 ${star <= review.rating ? 'fill-primary text-primary' : 'text-muted-foreground'}`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-sm text-muted-foreground" data-testid={`review-date-${index}`}>
+                              {new Date(review.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          
+                          {review.comment && (
+                            <p className="text-sm" data-testid={`review-comment-${index}`}>
+                              {review.comment}
+                            </p>
+                          )}
+
+                          <div className="flex items-center justify-between pt-2 border-t">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => markHelpfulMutation.mutate(review.id)}
+                              disabled={markHelpfulMutation.isPending}
+                              data-testid={`button-helpful-${index}`}
+                            >
+                              👍 Helpful ({review.helpful || 0})
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+
+                    {totalReviews > reviewsPerPage && (
+                      <div className="flex gap-2 justify-center pt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setReviewsPage(prev => Math.max(0, prev - 1))}
+                          disabled={reviewsPage === 0}
+                          data-testid="button-reviews-prev"
+                        >
+                          Previous
+                        </Button>
+                        <span className="text-sm text-muted-foreground self-center">
+                          Page {reviewsPage + 1} of {Math.ceil(totalReviews / reviewsPerPage)}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setReviewsPage(prev => prev + 1)}
+                          disabled={(reviewsPage + 1) * reviewsPerPage >= totalReviews}
+                          data-testid="button-reviews-next"
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { z } from "zod";
-import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema } from "@shared/schema";
+import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema } from "@shared/schema";
 import { db } from "./db";
 import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
@@ -906,6 +906,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting pricing template:", error);
       res.status(500).json({ message: "Failed to delete pricing template" });
+    }
+  });
+
+  // Review endpoints
+  app.get('/api/reviews/:consultantId', async (req: any, res) => {
+    try {
+      const { consultantId } = req.params;
+      
+      // Validate pagination params
+      const paginationSchema = z.object({
+        limit: z.string().optional().transform(val => {
+          if (!val) return 20;
+          const num = parseInt(val);
+          return isNaN(num) || num < 1 || num > 100 ? 20 : num;
+        }),
+        offset: z.string().optional().transform(val => {
+          if (!val) return 0;
+          const num = parseInt(val);
+          return isNaN(num) || num < 0 ? 0 : num;
+        }),
+      });
+      
+      const validation = paginationSchema.safeParse(req.query);
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid pagination parameters" });
+      }
+      
+      const { limit, offset } = validation.data;
+      
+      const reviews = await storage.getReviews(consultantId, { limit, offset });
+      const stats = await storage.getReviewStats(consultantId);
+      
+      res.json({ 
+        items: reviews,
+        total: stats.totalReviews 
+      });
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  app.get('/api/reviews/:consultantId/stats', async (req: any, res) => {
+    try {
+      const { consultantId } = req.params;
+      const stats = await storage.getReviewStats(consultantId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching review stats:", error);
+      res.status(500).json({ message: "Failed to fetch review stats" });
+    }
+  });
+
+  app.post('/api/reviews', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      // Validate request body
+      const validation = insertReviewSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid review data", errors: validation.error });
+      }
+      
+      // Ensure reviewerId matches authenticated user
+      if (validation.data.reviewerId !== userId) {
+        return res.status(403).json({ message: "Cannot create review for another user" });
+      }
+      
+      const review = await storage.createReview(validation.data);
+      res.status(201).json(review);
+    } catch (error) {
+      console.error("Error creating review:", error);
+      res.status(500).json({ message: "Failed to create review" });
+    }
+  });
+
+  app.post('/api/reviews/:id/helpful', async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.markReviewHelpful(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error marking review helpful:", error);
+      res.status(500).json({ message: "Failed to mark review helpful" });
     }
   });
 
