@@ -131,6 +131,12 @@ export default function Dashboard() {
     enabled: !!user && selectedRole === 'consultant',
   });
 
+  // Consultant performance score query
+  const { data: performanceScore, isLoading: performanceScoreLoading, isError: performanceScoreError } = useQuery<{ score: number; breakdown: { ratingScore: number; completionScore: number; responseScore: number } }>({
+    queryKey: ['/api/consultant/performance-score'],
+    enabled: !!user && selectedRole === 'consultant',
+  });
+
   // Redirect admin users to admin portal
   useEffect(() => {
     if (user?.role === 'admin') {
@@ -576,6 +582,65 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {!performanceScoreLoading && !performanceScoreError && performanceScore && (
+          <Card data-testid="card-performance-score">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Overall Performance Score</CardTitle>
+                  <CardDescription>Calculated from ratings, completion rate, and response time</CardDescription>
+                </div>
+                <div className="text-4xl font-bold text-primary" data-testid="text-performance-score">
+                  {performanceScore.score.toFixed(0)}
+                  <span className="text-lg text-muted-foreground">/100</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium w-32">Rating Score</span>
+                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary" 
+                      style={{ width: `${(performanceScore.breakdown.ratingScore / 40) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-medium w-16 text-right" data-testid="text-rating-score">
+                    {performanceScore.breakdown.ratingScore.toFixed(0)}/40
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium w-32">Completion Score</span>
+                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary" 
+                      style={{ width: `${(performanceScore.breakdown.completionScore / 40) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-medium w-16 text-right" data-testid="text-completion-score">
+                    {performanceScore.breakdown.completionScore.toFixed(0)}/40
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium w-32">Response Score</span>
+                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary" 
+                      style={{ width: `${(performanceScore.breakdown.responseScore / 20) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-medium w-16 text-right" data-testid="text-response-score">
+                    {performanceScore.breakdown.responseScore.toFixed(0)}/20
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card data-testid="card-performance-metrics">

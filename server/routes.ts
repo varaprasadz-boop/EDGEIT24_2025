@@ -1036,6 +1036,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/consultant/performance-score', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Verify user has consultant role
+      const user = await storage.getUser(userId);
+      if (!user || (user.role !== 'consultant' && user.role !== 'both')) {
+        return res.status(403).json({ message: "Forbidden: Only consultants can access performance scores" });
+      }
+
+      const performanceScore = await storage.getPerformanceScore(userId);
+      res.json(performanceScore);
+    } catch (error) {
+      console.error("Error fetching performance score:", error);
+      res.status(500).json({ message: "Failed to fetch performance score" });
+    }
+  });
+
   // Profile submission for review
   app.post('/api/profiles/client/submit', isAuthenticated, async (req: any, res) => {
     try {

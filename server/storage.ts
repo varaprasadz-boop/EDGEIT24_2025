@@ -126,6 +126,9 @@ export interface IStorage {
   getClientProjects(clientId: string, options?: { limit?: number }): Promise<any[]>;
   getConsultantMetrics(consultantId: string): Promise<{ completionRate: number; totalProjects: number; completedProjects: number }>;
   
+  // Performance Score operations
+  getPerformanceScore(consultantId: string): Promise<{ score: number; breakdown: { ratingScore: number; completionScore: number; responseScore: number } }>;
+  
   // Profile Approval operations
   createApprovalEvent(event: InsertProfileApprovalEvent): Promise<ProfileApprovalEvent>;
   getApprovalEvents(userId: string, profileType?: string): Promise<ProfileApprovalEvent[]>;
@@ -663,6 +666,59 @@ export class DatabaseStorage implements IStorage {
       completionRate,
       totalProjects,
       completedProjects
+    };
+  }
+
+  async getPerformanceScore(consultantId: string): Promise<{ score: number; breakdown: { ratingScore: number; completionScore: number; responseScore: number } }> {
+    // Fetch all necessary data
+    const reviewStats = await this.getReviewStats(consultantId);
+    const metrics = await this.getConsultantMetrics(consultantId);
+    const consultant = await db
+      .select()
+      .from(consultantProfiles)
+      .where(eq(consultantProfiles.userId, consultantId))
+      .limit(1);
+    
+    const responseTime = consultant.length > 0 ? consultant[0].responseTime : null;
+    
+    // Calculate rating component (40% weight)
+    // Rating is 0-5, normalize to 0-40
+    // Guard against undefined/null/NaN averageRating
+    const averageRating = Number.isFinite(reviewStats.averageRating) ? reviewStats.averageRating : 0;
+    const ratingScore = (averageRating / 5) * 40;
+    
+    // Calculate completion component (40% weight)
+    // Completion rate is 0-100%, normalize to 0-40
+    // Guard against undefined/null/NaN completionRate
+    const completionRate = Number.isFinite(metrics.completionRate) ? metrics.completionRate : 0;
+    const completionScore = (completionRate / 100) * 40;
+    
+    // Calculate response time component (20% weight)
+    // Lower response time is better
+    // <60 min = 20 points, 60-120 min = 15 points, 120-240 min = 10 points, 240-480 min = 5 points, >480 min or null = 0 points
+    let responseScore = 0;
+    if (responseTime !== null) {
+      if (responseTime < 60) {
+        responseScore = 20;
+      } else if (responseTime < 120) {
+        responseScore = 15;
+      } else if (responseTime < 240) {
+        responseScore = 10;
+      } else if (responseTime < 480) {
+        responseScore = 5;
+      }
+    }
+    
+    // Total score (0-100)
+    const score = ratingScore + completionScore + responseScore;
+    
+    return {
+      score,
+      breakdown: {
+        ratingScore,
+        completionScore,
+        responseScore
+      }
     };
   }
 
