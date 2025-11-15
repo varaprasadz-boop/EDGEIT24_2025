@@ -1,7 +1,7 @@
 # EDGEIT24 - B2B IT Marketplace
 
 ## Overview
-EDGEIT24 is a B2B marketplace platform connecting businesses with IT service vendors. It facilitates project posting, competitive bidding, and comprehensive project lifecycle management, including payments and deliverables. The platform aims to streamline the process of acquiring and providing IT services, enhancing efficiency and transparency in the B2B IT sector.
+EDGEIT24 is a B2B marketplace platform connecting businesses with IT service vendors. It enables project posting, competitive bidding, and comprehensive project lifecycle management, including payments and deliverables. The platform aims to streamline the acquisition and provision of IT services, enhancing efficiency and transparency in the B2B IT sector.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,123 +9,75 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend
-The frontend uses **React**, **Vite**, **Wouter** for routing, and **TanStack React Query** for server state. UI is built with **shadcn/ui** and **Radix UI**, adhering to Material Design 3 with a "New York" style variant. It supports light/dark modes with a primary brand green and dark navy scheme, utilizing CSS variables and **TailwindCSS**. **TypeScript** is used in strict mode.
+The frontend uses React, Vite, Wouter for routing, and TanStack React Query for server state management. UI components are built with shadcn/ui and Radix UI, adhering to Material Design 3 with a "New York" style variant. It supports light/dark modes with a primary brand green and dark navy scheme, utilizing CSS variables and TailwindCSS. TypeScript is used in strict mode.
 
 ### Backend
-The backend is built with **Express.js** and **TypeScript**, using `tsx` for development and `esbuild` for production. It defines an `IStorage` interface, currently implemented with `MemStorage` and planned for **PostgreSQL** via **Drizzle ORM**. API routes are under `/api` with custom logging and consistent error handling.
+The backend is built with Express.js and TypeScript, using tsx for development and esbuild for production. It features an IStorage interface, with current MemStorage and planned PostgreSQL via Drizzle ORM. API routes are under `/api` with custom logging and consistent error handling.
 
 ### Authentication
-A custom Email/Password authentication system uses `passport-local` and `bcrypt` for hashing. Sessions are stored in PostgreSQL using `express-session` and `connect-pg-simple`. An `AuthProvider`/`AuthContext` manages global user state and authentication functionalities.
+A custom Email/Password authentication system uses passport-local and bcrypt. Sessions are stored in PostgreSQL using express-session and connect-pg-simple. An AuthProvider/AuthContext manages global user state and authentication functionalities.
 
 ### Engagement Model Registration & Payment System
-**Mandatory Engagement Plan Selection**: All new users must select an engagement plan during registration (Basic/Professional/Enterprise). Plans determine feature access and payment requirements.
-
-**Database Schema**:
-- `users` table: Added `engagementPlan` enum ('basic', 'professional', 'enterprise'), `paymentStatus` enum ('not_required', 'pending', 'succeeded', 'failed'), `paymentReference`, `paymentCompletedAt` fields for payment tracking
-- `payment_sessions` table: Tracks secure checkout sessions with `userId`, `planId`, `sessionId`, `status`, `planPrice`, `planName` (immutable snapshot at checkout), prevents price manipulation attacks
-- `user_subscriptions` table: Links users to their active subscriptions with `userId`, `planId`, `status`, `startDate`, `endDate`
-
-**Security Architecture**:
-- **Engagement Plan Validation**: Signup validates engagement plan against `subscription_plans` table with NaN guards, rejects invalid plans before user creation
-- **Session-Based Payment**: Payment sessions store immutable plan metadata (price, name) at creation time as the source of truth
-- **No Auto-Login**: Signup endpoint does not create authenticated sessions, users must manually log in after registration to prevent security vulnerabilities
-- **Payment Session Integrity**: Payment completion relies solely on session data (not mutable plan records), preventing price manipulation even if plans change in database
-- **Multi-Layer Validation**: User existence, plan validity, and session status verified before payment processing
-
-**User Flows**:
-- **Basic Plan (Free)**: User registers → selects Basic plan → creates user with paymentStatus='not_required' → redirects to /login → manual login → dashboard
-- **Professional/Enterprise Plans (Paid)**: User registers → selects paid plan → creates user with paymentStatus='pending' → creates payment session with locked-in price → redirects to /mock-payment → completes mock payment (2-second simulation) → payment completion validates session, updates user paymentStatus='succeeded', creates subscription → redirects to /login → manual login → dashboard
-
-**API Endpoints**:
-- POST `/api/auth/signup`: Validates engagement plan against database, creates user without auto-login, sets correct payment status
-- POST `/api/payments/checkout`: Validates user and plan, creates payment session with immutable metadata, returns checkout URL
-- POST `/api/payments/complete`: Validates session integrity, verifies user exists, uses session data as immutable source of truth, creates subscription, marks session completed
-- GET `/api/subscription-plans`: Returns active subscription plans for display during registration
-
-**Mock Payment Gateway**: Development implementation at `/mock-payment` simulates payment processing with 2-second delay, always succeeds for testing purposes, designed to be replaced with real payment integration (e.g., Stripe) in production.
+All new users must select an engagement plan (Basic/Professional/Enterprise) during registration, which determines feature access and payment requirements. The system includes a robust security architecture for payment processing, session integrity, and multi-layer validation, preventing price manipulation and ensuring data consistency. User flows are defined for both free and paid plans, with a mock payment gateway for development.
 
 ### Database
-**Drizzle ORM** provides type-safe SQL query building with **PostgreSQL** (Neon serverless driver). Schema definitions are shared and co-located with **Zod** validators. `drizzle-kit` manages migrations.
+Drizzle ORM provides type-safe SQL query building with PostgreSQL (Neon serverless driver). Schema definitions are co-located with Zod validators, and drizzle-kit manages migrations.
 
 ### Admin Portal
-The Admin Portal features an i18n system with RTL support using `i18next` and `react-i18next` (English/Arabic). It includes an `AdminLayout` with a `shadcn` Sidebar for navigation. A `DataTable` component supports both manual (server-side) and client-side pagination, along with a `FilterBar` component for search and filtering. Key management screens implemented include:
-- **Profile Approvals** (`/admin/profile-approvals`): Review and approve pending client/consultant profiles with tabs for each role type. Admins can approve (generates unique ID), reject (with notes), or request changes (moves to draft). Shows profile details including company/consultant info, skills, and submission dates.
-- Categories, Users, Bids, Payments, Contracts, Vendors, Disputes, Subscription Plans, Email Templates, and Settings.
+The Admin Portal features an i18n system with RTL support for English/Arabic. It includes an AdminLayout with a shadcn Sidebar and a DataTable component for manual/client-side pagination and filtering. Key management screens include Profile Approvals, Categories, Users, Bids, Payments, Contracts, Vendors, Disputes, Subscription Plans, Email Templates, and Settings.
+
+### Content Management System (CMS)
+A full bilingual CMS allows admins to manage legal pages, footer links, and home page sections with rich text editing. Content supports English/Arabic with automatic language-based rendering and RTL support. Frontend components dynamically render legal pages and home sections with DOMPurify XSS sanitization. Admin screens enable CRUD operations for content.
 
 ### 3-Level Hierarchical Category System
-The platform uses a 3-level category hierarchy (Level 0: Primary, Level 1: Subcategories, Level 2: Super-subcategories) with bilingual content (English/Arabic). This system is central to job postings, consultant services, and marketplace navigation. Server-side validation enforces hierarchy rules, slug uniqueness, and delete protection. Public and Admin API routes support fetching, managing, and reordering categories. The frontend displays root categories on the homepage and dynamic landing pages for all levels with breadcrumbs.
+The platform utilizes a 3-level category hierarchy (Primary, Subcategories, Super-subcategories) with bilingual content. This system is crucial for job postings, consultant services, and marketplace navigation, enforced by server-side validation.
 
 ### Dashboard & Profile Management
-**Client Dashboard**: Displays active jobs, bids, spending, and messages, with an approval status banner showing profile completion progress and unique client ID upon approval. Role switcher allows dual-role users to toggle between client and consultant views.
-**Consultant Dashboard**: Shows available jobs, active bids, earnings, and ratings, with an approval status banner showing profile completion progress and unique consultant ID upon approval.
-Both dashboards integrate with React Query for role-specific data and display approval states (Approved, Pending, Rejected, Draft) with profile completion percentages.
-
-**User Layout**: Role-specific sidebar navigation with Dashboard, Profile, Jobs/Work, Messages, and Settings sections. Dual-role users see a role switcher button with localStorage persistence.
-
-**Client Profile**: Supports company information, industry, size, website, location, description, business type (individual/company/enterprise), logo, and social media links (LinkedIn, Twitter, Facebook).
-
-**Consultant Profile**: Comprehensive profile system including personal details, bio, skills, hourly rate, experience, portfolio, service packages, certifications, languages, operating regions, year established, employee count, business registration number, social links. Separate tables exist for KYC documents (kycDocuments), education records (educationRecords), and bank information (bankInformation). Features include skills tag manager and weekly availability calendar.
-
-**Verification Badges**: Profile pages display trust indicators for consultants through verification badges. System tracks four verification types: email (from auth system), phone (phoneVerified column in users table), identity (computed from approved KYC documents), and business registration. Consultant profile API returns real verification status with phoneVerified from user record and identityVerified derived from kycDocuments presence. Badges use color-coded variants to show verification state.
-
-**Quick Quote System**: Clients can request instant quotes directly from consultant profiles for specific service packages. System uses quoteRequests table storing clientId, consultantId, packageName, projectDescription, status (pending/responded/declined), consultantResponse, and quotedAmount (SAR). Security enforced through role validation (clients create, consultants respond) and ownership checks (consultants can only update their own quotes). Client UI shows quote request dialog on service packages; consultant dashboard displays incoming requests widget with response capability. All endpoints require authentication and validate user roles.
-
-**Language Proficiency Tracking**: Consultant profiles support structured language tracking with proficiency levels. Languages stored as jsonb array with schema `[{language: "English", proficiency: "native"}]`. Four proficiency levels supported: basic, intermediate, advanced, native. Profile edit mode includes add/remove language entries with dropdowns for proficiency selection. View mode displays languages as proficiency-based badges with color variants. Server-side validation enforces language schema integrity, preventing malformed JSON persistence.
-
-**Pricing Templates**: Consultants can create reusable pricing structures (pricingTemplates table) with name, description, basePrice, currency, hourly rates, estimated hours, cost breakdowns (jsonb), and volume-based tiers (jsonb). Schema and types complete; management UI and integration with bids/packages pending.
+Both Client and Consultant Dashboards display relevant information (active jobs/earnings, bids, messages) and approval status banners with profile completion progress and unique IDs. Dual-role users can switch between views. Client profiles capture company details, while Consultant profiles include comprehensive personal, professional, and financial information. Verification badges (email, phone, identity, business registration) provide trust indicators. A Quick Quote System allows clients to request quotes from consultant profiles, with security enforced by role validation. Language proficiency tracking and Pricing Templates are also supported for consultants.
 
 ### Security & State Machine
-**Protected Field Stripping**: Profile update endpoints use explicit destructuring to strip protected fields (profileStatus, approvalStatus, uniqueId, reviewedBy, reviewedAt) from user payloads before storage persistence, preventing privilege escalation attacks.
-
-**State Transitions**: Profile status follows an enforced state machine:
-- Registration: profileStatus='incomplete', approvalStatus='pending'
-- Profile Edits: Status fields preserved (no auto-promotion)
-- User Submit: Explicit transition to profileStatus='submitted' via `/api/profiles/{role}/submit`
-- Admin Approval: Sets approvalStatus='approved', assigns unique ID (CLT-YYYY-XXXX or CNS-YYYY-XXXX)
-- Post-Approval: Status fields protected from user modification
-
-**Partial Updates**: PUT endpoints use `.partial()` schemas to allow incremental profile updates while protecting admin-controlled fields via payload sanitization.
+Profile update endpoints strip protected fields to prevent privilege escalation. Profile status follows an enforced state machine from registration to admin approval, with partial updates managed via `.partial()` schemas and payload sanitization.
 
 ### Job Posting & Category Integration
-**Job Posting**: Requires authentication and client role. Features a cascading 3-level category selector for assigning jobs to a specific category.
-**Category Filtering**: Browsing jobs or consultants supports hierarchical category filtering, where selecting a parent category includes all descendant categories in the results. The backend `listJobs()` function handles descendant category inclusion and role-based filtering.
+Job posting requires client authentication and features a cascading 3-level category selector. Job and consultant browsing support hierarchical category filtering, including all descendant categories.
 
 ## External Dependencies
 
 ### Database
-- **Neon Serverless PostgreSQL**
-- **@neondatabase/serverless**
+- Neon Serverless PostgreSQL
+- @neondatabase/serverless
 
 ### UI Components
-- **Radix UI**
-- **Lucide React**
+- Radix UI
+- Lucide React
 
 ### Internationalization (i18n)
-- **react-i18next**
-- **i18next** (English and Arabic)
-
-### Development Tools
-- **Replit Plugins** (Development banner, Cartographer)
-- **Vite** (Runtime error overlay)
+- react-i18next
+- i18next (English and Arabic)
 
 ### Form Handling & Validation
-- **React Hook Form**
-- **@hookform/resolvers**
-- **Zod**
+- React Hook Form
+- @hookform/resolvers
+- Zod
+
+### Rich Text Editing
+- React Quill
+- Quill
 
 ### Utilities
-- **class-variance-authority**
-- **clsx**
-- **tailwind-merge**
-- **cmdk**
-- **date-fns**
-- **nanoid**
+- class-variance-authority
+- clsx
+- tailwind-merge
+- cmdk
+- date-fns
+- nanoid
+- DOMPurify
 
 ### Session Management
-- **connect-pg-simple**
+- connect-pg-simple
 
 ### Planned Integrations
 - Payment processing system
 - File upload/storage service
 - Email/OTP service for 2FA
-- Video conferencing integration (Google Meet/Zoom)
+- Video conferencing integration
