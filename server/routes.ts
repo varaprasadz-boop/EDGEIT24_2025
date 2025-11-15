@@ -310,29 +310,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Job endpoints
-  app.get('/api/jobs', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = getUserIdFromRequest(req);
-      if (!userId) {
-        return res.status(401).json({ message: "User not found" });
-      }
-      
-      // Validate query params
-      const validation = queryLimitSchema.safeParse(req.query);
-      if (!validation.success) {
-        return res.status(400).json({ message: "Invalid query parameters", errors: validation.error });
-      }
-      
-      const { limit } = validation.data;
-      const jobs = await storage.listClientJobs(userId, limit);
-      res.json({ jobs, total: jobs.length });
-    } catch (error) {
-      console.error("Error fetching jobs:", error);
-      res.status(500).json({ message: "Failed to fetch jobs" });
-    }
-  });
-
   // Bid endpoints
   app.get('/api/bids', isAuthenticated, async (req: any, res) => {
     try {
@@ -604,13 +581,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Optional query params
       const clientId = req.query.clientId as string | undefined;
+      const categoryId = req.query.categoryId as string | undefined;
+      const forConsultant = req.query.forConsultant === 'true';
       const limit = req.query.limit ? parseInt(req.query.limit) : 50;
 
-      // If clientId is specified, ensure it matches authenticated user (security)
-      const filterClientId = clientId && clientId === userId ? clientId : userId;
+      // Build filter options
+      const options: { ownerClientId?: string; categoryId?: string; excludeClientId?: string; limit: number } = {
+        limit
+      };
 
-      const jobsWithPaths = await storage.listJobs(filterClientId, limit);
-      res.json(jobsWithPaths);
+      if (forConsultant) {
+        // Consultant browsing jobs - exclude their own postings
+        options.excludeClientId = userId;
+        if (categoryId) {
+          options.categoryId = categoryId;
+        }
+      } else {
+        // Client viewing their own jobs
+        options.ownerClientId = clientId || userId;
+        if (categoryId) {
+          options.categoryId = categoryId;
+        }
+      }
+
+      const jobsWithPaths = await storage.listJobs(options);
+      res.json({ jobs: jobsWithPaths, total: jobsWithPaths.length });
     } catch (error) {
       console.error("Error listing jobs:", error);
       res.status(500).json({ message: "Failed to list jobs" });

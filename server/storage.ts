@@ -21,7 +21,7 @@ import {
   type Category,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, desc, inArray } from "drizzle-orm";
+import { eq, and, ne, sql, desc, inArray } from "drizzle-orm";
 import { nanoid } from 'nanoid';
 
 export interface DashboardStats {
@@ -75,7 +75,7 @@ export interface IStorage {
   
   // Job operations
   createJob(job: InsertJob): Promise<Job>;
-  listJobs(clientId?: string, limit?: number): Promise<(Job & { categoryPathLabel: string })[]>;
+  listJobs(options?: { ownerClientId?: string; categoryId?: string; excludeClientId?: string; limit?: number }): Promise<(Job & { categoryPathLabel: string })[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -359,12 +359,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async listClientJobs(userId: string, limit: number = 10): Promise<Job[]> {
-    return await db
-      .select()
-      .from(jobs)
-      .where(eq(jobs.clientId, userId))
-      .orderBy(desc(jobs.createdAt))
-      .limit(limit);
+    // Use listJobs with owner filter (returns enriched jobs with category paths)
+    const jobsWithPaths = await this.listJobs({ ownerClientId: userId, limit });
+    // Strip categoryPathLabel to match Job type
+    return jobsWithPaths.map(({ categoryPathLabel, ...job }) => job);
   }
 
   async listClientBids(userId: string, limit: number = 10): Promise<Bid[]> {
@@ -396,9 +394,53 @@ export class DatabaseStorage implements IStorage {
     return createdJob;
   }
 
-  async listJobs(clientId?: string, limit: number = 50): Promise<(Job & { categoryPathLabel: string })[]> {
-    // Build where clause
-    const whereClause = clientId ? eq(jobs.clientId, clientId) : undefined;
+  async listJobs(options?: { ownerClientId?: string; categoryId?: string; excludeClientId?: string; limit?: number }): Promise<(Job & { categoryPathLabel: string })[]> {
+    const { ownerClientId, categoryId, excludeClientId, limit = 50 } = options || {};
+    
+    // Fetch all categories upfront (used for both filtering and path computation)
+    const allCategories = await db.select().from(categories);
+    
+    // Helper to get all descendant category IDs (including the category itself)
+    const getDescendantCategoryIds = (categoryId: string): string[] => {
+      // Build adjacency map once for O(1) lookups
+      const childrenMap = new Map<string, string[]>();
+      for (const cat of allCategories) {
+        if (cat.parentId) {
+          if (!childrenMap.has(cat.parentId)) {
+            childrenMap.set(cat.parentId, []);
+          }
+          childrenMap.get(cat.parentId)!.push(cat.id);
+        }
+      }
+      
+      // Traverse tree using adjacency map
+      const descendants: string[] = [categoryId];
+      const addDescendants = (parentId: string) => {
+        const children = childrenMap.get(parentId) || [];
+        for (const childId of children) {
+          descendants.push(childId);
+          addDescendants(childId);
+        }
+      };
+      
+      addDescendants(categoryId);
+      return descendants;
+    };
+    
+    // Build where clause with AND conditions
+    const conditions = [];
+    if (ownerClientId) {
+      conditions.push(eq(jobs.clientId, ownerClientId));
+    }
+    if (categoryId) {
+      // Include all descendant categories for hierarchical filtering
+      const categoryIds = getDescendantCategoryIds(categoryId);
+      conditions.push(inArray(jobs.categoryId, categoryIds));
+    }
+    if (excludeClientId) {
+      conditions.push(ne(jobs.clientId, excludeClientId));
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     // Fetch jobs
     const jobList = await db
@@ -407,9 +449,6 @@ export class DatabaseStorage implements IStorage {
       .where(whereClause)
       .orderBy(desc(jobs.createdAt))
       .limit(limit);
-
-    // Fetch all categories for path computation (cache in memory)
-    const allCategories = await db.select().from(categories);
     
     // Helper to build category path (handles any depth)
     const buildCategoryPath = (categoryId: string | null): string => {

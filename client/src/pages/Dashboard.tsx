@@ -196,7 +196,12 @@ export default function Dashboard() {
               Post a New Job
               <ArrowRight className="ml-auto h-4 w-4" />
             </Button>
-            <Button variant="outline" className="w-full justify-start" data-testid="button-browse-vendors">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start" 
+              onClick={() => setLocation('/browse-consultants')}
+              data-testid="button-browse-vendors"
+            >
               <Users className="mr-2 h-4 w-4" />
               Browse Vendors
               <ArrowRight className="ml-auto h-4 w-4" />
@@ -382,7 +387,11 @@ export default function Dashboard() {
             <CardDescription>Find jobs and manage your work</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button className="w-full justify-start bg-primary text-primary-foreground" data-testid="button-browse-jobs">
+            <Button 
+              className="w-full justify-start bg-primary text-primary-foreground" 
+              onClick={() => setLocation('/browse-jobs')}
+              data-testid="button-browse-jobs"
+            >
               <Briefcase className="mr-2 h-4 w-4" />
               Browse Available Jobs
               <ArrowRight className="ml-auto h-4 w-4" />
