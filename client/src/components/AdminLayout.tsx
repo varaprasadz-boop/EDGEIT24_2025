@@ -24,6 +24,7 @@ import {
   Mail,
   CheckCircle,
   Link as LinkIcon,
+  LayoutGrid,
 } from "lucide-react";
 import {
   Sidebar,
@@ -190,6 +191,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           url: '/admin/footer-links',
           icon: LinkIcon,
           testId: 'nav-footer-links',
+        },
+        {
+          title: 'Home Sections',
+          url: '/admin/home-sections',
+          icon: LayoutGrid,
+          testId: 'nav-home-sections',
         },
       ],
     },

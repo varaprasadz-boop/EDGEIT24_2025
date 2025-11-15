@@ -16,6 +16,7 @@ import AdminSettings from "@/pages/AdminSettings";
 import AdminEmailTemplates from "@/pages/AdminEmailTemplates";
 import AdminContentPages from "@/pages/admin/AdminContentPages";
 import AdminFooterLinks from "@/pages/admin/AdminFooterLinks";
+import AdminHomeSections from "@/pages/admin/AdminHomeSections";
 
 export function AdminRouter() {
   return (
@@ -38,6 +39,7 @@ export function AdminRouter() {
         <Route path="/admin/email-templates" component={AdminEmailTemplates} />
         <Route path="/admin/content-pages" component={AdminContentPages} />
         <Route path="/admin/footer-links" component={AdminFooterLinks} />
+        <Route path="/admin/home-sections" component={AdminHomeSections} />
       </Switch>
     </AdminLayout>
   );
