@@ -196,6 +196,18 @@ export const pricingTemplates = pgTable("pricing_templates", {
   consultantProfileIdIdx: index("pricing_templates_consultant_profile_id_idx").on(table.consultantProfileId),
 }));
 
+export const insertPricingTemplateSchema = createInsertSchema(pricingTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Template name is required"),
+  basePrice: z.string().min(1, "Base price is required"),
+});
+
+export type InsertPricingTemplate = z.infer<typeof insertPricingTemplateSchema>;
+export type PricingTemplate = typeof pricingTemplates.$inferSelect;
+
 // Profile Approval Events - Audit trail for all profile approval actions
 export const profileApprovalEvents = pgTable("profile_approval_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

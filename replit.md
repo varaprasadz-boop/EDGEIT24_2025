@@ -37,7 +37,9 @@ Both dashboards integrate with React Query for role-specific data and display ap
 
 **Client Profile**: Supports company information, industry, size, website, location, description, business type (individual/company/enterprise), logo, and social media links (LinkedIn, Twitter, Facebook).
 
-**Consultant Profile**: Comprehensive profile system including personal details, bio, skills, hourly rate, experience, portfolio, service packages, certifications, languages with proficiency levels (speaking/reading/writing), operating regions, year established, employee count, business registration number, social links, KYC documents, education records, and bank information. Features include skills tag manager and weekly availability calendar.
+**Consultant Profile**: Comprehensive profile system including personal details, bio, skills, hourly rate, experience, portfolio, service packages, certifications, languages, operating regions, year established, employee count, business registration number, social links. Separate tables exist for KYC documents (kycDocuments), education records (educationRecords), and bank information (bankInformation). Features include skills tag manager and weekly availability calendar.
+
+**Pricing Templates**: Consultants can create reusable pricing structures (pricingTemplates table) with name, description, basePrice, currency, hourly rates, estimated hours, cost breakdowns (jsonb), and volume-based tiers (jsonb). Schema and types complete; management UI and integration with bids/packages pending.
 
 ### Security & State Machine
 **Protected Field Stripping**: Profile update endpoints use explicit destructuring to strip protected fields (profileStatus, approvalStatus, uniqueId, reviewedBy, reviewedAt) from user payloads before storage persistence, preventing privilege escalation attacks.
