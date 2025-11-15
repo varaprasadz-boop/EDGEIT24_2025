@@ -8,6 +8,11 @@ import {
   bids,
   projects,
   payments,
+  kycDocuments,
+  educationRecords,
+  bankInformation,
+  profileApprovalEvents,
+  uniqueIdCounters,
   type User,
   type InsertUser,
   type UpsertUser,
@@ -19,6 +24,15 @@ import {
   type InsertJob,
   type Bid,
   type Category,
+  type KycDocument,
+  type InsertKycDocument,
+  type EducationRecord,
+  type InsertEducationRecord,
+  type BankInformation,
+  type InsertBankInformation,
+  type ProfileApprovalEvent,
+  type InsertProfileApprovalEvent,
+  type UniqueIdCounter,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, sql, desc, inArray } from "drizzle-orm";
@@ -52,6 +66,13 @@ export interface IStorage {
   getUserByReplitSub(replitSub: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUser(userId: string, data: Partial<InsertUser>): Promise<User>;
+  
+  // Email verification operations
+  setEmailVerificationToken(userId: string, token: string, expiry: Date): Promise<void>;
+  getUserByEmailToken(token: string): Promise<User | undefined>;
+  verifyUserEmail(userId: string): Promise<User>;
+  invalidateEmailVerificationToken(userId: string): Promise<void>;
   
   // Client Profile operations
   getClientProfile(userId: string): Promise<ClientProfile | undefined>;
@@ -66,6 +87,29 @@ export interface IStorage {
   // Consultant Category operations
   getConsultantCategories(userId: string): Promise<ConsultantCategoryWithDetails[]>;
   setConsultantCategories(userId: string, categoryIds: string[], primaryCategoryId: string | null): Promise<ConsultantCategoryWithDetails[]>;
+  
+  // KYC Document operations
+  getKycDocument(userId: string, profileType: 'client' | 'consultant'): Promise<KycDocument | undefined>;
+  saveKycDocument(document: InsertKycDocument): Promise<KycDocument>;
+  updateKycDocument(userId: string, profileType: string, data: Partial<InsertKycDocument>): Promise<KycDocument>;
+  
+  // Education Record operations
+  getEducationRecords(consultantProfileId: string): Promise<EducationRecord[]>;
+  createEducationRecord(record: InsertEducationRecord): Promise<EducationRecord>;
+  updateEducationRecord(id: string, data: Partial<InsertEducationRecord>): Promise<EducationRecord>;
+  deleteEducationRecord(id: string): Promise<void>;
+  
+  // Bank Information operations
+  getBankInformation(consultantProfileId: string): Promise<BankInformation | undefined>;
+  saveBankInformation(info: InsertBankInformation): Promise<BankInformation>;
+  updateBankInformation(consultantProfileId: string, data: Partial<InsertBankInformation>): Promise<BankInformation>;
+  
+  // Profile Approval operations
+  createApprovalEvent(event: InsertProfileApprovalEvent): Promise<ProfileApprovalEvent>;
+  getApprovalEvents(userId: string, profileType?: string): Promise<ProfileApprovalEvent[]>;
+  
+  // Unique ID generation
+  generateUniqueId(prefix: 'CLT' | 'CNS'): Promise<string>;
   
   // Dashboard operations
   getClientDashboardStats(userId: string): Promise<DashboardStats>;
@@ -270,6 +314,270 @@ export class DatabaseStorage implements IStorage {
 
     // Return updated categories with details (or empty array if no categories)
     return this.getConsultantCategories(userId);
+  }
+
+  // User update operations
+  async updateUser(userId: string, data: Partial<InsertUser>): Promise<User> {
+    const [updated] = await db
+      .update(users)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  // Email verification operations
+  async setEmailVerificationToken(userId: string, token: string, expiry: Date): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        emailVerificationToken: token,
+        emailTokenExpiry: expiry,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async getUserByEmailToken(token: string): Promise<User | undefined> {
+    // Note: Don't filter by expiry here - let the route handle expiry logic
+    // for better error messaging (expired vs invalid tokens)
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.emailVerificationToken, token));
+    return user;
+  }
+
+  async verifyUserEmail(userId: string): Promise<User> {
+    const [updated] = await db
+      .update(users)
+      .set({
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
+        emailVerificationToken: null,
+        emailTokenExpiry: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async invalidateEmailVerificationToken(userId: string): Promise<void> {
+    const [updated] = await db
+      .update(users)
+      .set({
+        emailVerificationToken: null,
+        emailTokenExpiry: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (!updated) {
+      throw new Error(`Failed to invalidate email verification token for user ${userId}`);
+    }
+  }
+
+  // KYC Document operations
+  async getKycDocument(userId: string, profileType: 'client' | 'consultant'): Promise<KycDocument | undefined> {
+    const [doc] = await db
+      .select()
+      .from(kycDocuments)
+      .where(
+        and(
+          eq(kycDocuments.userId, userId),
+          eq(kycDocuments.profileType, profileType)
+        )
+      );
+    return doc;
+  }
+
+  async saveKycDocument(document: InsertKycDocument): Promise<KycDocument> {
+    // Check if document already exists
+    const existing = await this.getKycDocument(document.userId, document.profileType as 'client' | 'consultant');
+    
+    if (existing) {
+      // Update existing
+      const [updated] = await db
+        .update(kycDocuments)
+        .set({ ...document, updatedAt: new Date() })
+        .where(eq(kycDocuments.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new
+      const [created] = await db
+        .insert(kycDocuments)
+        .values(document)
+        .returning();
+      return created;
+    }
+  }
+
+  async updateKycDocument(userId: string, profileType: string, data: Partial<InsertKycDocument>): Promise<KycDocument> {
+    const existing = await this.getKycDocument(userId, profileType as 'client' | 'consultant');
+    if (!existing) {
+      throw new Error("KYC document not found");
+    }
+
+    const [updated] = await db
+      .update(kycDocuments)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(kycDocuments.id, existing.id))
+      .returning();
+    return updated;
+  }
+
+  // Education Record operations
+  async getEducationRecords(consultantProfileId: string): Promise<EducationRecord[]> {
+    return await db
+      .select()
+      .from(educationRecords)
+      .where(eq(educationRecords.consultantProfileId, consultantProfileId))
+      .orderBy(desc(educationRecords.startDate));
+  }
+
+  async createEducationRecord(record: InsertEducationRecord): Promise<EducationRecord> {
+    const [created] = await db
+      .insert(educationRecords)
+      .values(record)
+      .returning();
+    return created;
+  }
+
+  async updateEducationRecord(id: string, data: Partial<InsertEducationRecord>): Promise<EducationRecord> {
+    const [updated] = await db
+      .update(educationRecords)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(educationRecords.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteEducationRecord(id: string): Promise<void> {
+    await db
+      .delete(educationRecords)
+      .where(eq(educationRecords.id, id));
+  }
+
+  // Bank Information operations
+  async getBankInformation(consultantProfileId: string): Promise<BankInformation | undefined> {
+    const [info] = await db
+      .select()
+      .from(bankInformation)
+      .where(eq(bankInformation.consultantProfileId, consultantProfileId));
+    return info;
+  }
+
+  async saveBankInformation(info: InsertBankInformation): Promise<BankInformation> {
+    // Check if bank information already exists
+    const existing = await this.getBankInformation(info.consultantProfileId);
+    
+    if (existing) {
+      // Update existing
+      const [updated] = await db
+        .update(bankInformation)
+        .set({ ...info, updatedAt: new Date() })
+        .where(eq(bankInformation.consultantProfileId, info.consultantProfileId))
+        .returning();
+      return updated;
+    } else {
+      // Create new
+      const [created] = await db
+        .insert(bankInformation)
+        .values(info)
+        .returning();
+      return created;
+    }
+  }
+
+  async updateBankInformation(consultantProfileId: string, data: Partial<InsertBankInformation>): Promise<BankInformation> {
+    const [updated] = await db
+      .update(bankInformation)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(bankInformation.consultantProfileId, consultantProfileId))
+      .returning();
+    return updated;
+  }
+
+  // Profile Approval operations
+  async createApprovalEvent(event: InsertProfileApprovalEvent): Promise<ProfileApprovalEvent> {
+    const [created] = await db
+      .insert(profileApprovalEvents)
+      .values(event)
+      .returning();
+    return created;
+  }
+
+  async getApprovalEvents(userId: string, profileType?: string): Promise<ProfileApprovalEvent[]> {
+    if (profileType) {
+      return await db
+        .select()
+        .from(profileApprovalEvents)
+        .where(
+          and(
+            eq(profileApprovalEvents.userId, userId),
+            eq(profileApprovalEvents.profileType, profileType)
+          )
+        )
+        .orderBy(desc(profileApprovalEvents.createdAt));
+    } else {
+      return await db
+        .select()
+        .from(profileApprovalEvents)
+        .where(eq(profileApprovalEvents.userId, userId))
+        .orderBy(desc(profileApprovalEvents.createdAt));
+    }
+  }
+
+  // Unique ID generation
+  async generateUniqueId(prefix: 'CLT' | 'CNS'): Promise<string> {
+    const currentYear = new Date().getFullYear();
+    
+    // Get or create counter for this prefix and year
+    const result = await db.transaction(async (tx) => {
+      // Try to get existing counter
+      const [existing] = await tx
+        .select()
+        .from(uniqueIdCounters)
+        .where(
+          and(
+            eq(uniqueIdCounters.prefix, prefix),
+            eq(uniqueIdCounters.year, currentYear)
+          )
+        );
+
+      let counter: number;
+      if (existing) {
+        // Increment existing counter
+        const [updated] = await tx
+          .update(uniqueIdCounters)
+          .set({
+            counter: sql`${uniqueIdCounters.counter} + 1`,
+            updatedAt: new Date(),
+          })
+          .where(eq(uniqueIdCounters.id, existing.id))
+          .returning();
+        counter = updated.counter;
+      } else {
+        // Create new counter starting at 1
+        const [created] = await tx
+          .insert(uniqueIdCounters)
+          .values({
+            prefix,
+            year: currentYear,
+            counter: 1,
+          })
+          .returning();
+        counter = created.counter;
+      }
+
+      return counter;
+    });
+
+    // Format as PREFIX-YYYY-XXXX (e.g., CLT-2024-0001)
+    return `${prefix}-${currentYear}-${String(result).padStart(4, '0')}`;
   }
 
   // Dashboard operations

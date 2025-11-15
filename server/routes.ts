@@ -10,6 +10,7 @@ import { users, adminRoles, categories, consultantCategories, jobs, bids, paymen
 import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
+import { randomBytes } from "crypto";
 
 const queryLimitSchema = z.object({
   limit: z.string().optional().transform(val => val ? parseInt(val) : 10)
@@ -21,20 +22,158 @@ function getUserIdFromRequest(req: any): string | null {
   return req.user?.id || null;
 }
 
+// Middleware guards for profile requirements
+const requireEmailVerified = async (req: any, res: any, next: any) => {
+  try {
+    const userId = getUserIdFromRequest(req);
+    if (!userId) {
+      return res.status(401).json({ 
+        message: "Authentication required",
+        requiresAuth: true
+      });
+    }
+
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.emailVerified) {
+      return res.status(403).json({ 
+        message: "Email verification required. Please verify your email to continue.",
+        requiresEmailVerification: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          emailVerified: user.emailVerified
+        }
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Error in requireEmailVerified middleware:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+const requireProfileComplete = (role: 'client' | 'consultant') => {
+  return async (req: any, res: any, next: any) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ 
+          message: "Authentication required",
+          requiresAuth: true
+        });
+      }
+
+      const profile = role === 'client' 
+        ? await storage.getClientProfile(userId)
+        : await storage.getConsultantProfile(userId);
+
+      if (!profile) {
+        return res.status(404).json({ 
+          message: `${role === 'client' ? 'Client' : 'Consultant'} profile not found. Please create your profile first.`,
+          requiresProfileCreation: true,
+          profileType: role
+        });
+      }
+
+      if (profile.profileStatus === 'incomplete' || profile.profileStatus === 'draft') {
+        return res.status(403).json({ 
+          message: `${role === 'client' ? 'Client' : 'Consultant'} profile must be completed before posting jobs.`,
+          requiresProfileCompletion: true,
+          profileType: role,
+          profileStatus: profile.profileStatus
+        });
+      }
+
+      next();
+    } catch (error) {
+      console.error("Error in requireProfileComplete middleware:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  };
+};
+
+const requireProfileApproved = (role: 'client' | 'consultant') => {
+  return async (req: any, res: any, next: any) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ 
+          message: "Authentication required",
+          requiresAuth: true
+        });
+      }
+
+      const profile = role === 'client'
+        ? await storage.getClientProfile(userId)
+        : await storage.getConsultantProfile(userId);
+
+      if (!profile) {
+        return res.status(404).json({ 
+          message: `${role === 'client' ? 'Client' : 'Consultant'} profile not found. Please create your profile first.`,
+          requiresProfileCreation: true,
+          profileType: role
+        });
+      }
+
+      if (profile.approvalStatus !== 'approved') {
+        return res.status(403).json({ 
+          message: `${role === 'client' ? 'Client' : 'Consultant'} profile must be approved by admin before you can ${role === 'client' ? 'post jobs' : 'submit bids'}.`,
+          requiresProfileApproval: true,
+          profileType: role,
+          approvalStatus: profile.approvalStatus,
+          profileStatus: profile.profileStatus
+        });
+      }
+
+      next();
+    } catch (error) {
+      console.error("Error in requireProfileApproved middleware:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  };
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
   await setupAuth(app);
 
   // Auth routes
   
-  // Signup route
+  // Signup route - Enhanced with full registration data
   app.post('/api/auth/signup', async (req, res) => {
     try {
-      const { email, password, role } = req.body;
+      const { 
+        email, 
+        password, 
+        role, 
+        fullName, 
+        country, 
+        phoneCountryCode, 
+        phone, 
+        companyName,
+        selectedCategories // For consultant role only
+      } = req.body;
       
       // Validation
       if (!email || !password || !role) {
         return res.status(400).json({ message: "Email, password, and role are required" });
+      }
+      
+      if (!fullName) {
+        return res.status(400).json({ message: "Full name is required" });
+      }
+      
+      if (!country) {
+        return res.status(400).json({ message: "Country is required" });
+      }
+      
+      if (!phone || !phoneCountryCode) {
+        return res.status(400).json({ message: "Phone number with country code is required" });
       }
       
       if (password.length < 6) {
@@ -43,6 +182,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (role !== 'client' && role !== 'consultant') {
         return res.status(400).json({ message: "Role must be either 'client' or 'consultant'" });
+      }
+      
+      // For consultants, validate selectedCategories
+      if (role === 'consultant' && (!selectedCategories || !Array.isArray(selectedCategories) || selectedCategories.length === 0)) {
+        return res.status(400).json({ message: "At least one expertise category is required for consultants" });
       }
       
       // Check if user already exists
@@ -54,30 +198,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Hash password
       const hashedPassword = await hashPassword(password);
       
-      // Create user
-      const user = await storage.upsertUser({
+      // Create user with extended fields
+      const user = await storage.createUser({
         email,
         password: hashedPassword,
         role,
+        fullName,
+        country,
+        phoneCountryCode,
+        phone,
+        companyName: companyName || null,
         authProvider: 'local',
         emailVerified: false,
       });
       
-      // Log user in
+      // Auto-create profile based on role
+      if (role === 'client') {
+        await storage.createClientProfile({
+          userId: user.id,
+          companyName: companyName || '',
+          profileStatus: 'incomplete',
+          approvalStatus: 'pending',
+        });
+      } else if (role === 'consultant') {
+        // Create consultant profile
+        const consultantProfile = await storage.createConsultantProfile({
+          userId: user.id,
+          fullName: fullName,
+          profileStatus: 'incomplete',
+          approvalStatus: 'pending',
+        });
+        
+        // Set selected categories with first one as primary
+        if (selectedCategories && selectedCategories.length > 0) {
+          await storage.setConsultantCategories(
+            user.id, 
+            selectedCategories, 
+            selectedCategories[0] // First category as primary
+          );
+        }
+      }
+      
+      // Log user in automatically
       req.login(user, (err) => {
         if (err) {
           console.error("Error logging in after signup:", err);
           return res.status(500).json({ message: "Account created but login failed" });
         }
         
-        // Return user and onboarding redirect path
-        const redirectPath = role === 'client' ? '/profile/client?onboarding=true' : '/profile/consultant?onboarding=true';
+        // Return user and redirect to appropriate dashboard
+        const redirectPath = role === 'client' ? '/dashboard/client' : '/dashboard/consultant';
         
         res.status(201).json({
           user: {
             id: user.id,
             email: user.email,
             role: user.role,
+            fullName: user.fullName,
+            emailVerified: user.emailVerified,
           },
           redirectPath,
         });
@@ -123,6 +301,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ message: "Logged out successfully" });
     });
+  });
+  
+  // Email verification routes
+  app.post('/api/auth/send-verification', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (user.emailVerified) {
+        return res.status(400).json({ message: "Email already verified" });
+      }
+
+      // Generate crypto-secure verification token
+      const token = randomBytes(32).toString('hex');
+      
+      // Token expires in 24 hours
+      const expiry = new Date();
+      expiry.setHours(expiry.getHours() + 24);
+
+      await storage.setEmailVerificationToken(userId, token, expiry);
+
+      // TODO: Send actual email with verification link
+      // For testing: Log the link to console (never expose in response)
+      const verificationLink = `/verify-email?token=${token}`;
+      console.log(`[TESTING ONLY] Email verification link for ${user.email}: ${verificationLink}`);
+      
+      res.json({ 
+        message: "Verification email sent. Please check your email for the verification link."
+      });
+    } catch (error) {
+      console.error("Error sending verification email:", error);
+      res.status(500).json({ message: "Failed to send verification email" });
+    }
+  });
+
+  app.get('/api/auth/verify-email', async (req, res) => {
+    try {
+      const { token } = req.query;
+      
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ message: "Verification token is required" });
+      }
+
+      const user = await storage.getUserByEmailToken(token);
+      if (!user) {
+        return res.status(400).json({ message: "Invalid verification token" });
+      }
+
+      // Check token expiry - invalidate if expired
+      if (user.emailTokenExpiry && user.emailTokenExpiry < new Date()) {
+        // Invalidate expired token to prevent replay attacks
+        await storage.invalidateEmailVerificationToken(user.id);
+        return res.status(400).json({ message: "Verification token has expired. Please request a new one." });
+      }
+
+      if (user.emailVerified) {
+        // Already verified - invalidate token
+        await storage.invalidateEmailVerificationToken(user.id);
+        return res.status(400).json({ message: "Email already verified" });
+      }
+
+      // Verify email and clear the token (verifyUserEmail already clears token)
+      await storage.verifyUserEmail(user.id);
+
+      res.json({ message: "Email verified successfully" });
+    } catch (error) {
+      console.error("Error verifying email:", error);
+      res.status(500).json({ message: "Failed to verify email" });
+    }
+  });
+
+  app.post('/api/auth/resend-verification', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (user.emailVerified) {
+        return res.status(400).json({ message: "Email already verified" });
+      }
+
+      // Generate crypto-secure verification token
+      const token = randomBytes(32).toString('hex');
+      
+      const expiry = new Date();
+      expiry.setHours(expiry.getHours() + 24);
+
+      await storage.setEmailVerificationToken(userId, token, expiry);
+
+      // TODO: Send actual email with verification link
+      // For testing: Log the link to console (never expose in response)
+      const verificationLink = `/verify-email?token=${token}`;
+      console.log(`[TESTING ONLY] Email verification link for ${user.email}: ${verificationLink}`);
+      
+      res.json({ 
+        message: "Verification email resent. Please check your email for the verification link."
+      });
+    } catch (error) {
+      console.error("Error resending verification email:", error);
+      res.status(500).json({ message: "Failed to resend verification email" });
+    }
   });
   
   // Get current user - returns null if not authenticated (frontend expects this)
@@ -361,7 +653,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Validate request body using the insert schema (omit fields not user-editable)
-      const updateSchema = insertClientProfileSchema.omit({ id: true, userId: true, createdAt: true, updatedAt: true });
+      const updateSchema = insertClientProfileSchema.omit({ userId: true });
       const validation = updateSchema.safeParse(req.body);
       
       if (!validation.success) {
@@ -416,16 +708,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
       
-      // Validate request body (omit read-only fields: id, userId, verified, rating, totalReviews, completedProjects, createdAt, updatedAt)
+      // Validate request body (omit read-only fields: userId, verified, rating, totalReviews, completedProjects)
       const updateSchema = insertConsultantProfileSchema.omit({ 
-        id: true, 
         userId: true, 
         verified: true,
         rating: true,
         totalReviews: true,
-        completedProjects: true,
-        createdAt: true, 
-        updatedAt: true 
+        completedProjects: true
       });
       const validation = updateSchema.safeParse(req.body);
       
@@ -437,8 +726,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingProfile = await storage.getConsultantProfile(userId);
       
       if (!existingProfile) {
-        // Create new consultant profile
-        const newProfile = await storage.createConsultantProfile({ userId, ...validation.data });
+        // Create new consultant profile - fetch fullName from user record
+        const user = await storage.getUser(userId);
+        if (!user || !user.fullName) {
+          return res.status(400).json({ message: "User full name is required to create consultant profile" });
+        }
+        // Remove fullName from validation.data to avoid duplication
+        const { fullName: _, ...profileData } = validation.data as any;
+        const newProfile = await storage.createConsultantProfile({ 
+          userId, 
+          fullName: user.fullName,
+          ...profileData 
+        });
         return res.status(201).json(newProfile);
       }
       
@@ -502,6 +801,602 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Profile submission for review
+  app.post('/api/profiles/client/submit', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const profile = await storage.getClientProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Client profile not found. Please complete your profile first." });
+      }
+
+      if (profile.approvalStatus === 'approved') {
+        return res.status(400).json({ message: "Profile is already approved" });
+      }
+
+      // Update profile status to submitted
+      const updatedProfile = await storage.updateClientProfile(userId, {
+        profileStatus: 'submitted',
+      });
+
+      // Create approval event
+      await storage.createApprovalEvent({
+        userId,
+        profileType: 'client',
+        action: 'submitted',
+        performedBy: userId, // Self-submitted
+      });
+
+      res.json(updatedProfile);
+    } catch (error) {
+      console.error("Error submitting client profile:", error);
+      res.status(500).json({ message: "Failed to submit profile for review" });
+    }
+  });
+
+  app.post('/api/profiles/consultant/submit', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const profile = await storage.getConsultantProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Consultant profile not found. Please complete your profile first." });
+      }
+
+      if (profile.approvalStatus === 'approved') {
+        return res.status(400).json({ message: "Profile is already approved" });
+      }
+
+      // Update profile status to submitted
+      const updatedProfile = await storage.updateConsultantProfile(userId, {
+        profileStatus: 'submitted',
+      });
+
+      // Create approval event
+      await storage.createApprovalEvent({
+        userId,
+        profileType: 'consultant',
+        action: 'submitted',
+        performedBy: userId,
+      });
+
+      res.json(updatedProfile);
+    } catch (error) {
+      console.error("Error submitting consultant profile:", error);
+      res.status(500).json({ message: "Failed to submit profile for review" });
+    }
+  });
+
+  // KYC Document endpoints
+  app.get('/api/profiles/kyc', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const profileType = user.role === 'consultant' ? 'consultant' : 'client';
+      const kycDoc = await storage.getKycDocument(userId, profileType);
+
+      res.json(kycDoc || null);
+    } catch (error) {
+      console.error("Error fetching KYC document:", error);
+      res.status(500).json({ message: "Failed to fetch KYC document" });
+    }
+  });
+
+  app.post('/api/profiles/kyc', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const { idType, idNumber, validityDate, documentUrl } = req.body;
+
+      if (!idType || !idNumber) {
+        return res.status(400).json({ message: "ID type and number are required" });
+      }
+
+      const profileType = user.role === 'consultant' ? 'consultant' : 'client';
+
+      const kycDoc = await storage.saveKycDocument({
+        userId,
+        profileType,
+        idType,
+        idNumber,
+        validityDate: validityDate ? new Date(validityDate) : null,
+        documentUrl: documentUrl || null,
+      });
+
+      res.json(kycDoc);
+    } catch (error) {
+      console.error("Error saving KYC document:", error);
+      res.status(500).json({ message: "Failed to save KYC document" });
+    }
+  });
+
+  // Education Records endpoints (Consultant only)
+  app.get('/api/profiles/education', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const profile = await storage.getConsultantProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Consultant profile not found" });
+      }
+
+      const records = await storage.getEducationRecords(profile.id);
+      res.json(records);
+    } catch (error) {
+      console.error("Error fetching education records:", error);
+      res.status(500).json({ message: "Failed to fetch education records" });
+    }
+  });
+
+  app.post('/api/profiles/education', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const profile = await storage.getConsultantProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Consultant profile not found" });
+      }
+
+      const { degree, institution, fieldOfStudy, startDate, endDate, stillStudying } = req.body;
+
+      if (!degree || !institution) {
+        return res.status(400).json({ message: "Degree and institution are required" });
+      }
+
+      const record = await storage.createEducationRecord({
+        consultantProfileId: profile.id,
+        degree,
+        institution,
+        fieldOfStudy: fieldOfStudy || null,
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        stillStudying: stillStudying || false,
+      });
+
+      res.status(201).json(record);
+    } catch (error) {
+      console.error("Error creating education record:", error);
+      res.status(500).json({ message: "Failed to create education record" });
+    }
+  });
+
+  app.put('/api/profiles/education/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const { id } = req.params;
+      const { degree, institution, fieldOfStudy, startDate, endDate, stillStudying } = req.body;
+
+      // Verify ownership by checking if record belongs to user's profile
+      const profile = await storage.getConsultantProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Consultant profile not found" });
+      }
+
+      const updated = await storage.updateEducationRecord(id, {
+        degree,
+        institution,
+        fieldOfStudy,
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
+        stillStudying,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating education record:", error);
+      res.status(500).json({ message: "Failed to update education record" });
+    }
+  });
+
+  app.delete('/api/profiles/education/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const { id } = req.params;
+
+      // Verify ownership
+      const profile = await storage.getConsultantProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Consultant profile not found" });
+      }
+
+      await storage.deleteEducationRecord(id);
+      res.json({ message: "Education record deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting education record:", error);
+      res.status(500).json({ message: "Failed to delete education record" });
+    }
+  });
+
+  // Bank Information endpoints (Consultant only)
+  app.get('/api/profiles/bank', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const profile = await storage.getConsultantProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Consultant profile not found" });
+      }
+
+      const bankInfo = await storage.getBankInformation(profile.id);
+      res.json(bankInfo || null);
+    } catch (error) {
+      console.error("Error fetching bank information:", error);
+      res.status(500).json({ message: "Failed to fetch bank information" });
+    }
+  });
+
+  app.post('/api/profiles/bank', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const profile = await storage.getConsultantProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Consultant profile not found" });
+      }
+
+      const { bankName, accountHolderName, accountNumber, swiftCode, bankCountry, currency } = req.body;
+
+      if (!bankName || !accountHolderName || !accountNumber) {
+        return res.status(400).json({ message: "Bank name, account holder name, and account number are required" });
+      }
+
+      const bankInfo = await storage.saveBankInformation({
+        consultantProfileId: profile.id,
+        bankName,
+        accountHolderName,
+        accountNumber,
+        swiftCode: swiftCode || null,
+        bankCountry: bankCountry || null,
+        currency: currency || 'SAR',
+      });
+
+      res.json(bankInfo);
+    } catch (error) {
+      console.error("Error saving bank information:", error);
+      res.status(500).json({ message: "Failed to save bank information" });
+    }
+  });
+
+  app.put('/api/profiles/bank', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const profile = await storage.getConsultantProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Consultant profile not found" });
+      }
+
+      const { bankName, accountHolderName, accountNumber, swiftCode, bankCountry, currency } = req.body;
+
+      const bankInfo = await storage.updateBankInformation(profile.id, {
+        bankName,
+        accountHolderName,
+        accountNumber,
+        swiftCode,
+        bankCountry,
+        currency,
+      });
+
+      res.json(bankInfo);
+    } catch (error) {
+      console.error("Error updating bank information:", error);
+      res.status(500).json({ message: "Failed to update bank information" });
+    }
+  });
+
+  // Role switching endpoint
+  app.post('/api/profiles/add-role', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const { newRole, fullName, selectedCategories } = req.body;
+
+      if (!newRole || (newRole !== 'client' && newRole !== 'consultant')) {
+        return res.status(400).json({ message: "Valid role (client or consultant) is required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Check if user already has the role
+      if (user.role === newRole) {
+        return res.status(400).json({ message: "You already have this role" });
+      }
+
+      // Update user role to 'both' if adding a second role
+      if (user.role !== 'both') {
+        await storage.updateUser(userId, { role: 'both' });
+      }
+
+      // Create the appropriate profile
+      if (newRole === 'client') {
+        const existingClientProfile = await storage.getClientProfile(userId);
+        if (existingClientProfile) {
+          return res.status(400).json({ message: "Client profile already exists" });
+        }
+
+        await storage.createClientProfile({
+          userId,
+          profileStatus: 'incomplete',
+          approvalStatus: 'pending',
+        });
+      } else if (newRole === 'consultant') {
+        const existingConsultantProfile = await storage.getConsultantProfile(userId);
+        if (existingConsultantProfile) {
+          return res.status(400).json({ message: "Consultant profile already exists" });
+        }
+
+        if (!fullName) {
+          return res.status(400).json({ message: "Full name is required for consultant profile" });
+        }
+
+        await storage.createConsultantProfile({
+          userId,
+          fullName,
+          profileStatus: 'incomplete',
+          approvalStatus: 'pending',
+        });
+
+        // Set categories if provided
+        if (selectedCategories && Array.isArray(selectedCategories) && selectedCategories.length > 0) {
+          await storage.setConsultantCategories(userId, selectedCategories, selectedCategories[0]);
+        }
+      }
+
+      res.json({ message: "Role added successfully", role: newRole });
+    } catch (error) {
+      console.error("Error adding role:", error);
+      res.status(500).json({ message: "Failed to add role" });
+    }
+  });
+
+  // Admin profile approval endpoints
+  app.get('/api/admin/profiles/pending', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      // Fetch all users with pending approval status
+      const pendingClients = await db
+        .select({
+          user: users,
+          profile: clientProfiles,
+        })
+        .from(users)
+        .innerJoin(clientProfiles, eq(clientProfiles.userId, users.id))
+        .where(
+          and(
+            eq(clientProfiles.approvalStatus, 'pending'),
+            eq(clientProfiles.profileStatus, 'submitted')
+          )
+        );
+
+      const pendingConsultants = await db
+        .select({
+          user: users,
+          profile: consultantProfiles,
+        })
+        .from(users)
+        .innerJoin(consultantProfiles, eq(consultantProfiles.userId, users.id))
+        .where(
+          and(
+            eq(consultantProfiles.approvalStatus, 'pending'),
+            eq(consultantProfiles.profileStatus, 'submitted')
+          )
+        );
+
+      res.json({
+        clients: pendingClients,
+        consultants: pendingConsultants,
+      });
+    } catch (error) {
+      console.error("Error fetching pending profiles:", error);
+      res.status(500).json({ message: "Failed to fetch pending profiles" });
+    }
+  });
+
+  app.post('/api/admin/profiles/:userId/approve', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminUserId = getUserIdFromRequest(req);
+      if (!adminUserId) {
+        return res.status(401).json({ message: "Admin user not found" });
+      }
+
+      const { userId } = req.params;
+      const { profileType, notes } = req.body;
+
+      if (!profileType || (profileType !== 'client' && profileType !== 'consultant')) {
+        return res.status(400).json({ message: "Valid profile type (client or consultant) is required" });
+      }
+
+      // Generate unique ID
+      const uniqueId = await storage.generateUniqueId(profileType === 'client' ? 'CLT' : 'CNS');
+
+      // Update profile
+      if (profileType === 'client') {
+        await storage.updateClientProfile(userId, {
+          approvalStatus: 'approved',
+          profileStatus: 'complete',
+          uniqueClientId: uniqueId,
+          reviewedBy: adminUserId,
+          reviewedAt: new Date(),
+          adminNotes: notes || null,
+        });
+      } else {
+        await storage.updateConsultantProfile(userId, {
+          approvalStatus: 'approved',
+          profileStatus: 'complete',
+          uniqueConsultantId: uniqueId,
+          reviewedBy: adminUserId,
+          reviewedAt: new Date(),
+          adminNotes: notes || null,
+        });
+      }
+
+      // Create approval event
+      await storage.createApprovalEvent({
+        userId,
+        profileType,
+        action: 'approved',
+        performedBy: adminUserId,
+        notes: notes || null,
+      });
+
+      res.json({ message: "Profile approved successfully", uniqueId });
+    } catch (error) {
+      console.error("Error approving profile:", error);
+      res.status(500).json({ message: "Failed to approve profile" });
+    }
+  });
+
+  app.post('/api/admin/profiles/:userId/reject', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminUserId = getUserIdFromRequest(req);
+      if (!adminUserId) {
+        return res.status(401).json({ message: "Admin user not found" });
+      }
+
+      const { userId } = req.params;
+      const { profileType, notes } = req.body;
+
+      if (!profileType || (profileType !== 'client' && profileType !== 'consultant')) {
+        return res.status(400).json({ message: "Valid profile type (client or consultant) is required" });
+      }
+
+      // Update profile
+      if (profileType === 'client') {
+        await storage.updateClientProfile(userId, {
+          approvalStatus: 'rejected',
+          reviewedBy: adminUserId,
+          reviewedAt: new Date(),
+          adminNotes: notes || null,
+        });
+      } else {
+        await storage.updateConsultantProfile(userId, {
+          approvalStatus: 'rejected',
+          reviewedBy: adminUserId,
+          reviewedAt: new Date(),
+          adminNotes: notes || null,
+        });
+      }
+
+      // Create approval event
+      await storage.createApprovalEvent({
+        userId,
+        profileType,
+        action: 'rejected',
+        performedBy: adminUserId,
+        notes: notes || null,
+      });
+
+      res.json({ message: "Profile rejected successfully" });
+    } catch (error) {
+      console.error("Error rejecting profile:", error);
+      res.status(500).json({ message: "Failed to reject profile" });
+    }
+  });
+
+  app.post('/api/admin/profiles/:userId/request-changes', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminUserId = getUserIdFromRequest(req);
+      if (!adminUserId) {
+        return res.status(401).json({ message: "Admin user not found" });
+      }
+
+      const { userId } = req.params;
+      const { profileType, notes } = req.body;
+
+      if (!profileType || (profileType !== 'client' && profileType !== 'consultant')) {
+        return res.status(400).json({ message: "Valid profile type (client or consultant) is required" });
+      }
+
+      if (!notes) {
+        return res.status(400).json({ message: "Notes explaining requested changes are required" });
+      }
+
+      // Update profile
+      if (profileType === 'client') {
+        await storage.updateClientProfile(userId, {
+          approvalStatus: 'changes_requested',
+          profileStatus: 'draft',
+          reviewedBy: adminUserId,
+          reviewedAt: new Date(),
+          adminNotes: notes,
+        });
+      } else {
+        await storage.updateConsultantProfile(userId, {
+          approvalStatus: 'changes_requested',
+          profileStatus: 'draft',
+          reviewedBy: adminUserId,
+          reviewedAt: new Date(),
+          adminNotes: notes,
+        });
+      }
+
+      // Create approval event
+      await storage.createApprovalEvent({
+        userId,
+        profileType,
+        action: 'changes_requested',
+        performedBy: adminUserId,
+        notes,
+      });
+
+      res.json({ message: "Changes requested successfully" });
+    } catch (error) {
+      console.error("Error requesting changes:", error);
+      res.status(500).json({ message: "Failed to request changes" });
+    }
+  });
+
   // Public: Get category tree for consultants (no admin auth required)
   app.get('/api/categories/tree', async (req, res) => {
     try {
@@ -545,7 +1440,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Job routes
-  app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
+  // Guards applied in sequence: auth → email verified → profile complete → profile approved
+  app.post('/api/jobs', isAuthenticated, requireEmailVerified, requireProfileComplete('client'), requireProfileApproved('client'), async (req: any, res) => {
     try {
       const userId = getUserIdFromRequest(req);
       if (!userId) {

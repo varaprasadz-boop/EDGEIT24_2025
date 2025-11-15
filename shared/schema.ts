@@ -24,8 +24,17 @@ export const users = pgTable("users", {
   role: text("role").notNull().default('client'), // 'client', 'consultant', 'both', 'admin'
   status: text("status").notNull().default('active'), // 'active', 'inactive', 'suspended'
   emailVerified: boolean("email_verified").default(false),
+  emailVerificationToken: varchar("email_verification_token"),
+  emailTokenExpiry: timestamp("email_token_expiry"),
+  emailVerifiedAt: timestamp("email_verified_at"),
   authProvider: text("auth_provider").default('local'), // 'local', 'replit', 'google', 'github'
   replitSub: varchar("replit_sub").unique(), // OIDC subject ID for linking accounts
+  // Basic registration fields
+  fullName: text("full_name"),
+  country: varchar("country"), // ISO country code (SA, AE, etc.)
+  phoneCountryCode: varchar("phone_country_code"), // +966, +971, etc.
+  phone: varchar("phone"),
+  companyName: text("company_name"),
   // Replit Auth fields
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
@@ -40,11 +49,20 @@ export const clientProfiles = pgTable("client_profiles", {
   userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
   companyName: text("company_name"),
   industry: text("industry"),
-  companySize: text("company_size"), // 'small', 'medium', 'large', 'enterprise'
+  companySize: text("company_size"), // '1-10', '11-50', '51-200', '201-500', '500+'
+  region: text("region"),
+  businessType: text("business_type"),
   website: text("website"),
   description: text("description"),
   location: text("location"),
   avatar: text("avatar"),
+  // Profile approval fields
+  profileStatus: text("profile_status").default('draft'), // 'draft', 'submitted', 'under_review', 'complete'
+  approvalStatus: text("approval_status").default('pending'), // 'pending', 'approved', 'rejected', 'changes_requested'
+  uniqueClientId: varchar("unique_client_id").unique(), // CLT-YYYY-XXXX
+  adminNotes: text("admin_notes"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -73,6 +91,19 @@ export const consultantProfiles = pgTable("consultant_profiles", {
   totalReviews: integer("total_reviews").default(0),
   completedProjects: integer("completed_projects").default(0),
   responseTime: integer("response_time"), // in minutes
+  // Additional business fields
+  yearEstablished: integer("year_established"),
+  employeeCount: text("employee_count"), // '1-10', '11-50', '51-200', '201+'
+  website: text("website"),
+  socialLinks: jsonb("social_links"), // { linkedin, twitter, github, etc. }
+  businessRegistrationNumber: varchar("business_registration_number"),
+  // Profile approval fields
+  profileStatus: text("profile_status").default('draft'), // 'draft', 'submitted', 'under_review', 'complete'
+  approvalStatus: text("approval_status").default('pending'), // 'pending', 'approved', 'rejected', 'changes_requested'
+  uniqueConsultantId: varchar("unique_consultant_id").unique(), // CNS-YYYY-XXXX
+  adminNotes: text("admin_notes"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -90,6 +121,79 @@ export const consultantCategories = pgTable("consultant_categories", {
   categoryIdIdx: index("consultant_categories_category_id_idx").on(table.categoryId),
   // Prevent duplicate category selections
   uniqueConsultantCategory: uniqueIndex("unique_consultant_category").on(table.consultantProfileId, table.categoryId),
+}));
+
+// KYC Documents - Store identity verification documents for users
+export const kycDocuments = pgTable("kyc_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  profileType: text("profile_type").notNull(), // 'client' or 'consultant'
+  idType: text("id_type"), // 'passport', 'national_id', 'driving_license'
+  idNumber: varchar("id_number"),
+  validityDate: timestamp("validity_date"),
+  documentUrl: text("document_url"), // Mock upload URL placeholder
+  verified: boolean("verified").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("kyc_documents_user_id_idx").on(table.userId),
+}));
+
+// Education Records - Track educational background for consultants
+export const educationRecords = pgTable("education_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  consultantProfileId: varchar("consultant_profile_id").notNull().references(() => consultantProfiles.id, { onDelete: "cascade" }),
+  degree: text("degree").notNull(), // Bachelor's, Master's, PhD, Certification
+  institution: text("institution").notNull(),
+  fieldOfStudy: text("field_of_study"),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  stillStudying: boolean("still_studying").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  consultantProfileIdIdx: index("education_records_consultant_profile_id_idx").on(table.consultantProfileId),
+}));
+
+// Bank Information - Payment details for consultants to receive payments
+export const bankInformation = pgTable("bank_information", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  consultantProfileId: varchar("consultant_profile_id").notNull().unique().references(() => consultantProfiles.id, { onDelete: "cascade" }),
+  bankName: text("bank_name").notNull(),
+  accountHolderName: text("account_holder_name").notNull(),
+  accountNumber: varchar("account_number").notNull(), // Can store IBAN
+  swiftCode: varchar("swift_code"),
+  bankCountry: varchar("bank_country"),
+  currency: varchar("currency").default('SAR'), // SAR, USD, EUR, etc.
+  verified: boolean("verified").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Profile Approval Events - Audit trail for all profile approval actions
+export const profileApprovalEvents = pgTable("profile_approval_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  profileType: text("profile_type").notNull(), // 'client' or 'consultant'
+  action: text("action").notNull(), // 'submitted', 'approved', 'rejected', 'changes_requested'
+  performedBy: varchar("performed_by").notNull().references(() => users.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("profile_approval_events_user_id_idx").on(table.userId),
+  actionIdx: index("profile_approval_events_action_idx").on(table.action),
+}));
+
+// Unique ID Counters - Track auto-incrementing counters for CLT and CNS IDs
+export const uniqueIdCounters = pgTable("unique_id_counters", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  prefix: varchar("prefix").notNull().unique(), // 'CLT' or 'CNS'
+  year: integer("year").notNull(),
+  counter: integer("counter").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  prefixYearIdx: uniqueIndex("unique_id_counters_prefix_year").on(table.prefix, table.year),
 }));
 
 // Admin Roles - For RBAC system
@@ -442,7 +546,6 @@ export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-  authProvider: true,
   firstName: true,
   lastName: true,
   profileImageUrl: true,
@@ -450,6 +553,9 @@ export const insertUserSchema = createInsertSchema(users).omit({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   role: z.enum(['client', 'consultant', 'both', 'admin']),
+  status: z.string().optional(),
+  emailVerified: z.boolean().optional(),
+  authProvider: z.enum(['local', 'replit', 'google', 'github']).optional(),
 });
 
 // For Replit Auth upsert - flexible validation
@@ -467,6 +573,9 @@ export const insertClientProfileSchema = createInsertSchema(clientProfiles).omit
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  profileStatus: z.string().optional(),
+  approvalStatus: z.string().optional(),
 });
 
 export type InsertClientProfile = z.infer<typeof insertClientProfileSchema>;
@@ -479,7 +588,13 @@ export const insertConsultantProfileSchema = createInsertSchema(consultantProfil
   updatedAt: true,
 }).extend({
   fullName: z.string().min(1, "Full name is required"),
-  hourlyRate: z.string().optional(),
+  verified: z.boolean().optional(),
+  profileStatus: z.string().optional(),
+  approvalStatus: z.string().optional(),
+  availability: z.string().optional(),
+  rating: z.string().optional(),
+  totalReviews: z.number().optional(),
+  completedProjects: z.number().optional(),
 });
 
 export type InsertConsultantProfile = z.infer<typeof insertConsultantProfileSchema>;
@@ -700,3 +815,52 @@ export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit
 
 export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
+
+// KYC Documents
+export const insertKycDocumentSchema = createInsertSchema(kycDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertKycDocument = z.infer<typeof insertKycDocumentSchema>;
+export type KycDocument = typeof kycDocuments.$inferSelect;
+
+// Education Records
+export const insertEducationRecordSchema = createInsertSchema(educationRecords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertEducationRecord = z.infer<typeof insertEducationRecordSchema>;
+export type EducationRecord = typeof educationRecords.$inferSelect;
+
+// Bank Information
+export const insertBankInformationSchema = createInsertSchema(bankInformation).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertBankInformation = z.infer<typeof insertBankInformationSchema>;
+export type BankInformation = typeof bankInformation.$inferSelect;
+
+// Profile Approval Events
+export const insertProfileApprovalEventSchema = createInsertSchema(profileApprovalEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertProfileApprovalEvent = z.infer<typeof insertProfileApprovalEventSchema>;
+export type ProfileApprovalEvent = typeof profileApprovalEvents.$inferSelect;
+
+// Unique ID Counters
+export const insertUniqueIdCounterSchema = createInsertSchema(uniqueIdCounters).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUniqueIdCounter = z.infer<typeof insertUniqueIdCounterSchema>;
+export type UniqueIdCounter = typeof uniqueIdCounters.$inferSelect;
