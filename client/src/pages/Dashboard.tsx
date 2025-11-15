@@ -1,11 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { UserLayout } from "@/components/UserLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import {
   Briefcase,
@@ -19,8 +19,16 @@ import {
   ArrowRight,
   Star,
   AlertCircle,
-  UserCircle
+  UserCircle,
+  Package
 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { formatDistanceToNow } from "date-fns";
 
 interface DashboardStats {
   activeJobs: number;
@@ -51,10 +59,34 @@ interface ProfileStatus {
   title?: string;
 }
 
+interface QuoteRequest {
+  id: string;
+  clientId: string;
+  consultantId: string;
+  packageName: string;
+  projectDescription: string;
+  status: 'pending' | 'responded' | 'declined';
+  consultantResponse: string | null;
+  quotedAmount: string | null;
+  createdAt: string;
+  updatedAt: string;
+  client?: {
+    fullName: string;
+    email: string;
+    companyName?: string;
+  };
+}
+
 export default function Dashboard() {
   const { user, isLoading, getSelectedRole } = useAuthContext();
   const selectedRole = getSelectedRole();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  
+  const [responseDialogOpen, setResponseDialogOpen] = useState(false);
+  const [selectedQuote, setSelectedQuote] = useState<QuoteRequest | null>(null);
+  const [responseMessage, setResponseMessage] = useState("");
+  const [quotedAmount, setQuotedAmount] = useState("");
 
   // All hooks at top level (React hooks rules)
   // Profile status queries - only fetch for selected role
@@ -135,6 +167,41 @@ export default function Dashboard() {
   const { data: performanceScore, isLoading: performanceScoreLoading, isError: performanceScoreError } = useQuery<{ score: number; breakdown: { ratingScore: number; completionScore: number; responseScore: number } }>({
     queryKey: ['/api/consultant/performance-score'],
     enabled: !!user && selectedRole === 'consultant',
+  });
+
+  // Quote requests query for consultants
+  const { data: quoteRequests } = useQuery<QuoteRequest[]>({
+    queryKey: ['/api/quotes'],
+    enabled: !!user && (selectedRole === 'consultant' || user.role === 'both'),
+  });
+
+  // Mutation for responding to quote requests
+  const respondToQuoteMutation = useMutation({
+    mutationFn: async ({ id, response, amount }: { id: string; response: string; amount: string }) => {
+      return apiRequest('PATCH', `/api/quotes/${id}`, {
+        status: 'responded',
+        consultantResponse: response,
+        quotedAmount: amount,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/quotes'] });
+      toast({ 
+        title: "Response sent", 
+        description: "Your quote response has been sent to the client." 
+      });
+      setResponseDialogOpen(false);
+      setSelectedQuote(null);
+      setResponseMessage("");
+      setQuotedAmount("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send response. Please try again.",
+        variant: "destructive"
+      });
+    }
   });
 
   // Redirect admin users to admin portal
@@ -642,6 +709,106 @@ export default function Dashboard() {
           </Card>
         )}
 
+        <Card data-testid="card-quote-requests">
+          <CardHeader>
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5 text-primary" />
+                  Incoming Quote Requests
+                </CardTitle>
+                <CardDescription>Respond to client quote requests for your service packages</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!quoteRequests || quoteRequests.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground" data-testid="text-no-quote-requests">
+                <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No quote requests yet</p>
+                <p className="text-sm">Quote requests from clients will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {quoteRequests.slice(0, 5).map((quote) => {
+                  const truncatedDescription = quote.projectDescription.length > 100 
+                    ? quote.projectDescription.substring(0, 100) + "..." 
+                    : quote.projectDescription;
+                  
+                  return (
+                    <div 
+                      key={quote.id} 
+                      className="flex flex-col gap-3 p-4 rounded-md border hover-elevate"
+                      data-testid={`quote-request-${quote.id}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-medium text-sm" data-testid={`quote-package-${quote.id}`}>
+                              {quote.packageName}
+                            </h4>
+                            <Badge 
+                              variant={
+                                quote.status === 'pending' ? 'secondary' :
+                                quote.status === 'responded' ? 'default' :
+                                'destructive'
+                              }
+                              className={
+                                quote.status === 'pending' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-500' :
+                                quote.status === 'responded' ? 'bg-green-500/10 text-green-700 dark:text-green-500' :
+                                ''
+                              }
+                              data-testid={`quote-status-${quote.id}`}
+                            >
+                              {quote.status}
+                            </Badge>
+                          </div>
+                          {quote.client && (
+                            <p className="text-xs text-muted-foreground mb-1" data-testid={`quote-client-${quote.id}`}>
+                              Client: {quote.client.fullName}
+                              {quote.client.companyName && ` (${quote.client.companyName})`}
+                            </p>
+                          )}
+                          <p className="text-sm text-muted-foreground" data-testid={`quote-description-${quote.id}`}>
+                            {truncatedDescription}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-muted-foreground" data-testid={`quote-date-${quote.id}`}>
+                          {formatDistanceToNow(new Date(quote.createdAt), { addSuffix: true })}
+                        </span>
+                        {quote.status === 'pending' && (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setSelectedQuote(quote);
+                              setResponseDialogOpen(true);
+                            }}
+                            data-testid={`button-respond-quote-${quote.id}`}
+                          >
+                            Respond
+                          </Button>
+                        )}
+                        {quote.status === 'responded' && quote.quotedAmount && (
+                          <span className="text-sm font-medium text-primary" data-testid={`quote-amount-${quote.id}`}>
+                            ﷼{parseFloat(quote.quotedAmount).toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {quoteRequests.length > 5 && (
+                  <p className="text-center text-sm text-muted-foreground pt-2">
+                    Showing 5 of {quoteRequests.length} requests
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
       <div className="grid gap-4 md:grid-cols-2">
         <Card data-testid="card-performance-metrics">
           <CardHeader>
@@ -722,6 +889,103 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={responseDialogOpen} onOpenChange={setResponseDialogOpen}>
+        <DialogContent data-testid="dialog-quote-response">
+          <DialogHeader>
+            <DialogTitle>Respond to Quote Request</DialogTitle>
+            <DialogDescription>
+              Provide your quote response for {selectedQuote?.packageName}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedQuote && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Client Request</Label>
+                <p className="text-sm text-muted-foreground p-3 rounded-md border bg-muted/50" data-testid="text-quote-request-details">
+                  {selectedQuote.projectDescription}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="response-message">
+                  Response Message <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  id="response-message"
+                  placeholder="Describe your proposal, timeline, and what's included..."
+                  value={responseMessage}
+                  onChange={(e) => setResponseMessage(e.target.value)}
+                  rows={5}
+                  data-testid="textarea-response-message"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="quoted-amount">
+                  Quoted Amount (SAR) <span className="text-destructive">*</span>
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    ﷼
+                  </span>
+                  <Input
+                    id="quoted-amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={quotedAmount}
+                    onChange={(e) => setQuotedAmount(e.target.value)}
+                    className="pl-8"
+                    data-testid="input-quoted-amount"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setResponseDialogOpen(false);
+                setSelectedQuote(null);
+                setResponseMessage("");
+                setQuotedAmount("");
+              }}
+              disabled={respondToQuoteMutation.isPending}
+              data-testid="button-cancel-response"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!selectedQuote || !responseMessage.trim() || !quotedAmount || parseFloat(quotedAmount) <= 0) {
+                  toast({
+                    title: "Validation Error",
+                    description: "Please provide both a response message and a valid quoted amount.",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+                respondToQuoteMutation.mutate({
+                  id: selectedQuote.id,
+                  response: responseMessage,
+                  amount: quotedAmount
+                });
+              }}
+              disabled={respondToQuoteMutation.isPending || !responseMessage.trim() || !quotedAmount}
+              data-testid="button-submit-response"
+            >
+              {respondToQuoteMutation.isPending ? "Sending..." : "Send Response"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     );
   };
@@ -778,7 +1042,7 @@ export default function Dashboard() {
   return (
     <UserLayout>
       <div className="container mx-auto px-4 md:px-6 py-8">
-        {selectedRole === 'both' && renderDualRoleDashboard()}
+        {user?.role === 'both' && renderDualRoleDashboard()}
         {selectedRole === 'client' && renderClientDashboard()}
         {selectedRole === 'consultant' && renderConsultantDashboard()}
         {!selectedRole && (

@@ -747,6 +747,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reviewedAt: true,
         fullName: true, // fullName comes from user record
       }).partial();
+      
+      // Additional validation for languages JSON structure
+      if (req.body.languages) {
+        const languagesValidation = z.array(z.object({
+          language: z.string().min(1),
+          proficiency: z.enum(['basic', 'intermediate', 'advanced', 'native']),
+        })).safeParse(req.body.languages);
+        
+        if (!languagesValidation.success) {
+          return res.status(400).json({ 
+            message: "Invalid languages format", 
+            errors: languagesValidation.error 
+          });
+        }
+      }
+      
       const validation = updateSchema.safeParse(req.body);
       
       if (!validation.success) {
@@ -1140,6 +1156,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const { id } = req.params;
+      
+      // Verify ownership: consultant must own this quote request
+      const quoteRequests = await storage.getQuoteRequests(userId, 'consultant');
+      const ownedQuote = quoteRequests.find(q => q.id === id);
+      
+      if (!ownedQuote) {
+        return res.status(403).json({ message: "Forbidden: You can only respond to your own quote requests" });
+      }
+      
       const updateSchema = z.object({
         status: z.enum(['pending', 'responded', 'declined']).optional(),
         consultantResponse: z.string().optional(),

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertConsultantProfileSchema, insertPricingTemplateSchema, type ConsultantProfile, type PricingTemplate } from "@shared/schema";
+import { insertConsultantProfileSchema, insertPricingTemplateSchema, type ConsultantProfile, type PricingTemplate, type Language, LANGUAGE_PROFICIENCIES } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +90,7 @@ export default function ConsultantProfile() {
   const [weeklySchedule, setWeeklySchedule] = useReactState<WeeklySchedule>({});
   const [selectedCategories, setSelectedCategories] = useReactState<string[]>([]);
   const [primaryCategoryId, setPrimaryCategoryId] = useReactState<string | null>(null);
+  const [languageEntries, setLanguageEntries] = useReactState<Language[]>([]);
   
   // Check if coming from onboarding
   const isOnboarding = new URLSearchParams(window.location.search).get('onboarding') === 'true';
@@ -180,6 +182,11 @@ export default function ConsultantProfile() {
   const [reviewsPage, setReviewsPage] = useState(0);
   const reviewsPerPage = 5;
 
+  // Quote request state
+  const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<ServicePackage | null>(null);
+  const [projectDescription, setProjectDescription] = useState('');
+
   // Fetch reviews
   const { data: reviewsData } = useQuery<{ items: any[]; total: number }>({
     queryKey: ['/api/reviews', user?.id, reviewsPage],
@@ -218,6 +225,29 @@ export default function ConsultantProfile() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/reviews', user?.id] });
+    },
+  });
+
+  // Create quote request mutation
+  const createQuoteMutation = useMutation({
+    mutationFn: async (data: { consultantId: string; packageName: string; projectDescription: string }) => {
+      return apiRequest('POST', '/api/quotes', data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Quote requested",
+        description: "Your quote request has been sent to the consultant.",
+      });
+      setQuoteDialogOpen(false);
+      setProjectDescription('');
+      setSelectedPackage(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Request failed",
+        description: error.message || "Failed to send quote request. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -282,6 +312,13 @@ export default function ConsultantProfile() {
         setWeeklySchedule(profile.weeklySchedule as WeeklySchedule);
       } else {
         setWeeklySchedule({});
+      }
+      
+      // Initialize language entries from profile
+      if (profile.languages && Array.isArray(profile.languages)) {
+        setLanguageEntries(profile.languages as Language[]);
+      } else {
+        setLanguageEntries([]);
       }
     }
   }, [profile, isEditing, form]);
@@ -349,6 +386,24 @@ export default function ConsultantProfile() {
     const updated = servicePackages.filter((_, i) => i !== index);
     setServicePackages(updated);
     form.setValue('servicePackages', updated.length > 0 ? updated as any : undefined);
+  };
+
+  // Language entry management functions
+  const addLanguageEntry = () => {
+    setLanguageEntries([...languageEntries, { language: '', proficiency: 'basic' }]);
+  };
+
+  const removeLanguage = (index: number) => {
+    const updated = languageEntries.filter((_, i) => i !== index);
+    setLanguageEntries(updated);
+    form.setValue('languages', updated.length > 0 ? updated as any : undefined);
+  };
+
+  const updateLanguage = (index: number, field: 'language' | 'proficiency', value: string) => {
+    const updated = [...languageEntries];
+    updated[index] = { ...updated[index], [field]: value };
+    setLanguageEntries(updated);
+    form.setValue('languages', updated as any);
   };
 
   // Pricing template management functions
@@ -504,6 +559,104 @@ export default function ConsultantProfile() {
 
   const handleSkip = () => {
     setLocation('/dashboard');
+  };
+
+  // Quote Request Dialog Component
+  const QuoteRequestDialog = () => {
+    const handleSubmitQuote = () => {
+      if (!selectedPackage || !profile) return;
+      
+      if (projectDescription.length < 50) {
+        toast({
+          title: "Validation error",
+          description: "Project description must be at least 50 characters.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      createQuoteMutation.mutate({
+        consultantId: profile.userId,
+        packageName: selectedPackage.name,
+        projectDescription,
+      });
+    };
+
+    return (
+      <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
+        <DialogContent className="max-w-2xl" data-testid="dialog-quote-request">
+          <DialogHeader>
+            <DialogTitle>Request Quote</DialogTitle>
+            <DialogDescription>
+              Submit a quote request for this service package
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedPackage && (
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg" data-testid="text-dialog-package-name">
+                    {selectedPackage.name}
+                  </CardTitle>
+                  <CardDescription data-testid="text-dialog-package-description">
+                    {selectedPackage.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="text-2xl font-bold text-primary" data-testid="text-dialog-package-price">
+                      ﷼{parseFloat(selectedPackage.price).toFixed(2)}
+                    </div>
+                    <div className="text-sm text-muted-foreground" data-testid="text-dialog-package-delivery">
+                      {selectedPackage.deliveryTime}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-2">
+                <label htmlFor="project-description" className="text-sm font-medium">
+                  Project Description *
+                </label>
+                <Textarea
+                  id="project-description"
+                  placeholder="Describe your project requirements in detail (minimum 50 characters)..."
+                  value={projectDescription}
+                  onChange={(e) => setProjectDescription(e.target.value)}
+                  className="min-h-[150px]"
+                  data-testid="textarea-project-description"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {projectDescription.length} / 50 characters minimum
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setQuoteDialogOpen(false);
+                setProjectDescription('');
+                setSelectedPackage(null);
+              }}
+              data-testid="button-cancel-quote"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitQuote}
+              disabled={createQuoteMutation.isPending || projectDescription.length < 50}
+              data-testid="button-submit-quote"
+            >
+              {createQuoteMutation.isPending ? "Submitting..." : "Submit Request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
   };
 
   if (authLoading || isLoading) {
@@ -730,6 +883,69 @@ export default function ConsultantProfile() {
                       <FormDescription>
                         Enter your technical skills separated by commas.
                       </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="languages"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center justify-between mb-3">
+                        <FormLabel>Languages</FormLabel>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={addLanguageEntry}
+                          data-testid="button-add-language"
+                        >
+                          Add Language
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {languageEntries.map((entry, index) => (
+                          <div key={index} className="flex gap-2">
+                            <Input 
+                              placeholder="Language name"
+                              value={entry.language}
+                              onChange={(e) => updateLanguage(index, 'language', e.target.value)}
+                              data-testid={`input-language-name-${index}`}
+                              className="flex-1"
+                            />
+                            <Select 
+                              value={entry.proficiency}
+                              onValueChange={(value) => updateLanguage(index, 'proficiency', value)}
+                            >
+                              <SelectTrigger data-testid={`select-proficiency-${index}`} className="w-[180px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="basic">Basic</SelectItem>
+                                <SelectItem value="intermediate">Intermediate</SelectItem>
+                                <SelectItem value="advanced">Advanced</SelectItem>
+                                <SelectItem value="native">Native</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button 
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeLanguage(index)}
+                              data-testid={`button-remove-language-${index}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        {languageEntries.length === 0 && (
+                          <div className="text-sm text-muted-foreground text-center py-4">
+                            No languages added yet. Click "Add Language" to specify your language proficiencies.
+                          </div>
+                        )}
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1124,6 +1340,30 @@ export default function ConsultantProfile() {
               </div>
               
               <div>
+                <div className="text-sm text-muted-foreground mb-2">Languages</div>
+                <div className="flex flex-wrap gap-2">
+                  {profile?.languages && Array.isArray(profile.languages) && profile.languages.length > 0 ? (
+                    (profile.languages as Language[]).map((lang, index) => (
+                      <Badge 
+                        key={index}
+                        variant={
+                          lang.proficiency === 'native' ? 'default' :
+                          lang.proficiency === 'advanced' ? 'default' :
+                          lang.proficiency === 'intermediate' ? 'secondary' :
+                          'outline'
+                        }
+                        data-testid={`badge-language-${index}`}
+                      >
+                        {lang.language} ({lang.proficiency})
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No languages listed</span>
+                  )}
+                </div>
+              </div>
+              
+              <div>
                 <div className="text-sm text-muted-foreground mb-2">
                   <ShieldCheck className="h-4 w-4 inline mr-1" />
                   Verification Status
@@ -1343,7 +1583,7 @@ export default function ConsultantProfile() {
                       <CardTitle className="text-lg" data-testid={`text-package-name-${index}`}>{pkg.name}</CardTitle>
                       <CardDescription data-testid={`text-package-description-${index}`}>{pkg.description}</CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="text-2xl font-bold text-primary" data-testid={`text-package-price-${index}`}>
                           ﷼{parseFloat(pkg.price).toFixed(2)}
@@ -1352,6 +1592,19 @@ export default function ConsultantProfile() {
                           {pkg.deliveryTime}
                         </div>
                       </div>
+                      {user && (user.role === 'client' || user.role === 'both') && profile.userId !== user.id && (
+                        <Button
+                          onClick={() => {
+                            setSelectedPackage(pkg);
+                            setQuoteDialogOpen(true);
+                          }}
+                          disabled={createQuoteMutation.isPending}
+                          className="w-full"
+                          data-testid={`button-request-quote-${index}`}
+                        >
+                          Request Quote
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -1559,6 +1812,9 @@ export default function ConsultantProfile() {
               </CardContent>
             </Card>
           )}
+
+          {/* Quote Request Dialog */}
+          <QuoteRequestDialog />
         </div>
       )}
       </div>

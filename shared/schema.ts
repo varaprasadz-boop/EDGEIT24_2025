@@ -85,7 +85,7 @@ export const consultantProfiles = pgTable("consultant_profiles", {
   experience: text("experience"), // 'junior', 'mid', 'senior', 'expert'
   portfolio: jsonb("portfolio"), // Array of portfolio items with title, description, url, images
   certifications: text("certifications").array(), // Array of certification names
-  languages: text("languages").array(), // Array of languages (enhanced proficiency tracking is future enhancement)
+  languages: jsonb("languages"), // Array of { language: string, proficiency: 'basic' | 'intermediate' | 'advanced' | 'native' }
   operatingRegions: text("operating_regions").array(), // Countries/regions where consultant operates
   availability: text("availability").default('available'), // 'available', 'busy', 'unavailable'
   weeklySchedule: jsonb("weekly_schedule"), // Weekly availability: { "monday": ["morning", "afternoon", "evening"], ... }
@@ -454,6 +454,18 @@ export type QuoteStatus = z.infer<typeof quoteStatusEnum>;
 export type QuoteRequest = typeof quoteRequests.$inferSelect;
 export const insertQuoteRequestSchema = createInsertSchema(quoteRequests).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertQuoteRequest = z.infer<typeof insertQuoteRequestSchema>;
+
+// Language Proficiency
+export const languageProficiencyEnum = z.enum(['basic', 'intermediate', 'advanced', 'native']);
+export const LANGUAGE_PROFICIENCIES = languageProficiencyEnum.options;
+export type LanguageProficiency = z.infer<typeof languageProficiencyEnum>;
+
+export const languageSchema = z.object({
+  language: z.string().min(1, "Language name is required"),
+  proficiency: languageProficiencyEnum,
+});
+
+export type Language = z.infer<typeof languageSchema>;
 
 // Payments - Transaction records
 export const payments = pgTable("payments", {
