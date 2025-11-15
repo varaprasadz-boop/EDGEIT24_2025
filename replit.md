@@ -35,6 +35,18 @@ Both dashboards integrate with React Query for role-specific data and display ap
 **Client Profile**: Allows editing company information, industry, size, website, location, and description.
 **Consultant Profile**: Enables creation and editing of profiles including personal details, bio, skills, hourly rate, experience, portfolio, and service packages, with features like a skills tag manager and availability calendar.
 
+### Security & State Machine
+**Protected Field Stripping**: Profile update endpoints use explicit destructuring to strip protected fields (profileStatus, approvalStatus, uniqueId, reviewedBy, reviewedAt) from user payloads before storage persistence, preventing privilege escalation attacks.
+
+**State Transitions**: Profile status follows an enforced state machine:
+- Registration: profileStatus='incomplete', approvalStatus='pending'
+- Profile Edits: Status fields preserved (no auto-promotion)
+- User Submit: Explicit transition to profileStatus='submitted' via `/api/profiles/{role}/submit`
+- Admin Approval: Sets approvalStatus='approved', assigns unique ID (CLT-YYYY-XXXX or CNS-YYYY-XXXX)
+- Post-Approval: Status fields protected from user modification
+
+**Partial Updates**: PUT endpoints use `.partial()` schemas to allow incremental profile updates while protecting admin-controlled fields via payload sanitization.
+
 ### Job Posting & Category Integration
 **Job Posting**: Requires authentication and client role. Features a cascading 3-level category selector for assigning jobs to a specific category.
 **Category Filtering**: Browsing jobs or consultants supports hierarchical category filtering, where selecting a parent category includes all descendant categories in the results. The backend `listJobs()` function handles descendant category inclusion and role-based filtering.

@@ -652,8 +652,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
       
-      // Validate request body using the insert schema (omit fields not user-editable)
-      const updateSchema = insertClientProfileSchema.omit({ userId: true });
+      // Validate request body - omit protected fields first, then make optional for partial updates
+      const updateSchema = insertClientProfileSchema.omit({
+        userId: true,
+        profileStatus: true,
+        approvalStatus: true,
+        uniqueClientId: true,
+        reviewedBy: true,
+        reviewedAt: true,
+      }).partial();
       const validation = updateSchema.safeParse(req.body);
       
       if (!validation.success) {
@@ -664,14 +671,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingProfile = await storage.getClientProfile(userId);
       
       if (!existingProfile) {
-        // Create new profile - userId must be included in the data object
+        // Create new profile with required defaults - protected fields enforced
         const newProfile = await storage.createClientProfile({
           ...validation.data,
-          userId
+          userId,
+          profileStatus: 'incomplete',      // Enforced default
+          approvalStatus: 'pending',        // Enforced default
         });
         return res.status(201).json(newProfile);
       } else {
-        // Update existing profile
+        // Update existing profile - protected fields cannot be modified (omitted from schema)
         const updatedProfile = await storage.updateClientProfile(userId, validation.data);
         return res.json(updatedProfile);
       }
@@ -708,14 +717,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
       
-      // Validate request body (omit read-only fields: userId, verified, rating, totalReviews, completedProjects)
-      const updateSchema = insertConsultantProfileSchema.omit({ 
-        userId: true, 
+      // Validate request body - omit protected fields first, then make optional for partial updates
+      const updateSchema = insertConsultantProfileSchema.omit({
+        userId: true,
         verified: true,
         rating: true,
         totalReviews: true,
-        completedProjects: true
-      });
+        completedProjects: true,
+        profileStatus: true,
+        approvalStatus: true,
+        uniqueConsultantId: true,
+        reviewedBy: true,
+        reviewedAt: true,
+        fullName: true, // fullName comes from user record
+      }).partial();
       const validation = updateSchema.safeParse(req.body);
       
       if (!validation.success) {
@@ -726,22 +741,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingProfile = await storage.getConsultantProfile(userId);
       
       if (!existingProfile) {
-        // Create new consultant profile - fetch fullName from user record
+        // Create new consultant profile with required defaults - protected fields enforced
         const user = await storage.getUser(userId);
         if (!user || !user.fullName) {
           return res.status(400).json({ message: "User full name is required to create consultant profile" });
         }
-        // Remove fullName from validation.data to avoid duplication
-        const { fullName: _, ...profileData } = validation.data as any;
         const newProfile = await storage.createConsultantProfile({ 
+          ...validation.data,
           userId, 
           fullName: user.fullName,
-          ...profileData 
+          profileStatus: 'incomplete',      // Enforced default
+          approvalStatus: 'pending',        // Enforced default
+          verified: false,                  // Enforced default
         });
         return res.status(201).json(newProfile);
       }
       
-      // Update existing profile
+      // Update existing profile - protected fields cannot be modified (omitted from schema)
       const updatedProfile = await storage.updateConsultantProfile(userId, validation.data);
       res.json(updatedProfile);
     } catch (error) {
