@@ -177,6 +177,25 @@ export const bankInformation = pgTable("bank_information", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Pricing Templates - Reusable pricing structures for consultants
+export const pricingTemplates = pgTable("pricing_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  consultantProfileId: varchar("consultant_profile_id").notNull().references(() => consultantProfiles.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // e.g., "Basic Website Development", "Mobile App - Standard"
+  description: text("description"),
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").default('SAR'),
+  hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }),
+  estimatedHours: integer("estimated_hours"),
+  priceBreakdown: jsonb("price_breakdown"), // [{ item: 'Design', cost: 500 }, ...]
+  volumeTiers: jsonb("volume_tiers"), // [{ minQty: 1, maxQty: 5, pricePerUnit: 100 }, ...]
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  consultantProfileIdIdx: index("pricing_templates_consultant_profile_id_idx").on(table.consultantProfileId),
+}));
+
 // Profile Approval Events - Audit trail for all profile approval actions
 export const profileApprovalEvents = pgTable("profile_approval_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
