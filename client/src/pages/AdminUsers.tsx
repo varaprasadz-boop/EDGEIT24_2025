@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Eye, Ban, CheckCircle, Mail } from "lucide-react";
+import { MoreHorizontal, Eye, Ban, CheckCircle, Mail, CreditCard, Gift, Clock, XCircle } from "lucide-react";
 import { format } from "date-fns";
 
 interface User {
@@ -26,6 +26,11 @@ interface User {
   emailVerified: boolean;
   firstName: string | null;
   lastName: string | null;
+  engagementPlan: string;
+  paymentStatus: string;
+  approvalStatus: string;
+  profileStatus: string;
+  profileCompletion: number;
   createdAt: string;
 }
 
@@ -152,6 +157,121 @@ export default function AdminUsers() {
       },
     },
     {
+      accessorKey: "engagementPlan",
+      header: "Plan",
+      cell: ({ row }) => {
+        const plan = row.getValue("engagementPlan") as string;
+        const planVariant: Record<string, "default" | "secondary" | "outline"> = {
+          basic: "secondary",
+          professional: "default",
+          enterprise: "outline",
+        };
+        const planColors: Record<string, string> = {
+          basic: "text-green-600",
+          professional: "text-blue-600",
+          enterprise: "text-purple-600",
+        };
+        return (
+          <Badge 
+            variant={planVariant[plan] || "outline"}
+            className={planColors[plan]}
+            data-testid={`plan-${row.original.id}`}
+          >
+            {plan.charAt(0).toUpperCase() + plan.slice(1)}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "profileCompletion",
+      header: "Profile",
+      cell: ({ row }) => {
+        const completion = row.getValue("profileCompletion") as number;
+        const color = completion >= 80 ? "bg-green-500" : completion >= 50 ? "bg-yellow-500" : "bg-red-500";
+        
+        return (
+          <div className="flex items-center gap-2" data-testid={`completion-${row.original.id}`}>
+            <div className="w-16 bg-muted rounded-full h-2">
+              <div 
+                className={`h-2 rounded-full ${color}`}
+                style={{ width: `${completion}%` }}
+              />
+            </div>
+            <span className="text-xs text-muted-foreground">{completion}%</span>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "approvalStatus",
+      header: "Approval",
+      cell: ({ row }) => {
+        const approvalStatus = row.getValue("approvalStatus") as string;
+        const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+          approved: "default",
+          pending: "secondary",
+          rejected: "destructive",
+          draft: "outline",
+        };
+        const statusColors: Record<string, string> = {
+          approved: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+          pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+          rejected: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+          draft: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300",
+        };
+        return (
+          <Badge 
+            variant={statusVariant[approvalStatus] || "outline"}
+            className={statusColors[approvalStatus]}
+            data-testid={`approval-${row.original.id}`}
+          >
+            {approvalStatus.charAt(0).toUpperCase() + approvalStatus.slice(1)}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "paymentStatus",
+      header: "Payment",
+      cell: ({ row }) => {
+        const paymentStatus = row.getValue("paymentStatus") as string;
+        const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+          succeeded: "default",
+          not_required: "secondary",
+          pending: "outline",
+          failed: "destructive",
+        };
+        
+        const StatusIcon = ({ status }: { status: string }) => {
+          switch (status) {
+            case "succeeded":
+              return <CreditCard className="h-3 w-3 mr-1" />;
+            case "not_required":
+              return <Gift className="h-3 w-3 mr-1" />;
+            case "pending":
+              return <Clock className="h-3 w-3 mr-1" />;
+            case "failed":
+              return <XCircle className="h-3 w-3 mr-1" />;
+            default:
+              return null;
+          }
+        };
+        
+        return (
+          <Badge 
+            variant={statusVariant[paymentStatus] || "outline"}
+            className="flex items-center gap-1"
+            data-testid={`payment-${row.original.id}`}
+          >
+            <StatusIcon status={paymentStatus} />
+            {paymentStatus === "not_required" ? "Free" : 
+             paymentStatus === "succeeded" ? "Paid" :
+             paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}
+          </Badge>
+        );
+      },
+    },
+    {
       accessorKey: "status",
       header: t("users.status"),
       cell: ({ row }) => {
@@ -222,7 +342,10 @@ export default function AdminUsers() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>{t("common.actions")}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem data-testid={`action-view-${user.id}`}>
+              <DropdownMenuItem 
+                data-testid={`action-view-${user.id}`}
+                onClick={() => window.location.href = `/profile/${user.id}`}
+              >
                 <Eye className="mr-2 h-4 w-4" />
                 {t("users.viewProfile")}
               </DropdownMenuItem>

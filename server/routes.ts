@@ -2282,11 +2282,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get total count
       const [totalResult] = await db.select({ count: count() }).from(users);
       
-      // Remove passwords from response
-      const safeUsers = usersResult.map(({ password, ...user }) => user);
+      // Fetch profile data for each user
+      const enrichedUsers = await Promise.all(usersResult.map(async (user) => {
+        const { password, ...safeUser } = user;
+        
+        // Fetch client profile if user is client or both
+        let clientProfile = null;
+        let consultantProfile = null;
+        let approvalStatus = null;
+        let profileStatus = null;
+        let profileCompletion = 0;
+        
+        if (user.role === 'client' || user.role === 'both') {
+          const [profile] = await db.select().from(clientProfiles).where(eq(clientProfiles.userId, user.id));
+          if (profile) {
+            clientProfile = profile;
+            approvalStatus = profile.approvalStatus;
+            profileStatus = profile.profileStatus;
+            // Calculate profile completion for client
+            const fields = [
+              profile.companyName, profile.industry, profile.companySize,
+              profile.website, profile.location, profile.description
+            ];
+            profileCompletion = Math.round((fields.filter(f => f).length / fields.length) * 100);
+          }
+        }
+        
+        if (user.role === 'consultant' || user.role === 'both') {
+          const [profile] = await db.select().from(consultantProfiles).where(eq(consultantProfiles.userId, user.id));
+          if (profile) {
+            consultantProfile = profile;
+            approvalStatus = profile.approvalStatus;
+            profileStatus = profile.profileStatus;
+            // Calculate profile completion for consultant
+            const fields = [
+              profile.fullName, profile.title, profile.bio, profile.hourlyRate,
+              profile.experience, profile.location, profile.skills
+            ];
+            profileCompletion = Math.round((fields.filter(f => f).length / fields.length) * 100);
+          }
+        }
+        
+        return {
+          ...safeUser,
+          approvalStatus: approvalStatus || 'pending',
+          profileStatus: profileStatus || 'incomplete',
+          profileCompletion,
+        };
+      }));
       
       res.json({
-        users: safeUsers,
+        users: enrichedUsers,
         total: totalResult?.count || 0,
         page: pageNum,
         limit: limitNum,

@@ -289,7 +289,10 @@ export default function AdminVendors() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>{t("common.actions")}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem data-testid={`button-view-${vendor.id}`}>
+              <DropdownMenuItem 
+                data-testid={`button-view-${vendor.id}`}
+                onClick={() => window.location.href = `/consultant/${vendor.id}`}
+              >
                 <Eye className="mr-2 h-4 w-4" />
                 {t("vendors.viewProfile")}
               </DropdownMenuItem>
