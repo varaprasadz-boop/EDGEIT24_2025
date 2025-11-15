@@ -9,6 +9,7 @@ import Home from "@/pages/Home";
 import Register from "@/pages/Register";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
+import PostJob from "@/pages/PostJob";
 import ClientProfile from "@/pages/ClientProfile";
 import ConsultantProfile from "@/pages/ConsultantProfile";
 import CategoryLanding from "@/pages/CategoryLanding";
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/login" component={Login} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/post-job" component={PostJob} />
       <Route path="/profile/client" component={ClientProfile} />
       <Route path="/profile/consultant" component={ConsultantProfile} />
       <Route path="/services/:slug" component={CategoryLanding} />

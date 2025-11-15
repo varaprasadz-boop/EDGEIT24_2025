@@ -183,7 +183,7 @@ export const vendorCategoryRequests = pgTable("vendor_category_requests", {
 export const jobs = pgTable("jobs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   clientId: varchar("client_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  categoryId: varchar("category_id").references(() => categories.id),
+  categoryId: varchar("category_id").notNull().references(() => categories.id),
   title: text("title").notNull(),
   description: text("description").notNull(),
   requirements: text("requirements"), // Detailed requirements

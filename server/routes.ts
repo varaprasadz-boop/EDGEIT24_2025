@@ -474,6 +474,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Consultant Categories endpoints
+  app.get('/api/profile/consultant/categories', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const consultantCategories = await storage.getConsultantCategories(userId);
+      res.json(consultantCategories);
+    } catch (error) {
+      console.error("Error fetching consultant categories:", error);
+      res.status(500).json({ message: "Failed to fetch consultant categories" });
+    }
+  });
+
+  app.put('/api/profile/consultant/categories', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const { categoryIds, primaryCategoryId } = req.body;
+      
+      // Validate input
+      if (!Array.isArray(categoryIds)) {
+        return res.status(400).json({ message: "categoryIds must be an array" });
+      }
+      
+      if (categoryIds.length > 10) {
+        return res.status(400).json({ message: "Maximum 10 categories allowed" });
+      }
+      
+      if (categoryIds.length > 0 && !primaryCategoryId) {
+        return res.status(400).json({ message: "Primary category is required when selecting categories" });
+      }
+      
+      if (primaryCategoryId && !categoryIds.includes(primaryCategoryId)) {
+        return res.status(400).json({ message: "Primary category must be in selected categories" });
+      }
+      
+      const updatedCategories = await storage.setConsultantCategories(userId, categoryIds, primaryCategoryId);
+      res.json(updatedCategories);
+    } catch (error) {
+      console.error("Error updating consultant categories:", error);
+      const message = error instanceof Error ? error.message : "Failed to update consultant categories";
+      res.status(500).json({ message });
+    }
+  });
+
+  // Public: Get category tree for consultants (no admin auth required)
+  app.get('/api/categories/tree', async (req, res) => {
+    try {
+      // Build tree from active/visible categories only - project only safe public fields
+      const allCategories = await db
+        .select({
+          id: categories.id,
+          name: categories.name,
+          nameAr: categories.nameAr,
+          slug: categories.slug,
+          description: categories.description,
+          descriptionAr: categories.descriptionAr,
+          icon: categories.icon,
+          level: categories.level,
+          parentId: categories.parentId,
+          displayOrder: categories.displayOrder,
+        })
+        .from(categories)
+        .where(and(
+          eq(categories.active, true),
+          eq(categories.visible, true)
+        ))
+        .orderBy(categories.displayOrder, categories.name);
+      
+      // Build tree structure
+      const buildTree = (parentId: string | null): any[] => {
+        return allCategories
+          .filter(cat => cat.parentId === parentId)
+          .map(cat => ({
+            ...cat,
+            children: buildTree(cat.id),
+          }));
+      };
+      
+      const tree = buildTree(null);
+      res.json({ tree });
+    } catch (error) {
+      console.error("Error fetching category tree:", error);
+      res.status(500).json({ message: "Failed to fetch category tree" });
+    }
+  });
+
+  // Job routes
+  app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Inject clientId from authenticated user
+      const jobData = {
+        ...req.body,
+        clientId: userId,
+      };
+
+      // Validate categoryId is required
+      if (!jobData.categoryId) {
+        return res.status(400).json({ message: "Category is required" });
+      }
+
+      const job = await storage.createJob(jobData);
+      res.status(201).json(job);
+    } catch (error) {
+      console.error("Error creating job:", error);
+      const message = error instanceof Error ? error.message : "Failed to create job";
+      res.status(500).json({ message });
+    }
+  });
+
+  app.get('/api/jobs', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Optional query params
+      const clientId = req.query.clientId as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit) : 50;
+
+      // If clientId is specified, ensure it matches authenticated user (security)
+      const filterClientId = clientId && clientId === userId ? clientId : userId;
+
+      const jobsWithPaths = await storage.listJobs(filterClientId, limit);
+      res.json(jobsWithPaths);
+    } catch (error) {
+      console.error("Error listing jobs:", error);
+      res.status(500).json({ message: "Failed to list jobs" });
+    }
+  });
+
   // ==================== ADMIN ROUTES ====================
   
   // Admin login - same as regular login but requires admin role

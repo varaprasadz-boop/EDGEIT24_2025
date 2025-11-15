@@ -2,6 +2,8 @@ import {
   users,
   clientProfiles,
   consultantProfiles,
+  consultantCategories,
+  categories,
   jobs,
   bids,
   projects,
@@ -14,10 +16,13 @@ import {
   type ConsultantProfile,
   type InsertConsultantProfile,
   type Job,
+  type InsertJob,
   type Bid,
+  type Category,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, desc, inArray } from "drizzle-orm";
+import { nanoid } from 'nanoid';
 
 export interface DashboardStats {
   activeJobs: number;
@@ -31,6 +36,13 @@ export interface ConsultantDashboardStats {
   activeBids: number;
   totalEarnings: string;
   rating: string;
+}
+
+export interface ConsultantCategoryWithDetails {
+  id: string;
+  categoryId: string;
+  isPrimary: boolean;
+  category: Category;
 }
 
 export interface IStorage {
@@ -51,11 +63,19 @@ export interface IStorage {
   createConsultantProfile(profile: InsertConsultantProfile): Promise<ConsultantProfile>;
   updateConsultantProfile(userId: string, profile: Partial<InsertConsultantProfile>): Promise<ConsultantProfile>;
   
+  // Consultant Category operations
+  getConsultantCategories(userId: string): Promise<ConsultantCategoryWithDetails[]>;
+  setConsultantCategories(userId: string, categoryIds: string[], primaryCategoryId: string | null): Promise<ConsultantCategoryWithDetails[]>;
+  
   // Dashboard operations
   getClientDashboardStats(userId: string): Promise<DashboardStats>;
   getConsultantDashboardStats(userId: string): Promise<ConsultantDashboardStats>;
   listClientJobs(userId: string, limit?: number): Promise<Job[]>;
   listClientBids(userId: string, limit?: number): Promise<Bid[]>;
+  
+  // Job operations
+  createJob(job: InsertJob): Promise<Job>;
+  listJobs(clientId?: string, limit?: number): Promise<(Job & { categoryPathLabel: string })[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -162,6 +182,96 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  // Consultant Category operations
+  async getConsultantCategories(userId: string): Promise<ConsultantCategoryWithDetails[]> {
+    // First get the consultant profile
+    const profile = await this.getConsultantProfile(userId);
+    if (!profile) {
+      return [];
+    }
+
+    // Get categories with details
+    const results = await db
+      .select({
+        id: consultantCategories.id,
+        categoryId: consultantCategories.categoryId,
+        isPrimary: consultantCategories.isPrimary,
+        category: categories,
+      })
+      .from(consultantCategories)
+      .innerJoin(categories, eq(consultantCategories.categoryId, categories.id))
+      .where(eq(consultantCategories.consultantProfileId, profile.id));
+
+    return results;
+  }
+
+  async setConsultantCategories(
+    userId: string,
+    categoryIds: string[],
+    primaryCategoryId: string | null
+  ): Promise<ConsultantCategoryWithDetails[]> {
+    // Get or create consultant profile
+    let profile = await this.getConsultantProfile(userId);
+    if (!profile) {
+      // Auto-create minimal consultant profile to preserve onboarding flow
+      const user = await this.getUser(userId);
+      if (!user) {
+        throw new Error("User not found");
+      }
+      
+      profile = await this.createConsultantProfile({
+        userId,
+        fullName: user.email.split('@')[0], // Placeholder fullName from email
+      });
+    }
+
+    // Validate that all categories exist and are active/visible (skip if empty array)
+    if (categoryIds.length > 0) {
+      const validCategories = await db
+        .select()
+        .from(categories)
+        .where(
+          and(
+            inArray(categories.id, categoryIds),
+            eq(categories.active, true),
+            eq(categories.visible, true)
+          )
+        );
+
+      if (validCategories.length !== categoryIds.length) {
+        throw new Error("Some categories are invalid or inactive");
+      }
+
+      // Validate primary category is in the selection
+      if (primaryCategoryId && !categoryIds.includes(primaryCategoryId)) {
+        throw new Error("Primary category must be in selected categories");
+      }
+    }
+
+    // Perform transactional update: delete all existing + insert new
+    await db.transaction(async (tx) => {
+      // Delete existing categories
+      await tx
+        .delete(consultantCategories)
+        .where(eq(consultantCategories.consultantProfileId, profile.id));
+
+      // Insert new categories if any
+      if (categoryIds.length > 0) {
+        await tx.insert(consultantCategories).values(
+          categoryIds.map((categoryId) => ({
+            id: nanoid(),
+            consultantProfileId: profile.id,
+            categoryId,
+            isPrimary: categoryId === primaryCategoryId,
+          }))
+        );
+      }
+    });
+
+    // Return updated categories with details (or empty array if no categories)
+    return this.getConsultantCategories(userId);
+  }
+
   // Dashboard operations
   async getClientDashboardStats(userId: string): Promise<DashboardStats> {
     // Count active jobs posted by client (defensive: match both camelCase and legacy snake_case)
@@ -266,6 +376,64 @@ export class DatabaseStorage implements IStorage {
       .where(eq(jobs.clientId, userId))
       .orderBy(desc(bids.createdAt))
       .limit(limit);
+  }
+
+  // Job operations
+  async createJob(job: InsertJob): Promise<Job> {
+    // Validate that category exists
+    if (job.categoryId) {
+      const [category] = await db
+        .select()
+        .from(categories)
+        .where(eq(categories.id, job.categoryId));
+      
+      if (!category) {
+        throw new Error("Invalid category ID");
+      }
+    }
+
+    const [createdJob] = await db.insert(jobs).values(job).returning();
+    return createdJob;
+  }
+
+  async listJobs(clientId?: string, limit: number = 50): Promise<(Job & { categoryPathLabel: string })[]> {
+    // Build where clause
+    const whereClause = clientId ? eq(jobs.clientId, clientId) : undefined;
+
+    // Fetch jobs
+    const jobList = await db
+      .select()
+      .from(jobs)
+      .where(whereClause)
+      .orderBy(desc(jobs.createdAt))
+      .limit(limit);
+
+    // Fetch all categories for path computation (cache in memory)
+    const allCategories = await db.select().from(categories);
+    
+    // Helper to build category path (handles any depth)
+    const buildCategoryPath = (categoryId: string | null): string => {
+      if (!categoryId) return "Uncategorized";
+      
+      const categoryMap = new Map(allCategories.map(c => [c.id, c]));
+      const path: string[] = [];
+      let current = categoryMap.get(categoryId);
+      
+      // Build path from current node up to root
+      while (current) {
+        path.unshift(current.name);
+        current = current.parentId ? categoryMap.get(current.parentId) : undefined;
+      }
+      
+      // Return path with whatever depth we have
+      return path.length > 0 ? path.join(" / ") : "Uncategorized";
+    };
+
+    // Enrich jobs with category path
+    return jobList.map(job => ({
+      ...job,
+      categoryPathLabel: buildCategoryPath(job.categoryId),
+    }));
   }
 }
 

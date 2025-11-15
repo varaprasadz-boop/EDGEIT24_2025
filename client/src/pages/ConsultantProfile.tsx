@@ -14,11 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, MapPin, DollarSign, Star, AlertCircle, Edit, Save, X, Award, TrendingUp, Code, FolderOpen, Package, Calendar as CalendarIcon, Info } from "lucide-react";
+import { Briefcase, MapPin, DollarSign, Star, AlertCircle, Edit, Save, X, Award, TrendingUp, Code, FolderOpen, Package, Calendar as CalendarIcon, Info, Tag } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 import { useState as useReactState, useEffect } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CategorySelector } from "@/components/CategorySelector";
 
 const updateProfileSchema = insertConsultantProfileSchema.omit({
   id: true,
@@ -77,6 +78,8 @@ export default function ConsultantProfile() {
   const [portfolioItems, setPortfolioItems] = useReactState<PortfolioItem[]>([]);
   const [servicePackages, setServicePackages] = useReactState<ServicePackage[]>([]);
   const [weeklySchedule, setWeeklySchedule] = useReactState<WeeklySchedule>({});
+  const [selectedCategories, setSelectedCategories] = useReactState<string[]>([]);
+  const [primaryCategoryId, setPrimaryCategoryId] = useReactState<string | null>(null);
   
   // Check if coming from onboarding
   const isOnboarding = new URLSearchParams(window.location.search).get('onboarding') === 'true';
@@ -253,6 +256,61 @@ export default function ConsultantProfile() {
       });
     },
   });
+
+  // Fetch consultant categories
+  const { data: categoriesData } = useQuery({
+    queryKey: ['/api/profile/consultant/categories'],
+    enabled: !!user,
+  });
+
+  // Sync category state from query
+  useEffect(() => {
+    if (categoriesData && !isEditing) {
+      const cats = categoriesData as any[];
+      setSelectedCategories(cats.map((c: any) => c.categoryId));
+      const primary = cats.find((c: any) => c.isPrimary);
+      setPrimaryCategoryId(primary?.categoryId || null);
+    }
+  }, [categoriesData, isEditing]);
+
+  // Save categories mutation
+  const saveCategoriesMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('PUT', '/api/profile/consultant/categories', {
+        categoryIds: selectedCategories,
+        primaryCategoryId,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to save categories');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant/categories'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant'] });
+      toast({
+        title: "Categories saved",
+        description: "Your service categories have been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Save failed",
+        description: error.message || "Failed to save categories. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCategorySelectionChange = (categoryIds: string[], primaryId: string | null) => {
+    setSelectedCategories(categoryIds);
+    setPrimaryCategoryId(primaryId);
+  };
+
+  const handleSaveCategories = () => {
+    saveCategoriesMutation.mutate();
+  };
 
   const onSubmit = (data: UpdateProfile) => {
     updateMutation.mutate(data);
@@ -867,6 +925,71 @@ export default function ConsultantProfile() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Service Categories Card - View Mode */}
+          {isEditing ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Tag className="h-5 w-5 text-primary" />
+                  Service Categories
+                </CardTitle>
+                <CardDescription>
+                  Select up to 10 service categories that describe your expertise
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CategorySelector
+                  selectedCategories={selectedCategories}
+                  primaryCategoryId={primaryCategoryId}
+                  onSelectionChange={handleCategorySelectionChange}
+                  maxSelections={10}
+                />
+                {isOnboarding && selectedCategories.length === 0 && (
+                  <Alert className="mt-4">
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      Please select at least one service category to continue
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+              <div className="px-6 pb-6">
+                <Button
+                  onClick={handleSaveCategories}
+                  disabled={saveCategoriesMutation.isPending || (selectedCategories.length > 0 && !primaryCategoryId)}
+                  className="w-full"
+                  data-testid="button-save-categories"
+                >
+                  {saveCategoriesMutation.isPending ? "Saving..." : "Save Categories"}
+                </Button>
+              </div>
+            </Card>
+          ) : categoriesData && Array.isArray(categoriesData) && categoriesData.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Tag className="h-5 w-5 text-primary" />
+                  Service Categories
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {(categoriesData as any[]).map((cat: any) => (
+                    <Badge
+                      key={cat.id}
+                      variant={cat.isPrimary ? "default" : "secondary"}
+                      className="text-sm py-1 px-3"
+                      data-testid={`badge-category-${cat.categoryId}`}
+                    >
+                      {cat.isPrimary && <Star className="h-3 w-3 mr-1 fill-current" />}
+                      {cat.category.name}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {profile?.portfolio && Array.isArray(profile.portfolio) && profile.portfolio.length > 0 && (
             <Card>

@@ -187,7 +187,11 @@ export default function Dashboard() {
             <CardDescription>Get started with posting your first job</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button className="w-full justify-start bg-primary text-primary-foreground" data-testid="button-post-job">
+            <Button 
+              className="w-full justify-start bg-primary text-primary-foreground" 
+              onClick={() => setLocation('/post-job')}
+              data-testid="button-post-job"
+            >
               <Briefcase className="mr-2 h-4 w-4" />
               Post a New Job
               <ArrowRight className="ml-auto h-4 w-4" />
