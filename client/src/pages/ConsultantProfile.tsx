@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertConsultantProfileSchema, insertPricingTemplateSchema, type ConsultantProfile, type PricingTemplate, type Language, LANGUAGE_PROFICIENCIES } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,6 +84,7 @@ export default function ConsultantProfile() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [portfolioItems, setPortfolioItems] = useReactState<PortfolioItem[]>([]);
   const [servicePackages, setServicePackages] = useReactState<ServicePackage[]>([]);
   const [pricingTemplates, setPricingTemplates] = useReactState<PricingTemplateForm[]>([]);
@@ -545,6 +546,14 @@ export default function ConsultantProfile() {
   };
 
   const onSubmit = (data: UpdateProfile) => {
+    if (!termsAccepted) {
+      toast({
+        title: "Terms Required",
+        description: "Please accept the Terms & Conditions to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
     updateMutation.mutate(data);
   };
 
@@ -554,6 +563,7 @@ export default function ConsultantProfile() {
     } else {
       form.reset();
       setIsEditing(false);
+      setTermsAccepted(false);
     }
   };
 
@@ -1256,6 +1266,25 @@ export default function ConsultantProfile() {
                       </div>
                     )}
                   </div>
+                </div>
+
+                <div className="flex items-center space-x-2 pt-2" data-testid="container-terms-checkbox">
+                  <Checkbox
+                    id="terms-consultant"
+                    checked={termsAccepted}
+                    onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                    data-testid="checkbox-terms-acceptance"
+                  />
+                  <label
+                    htmlFor="terms-consultant"
+                    className="text-sm text-muted-foreground cursor-pointer"
+                    data-testid="label-terms-acceptance"
+                  >
+                    I agree to the{" "}
+                    <Link href="/legal/terms-and-conditions" className="text-primary hover:underline" data-testid="link-terms">
+                      Terms & Conditions
+                    </Link>
+                  </label>
                 </div>
 
                 <div className="flex gap-3 justify-end">

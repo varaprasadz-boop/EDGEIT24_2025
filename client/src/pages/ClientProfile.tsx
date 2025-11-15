@@ -12,11 +12,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Globe, MapPin, AlertCircle, Edit, Save, X, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 import { UserLayout } from "@/components/UserLayout";
+import { Link } from "wouter";
 
 const updateProfileSchema = insertClientProfileSchema.omit({
   userId: true,
@@ -29,6 +31,7 @@ export default function ClientProfile() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   
   // Check if coming from onboarding
   const isOnboarding = new URLSearchParams(window.location.search).get('onboarding') === 'true';
@@ -113,12 +116,21 @@ export default function ClientProfile() {
   });
 
   const onSubmit = (data: UpdateProfile) => {
+    if (!termsAccepted) {
+      toast({
+        title: "Terms Required",
+        description: "Please accept the Terms & Conditions to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
     updateMutation.mutate(data);
   };
 
   const handleCancel = () => {
     form.reset();
     setIsEditing(false);
+    setTermsAccepted(false);
     if (isOnboarding) {
       setLocation('/dashboard');
     }
@@ -335,6 +347,25 @@ export default function ClientProfile() {
                     </FormItem>
                   )}
                 />
+
+                <div className="flex items-center space-x-2 pt-2" data-testid="container-terms-checkbox">
+                  <Checkbox
+                    id="terms-client"
+                    checked={termsAccepted}
+                    onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                    data-testid="checkbox-terms-acceptance"
+                  />
+                  <label
+                    htmlFor="terms-client"
+                    className="text-sm text-muted-foreground cursor-pointer"
+                    data-testid="label-terms-acceptance"
+                  >
+                    I agree to the{" "}
+                    <Link href="/legal/terms-and-conditions" className="text-primary hover:underline" data-testid="link-terms">
+                      Terms & Conditions
+                    </Link>
+                  </label>
+                </div>
 
                 <div className="flex gap-3 justify-end">
                   {isOnboarding && (
