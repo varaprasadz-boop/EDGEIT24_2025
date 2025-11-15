@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, Redirect } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -125,8 +125,13 @@ function PlanCardSkeleton() {
 }
 
 export default function Home() {
-  const { isAuthenticated, isLoading } = useAuthContext();
+  const { user, isAuthenticated, isLoading } = useAuthContext();
   const [, setLocation] = useLocation();
+
+  // Redirect admin users to admin portal
+  if (user?.role === 'admin') {
+    return <Redirect to="/admin/dashboard" />;
+  }
 
   // Fetch all subscription plans (single query, filter client-side)
   const { data: allPlans = [], isLoading: plansLoading, error: plansError } = useQuery<SubscriptionPlan[]>({

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation, Redirect } from "wouter";
 import {
   Briefcase,
   FileText,
@@ -61,6 +61,11 @@ export default function Dashboard() {
         </div>
       </div>
     );
+  }
+
+  // Redirect admin users to admin portal
+  if (user.role === 'admin') {
+    return <Redirect to="/admin/dashboard" />;
   }
 
   const renderClientDashboard = () => {
