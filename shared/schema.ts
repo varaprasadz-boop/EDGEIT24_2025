@@ -33,6 +33,11 @@ export const users = pgTable("users", {
   phoneVerifiedAt: timestamp("phone_verified_at"),
   authProvider: text("auth_provider").default('local'), // 'local', 'replit', 'google', 'github'
   replitSub: varchar("replit_sub").unique(), // OIDC subject ID for linking accounts
+  // Engagement plan and payment tracking
+  engagementPlan: text("engagement_plan").notNull().default('basic'), // 'basic', 'professional', 'enterprise'
+  paymentStatus: text("payment_status").default('not_required'), // 'not_required', 'pending', 'succeeded', 'failed'
+  paymentReference: varchar("payment_reference"), // Transaction ID for audit trail
+  paymentCompletedAt: timestamp("payment_completed_at"),
   // Basic registration fields
   fullName: text("full_name"),
   country: varchar("country"), // ISO country code (SA, AE, etc.)
@@ -467,6 +472,15 @@ export const languageSchema = z.object({
 
 export type Language = z.infer<typeof languageSchema>;
 
+// Engagement Plans and Registration Payment Status
+export const engagementPlanEnum = z.enum(['basic', 'professional', 'enterprise']);
+export const ENGAGEMENT_PLANS = engagementPlanEnum.options;
+export type EngagementPlan = z.infer<typeof engagementPlanEnum>;
+
+export const registrationPaymentStatusEnum = z.enum(['not_required', 'pending', 'succeeded', 'failed']);
+export const REGISTRATION_PAYMENT_STATUSES = registrationPaymentStatusEnum.options;
+export type RegistrationPaymentStatus = z.infer<typeof registrationPaymentStatusEnum>;
+
 // Payments - Transaction records
 export const payments = pgTable("payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -633,6 +647,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   role: z.enum(['client', 'consultant', 'both', 'admin']),
+  engagementPlan: engagementPlanEnum, // Required during registration
   status: z.string().optional(),
   emailVerified: z.boolean().optional(),
   authProvider: z.enum(['local', 'replit', 'google', 'github']).optional(),
