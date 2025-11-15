@@ -602,6 +602,17 @@ export const userSubscriptions = pgTable("user_subscriptions", {
   statusIdx: index("user_subscriptions_status_idx").on(table.status),
 }));
 
+// Payment Sessions - Track checkout sessions for security
+export const paymentSessions = pgTable("payment_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  planId: varchar("plan_id").notNull().references(() => subscriptionPlans.id),
+  sessionId: varchar("session_id").notNull().unique(),
+  status: varchar("status").notNull().default('pending'), // pending, completed, expired
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
 // Platform Settings - Global configuration
 export const platformSettings = pgTable("platform_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -879,6 +890,15 @@ export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions
 
 export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema>;
 export type UserSubscription = typeof userSubscriptions.$inferSelect;
+
+// Payment Sessions
+export const insertPaymentSessionSchema = createInsertSchema(paymentSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPaymentSession = z.infer<typeof insertPaymentSessionSchema>;
+export type PaymentSession = typeof paymentSessions.$inferSelect;
 
 // Platform Settings
 export const insertPlatformSettingSchema = createInsertSchema(platformSettings).omit({

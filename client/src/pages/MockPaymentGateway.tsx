@@ -13,8 +13,7 @@ export default function MockPaymentGateway() {
   const [processing, setProcessing] = useState(false);
   
   const params = new URLSearchParams(location.split('?')[1]);
-  const userId = params.get('userId');
-  const planId = params.get('planId');
+  const sessionId = params.get('session');
   
   const [cardNumber, setCardNumber] = useState('');
   const [cvv, setCvv] = useState('');
@@ -26,7 +25,7 @@ export default function MockPaymentGateway() {
     // Simulate payment processing
     setTimeout(async () => {
       try {
-        await apiRequest('POST', '/api/payments/complete', { userId, planId });
+        await apiRequest('POST', '/api/payments/complete', { sessionId });
         
         toast({
           title: "Payment Successful!",

@@ -17,6 +17,8 @@ import {
   uniqueIdCounters,
   quoteRequests,
   userSubscriptions,
+  paymentSessions,
+  subscriptionPlans,
   type User,
   type InsertUser,
   type UpsertUser,
@@ -44,6 +46,8 @@ import {
   type QuoteRequest,
   type InsertQuoteRequest,
   type UserSubscription,
+  type PaymentSession,
+  type SubscriptionPlan,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, sql, desc, inArray } from "drizzle-orm";
@@ -160,6 +164,14 @@ export interface IStorage {
   createUserSubscription(userId: string, planId: string): Promise<UserSubscription>;
   getUserSubscription(userId: string): Promise<UserSubscription | undefined>;
   updateSubscriptionStatus(subscriptionId: string, status: string): Promise<UserSubscription>;
+  
+  // Payment Session operations
+  createPaymentSession(userId: string, planId: string, sessionId: string): Promise<PaymentSession>;
+  getPaymentSessionBySessionId(sessionId: string): Promise<PaymentSession | undefined>;
+  updatePaymentSessionStatus(sessionId: string, status: string): Promise<void>;
+  
+  // Subscription Plan operations
+  getSubscriptionPlanById(planId: string): Promise<SubscriptionPlan | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1088,6 +1100,39 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userSubscriptions.id, subscriptionId))
       .returning();
     return updated;
+  }
+  
+  // Payment Session operations
+  async createPaymentSession(userId: string, planId: string, sessionId: string): Promise<PaymentSession> {
+    const [session] = await db.insert(paymentSessions).values({
+      userId,
+      planId,
+      sessionId,
+      status: 'pending',
+    }).returning();
+    return session;
+  }
+
+  async getPaymentSessionBySessionId(sessionId: string): Promise<PaymentSession | undefined> {
+    const [session] = await db.select().from(paymentSessions)
+      .where(eq(paymentSessions.sessionId, sessionId));
+    return session;
+  }
+
+  async updatePaymentSessionStatus(sessionId: string, status: string): Promise<void> {
+    await db.update(paymentSessions)
+      .set({ 
+        status,
+        completedAt: status === 'completed' ? new Date() : undefined
+      })
+      .where(eq(paymentSessions.sessionId, sessionId));
+  }
+  
+  // Subscription Plan operations
+  async getSubscriptionPlanById(planId: string): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db.select().from(subscriptionPlans)
+      .where(eq(subscriptionPlans.id, planId));
+    return plan;
   }
 }
 

@@ -248,26 +248,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Log user in automatically
-      req.login(user, (err) => {
-        if (err) {
-          console.error("Error logging in after signup:", err);
-          return res.status(500).json({ message: "Account created but login failed" });
-        }
-        
-        // Return user and redirect to dashboard
-        const redirectPath = '/dashboard';
-        
-        res.status(201).json({
-          user: {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            fullName: user.fullName,
-            emailVerified: user.emailVerified,
-          },
-          redirectPath,
-        });
+      // Return user data without auto-login (users will login after payment or immediately for free plans)
+      res.status(201).json({
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          fullName: user.fullName,
+          emailVerified: user.emailVerified,
+        },
       });
     } catch (error) {
       console.error("Error during signup:", error);
@@ -470,11 +459,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "userId and planId are required" });
       }
       
-      // Create a checkout session ID
+      // Verify user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Verify plan exists and requires payment
+      const plan = await storage.getSubscriptionPlanById(planId);
+      if (!plan) {
+        return res.status(404).json({ message: "Plan not found" });
+      }
+      
+      if (parseFloat(plan.price) === 0) {
+        return res.status(400).json({ message: "This plan does not require payment" });
+      }
+      
+      // Create session ID
       const sessionId = nanoid();
       
-      // Return mock checkout URL
-      const checkoutUrl = `/mock-payment?session=${sessionId}&userId=${userId}&planId=${planId}`;
+      // Store payment session
+      await storage.createPaymentSession(userId, planId, sessionId);
+      
+      // Return mock checkout URL with session
+      const checkoutUrl = `/mock-payment?session=${sessionId}`;
       
       res.json({ checkoutUrl, sessionId });
     } catch (error) {
@@ -486,24 +494,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Complete payment
   app.post('/api/payments/complete', async (req, res) => {
     try {
-      const { userId, planId, paymentReference } = req.body;
+      const { sessionId } = req.body;
       
-      if (!userId || !planId) {
-        return res.status(400).json({ message: "userId and planId are required" });
+      if (!sessionId) {
+        return res.status(400).json({ message: "sessionId is required" });
       }
       
-      // Generate transaction reference if not provided
-      const txnRef = paymentReference || `TXN-${nanoid(10)}`;
+      // Retrieve and validate session
+      const session = await storage.getPaymentSessionBySessionId(sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Invalid payment session" });
+      }
       
-      // Update user payment status
-      await storage.updateUser(userId, {
+      if (session.status === 'completed') {
+        return res.status(400).json({ message: "Payment session already completed" });
+      }
+      
+      if (session.status === 'expired') {
+        return res.status(400).json({ message: "Payment session has expired" });
+      }
+      
+      // Verify user exists
+      const user = await storage.getUser(session.userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Verify plan exists
+      const plan = await storage.getSubscriptionPlanById(session.planId);
+      if (!plan) {
+        return res.status(404).json({ message: "Plan not found" });
+      }
+      
+      // Generate transaction reference
+      const txnRef = `TXN-${nanoid(10)}`;
+      
+      // Update user payment status (idempotent)
+      await storage.updateUser(session.userId, {
         paymentStatus: 'succeeded',
         paymentReference: txnRef,
         paymentCompletedAt: new Date(),
       });
       
-      // Create active subscription
-      const subscription = await storage.createUserSubscription(userId, planId);
+      // Create subscription
+      const subscription = await storage.createUserSubscription(session.userId, session.planId);
+      
+      // Mark session as completed
+      await storage.updatePaymentSessionStatus(sessionId, 'completed');
       
       res.json({ 
         success: true, 

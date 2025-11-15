@@ -139,12 +139,19 @@ export default function Register() {
         const data = await response.json();
         
         if (isPaidPlan) {
-          // Redirect to mock payment gateway for paid plans (using plan UUID)
+          // Create checkout session for paid plans
+          const checkoutResponse = await apiRequest('POST', '/api/payments/checkout', {
+            userId: data.user.id,
+            planId: engagementPlan
+          });
+          
+          const checkoutData = await checkoutResponse.json();
+          
           toast({
             title: "Account Created",
             description: "Please complete your payment to activate your subscription.",
           });
-          window.location.href = `/mock-payment?userId=${data.user.id}&planId=${engagementPlan}`;
+          window.location.href = checkoutData.checkoutUrl;
         } else {
           // Redirect to login for free plan
           toast({
