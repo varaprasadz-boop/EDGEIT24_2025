@@ -14,6 +14,7 @@ import BrowseJobs from "@/pages/BrowseJobs";
 import BrowseConsultants from "@/pages/BrowseConsultants";
 import ClientProfile from "@/pages/ClientProfile";
 import ConsultantProfile from "@/pages/ConsultantProfile";
+import ProfileCompletion from "@/pages/ProfileCompletion";
 import CategoryLanding from "@/pages/CategoryLanding";
 import AdminLogin from "@/pages/AdminLogin";
 import NotFound from "@/pages/not-found";
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/post-job" component={PostJob} />
       <Route path="/browse-jobs" component={BrowseJobs} />
       <Route path="/browse-consultants" component={BrowseConsultants} />
+      <Route path="/profile/complete" component={ProfileCompletion} />
       <Route path="/profile/client" component={ClientProfile} />
       <Route path="/profile/consultant" component={ConsultantProfile} />
       <Route path="/services/:slug" component={CategoryLanding} />
