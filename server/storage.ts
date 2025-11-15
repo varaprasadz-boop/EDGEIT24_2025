@@ -122,6 +122,9 @@ export interface IStorage {
   markReviewHelpful(reviewId: string): Promise<void>;
   getReviewStats(consultantId: string): Promise<{ averageRating: number; totalReviews: number; ratingBreakdown: Record<number, number> }>;
   
+  // Project operations
+  getClientProjects(clientId: string, options?: { limit?: number }): Promise<any[]>;
+  
   // Profile Approval operations
   createApprovalEvent(event: InsertProfileApprovalEvent): Promise<ProfileApprovalEvent>;
   getApprovalEvents(userId: string, profileType?: string): Promise<ProfileApprovalEvent[]>;
@@ -629,6 +632,20 @@ export class DatabaseStorage implements IStorage {
     const averageRating = totalRating / totalReviews;
 
     return { averageRating, totalReviews, ratingBreakdown };
+  }
+
+  // Project operations
+  async getClientProjects(clientId: string, options?: { limit?: number }): Promise<any[]> {
+    const limit = options?.limit || 10;
+    
+    const clientProjects = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.clientId, clientId))
+      .orderBy(desc(projects.updatedAt))
+      .limit(limit);
+    
+    return clientProjects;
   }
 
   // Profile Approval operations

@@ -88,6 +88,19 @@ export default function Dashboard() {
     enabled: !!user && selectedRole === 'client',
   });
 
+  // Client projects query
+  const { data: clientProjects } = useQuery<any[]>({
+    queryKey: ['/api/projects/client'],
+    queryFn: async () => {
+      const res = await fetch('/api/projects/client', { credentials: 'include' });
+      if (!res.ok) {
+        throw new Error(`${res.status}: ${await res.text() || res.statusText}`);
+      }
+      return res.json();
+    },
+    enabled: !!user && selectedRole === 'client',
+  });
+
   const { data: consultantStats, isLoading: consultantStatsLoading, isError: consultantStatsError, refetch: refetchConsultantStats } = useQuery<ConsultantDashboardStats>({
     queryKey: ['/api/dashboard/consultant/stats'],
     enabled: !!user && selectedRole === 'consultant',
@@ -359,17 +372,72 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-recent-activity">
+        <Card data-testid="card-project-history">
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Your latest actions and updates</CardDescription>
+            <CardTitle>Project History</CardTitle>
+            <CardDescription>Your recent projects and their status</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8 text-muted-foreground" data-testid="text-no-activity">
-              <Clock className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>No recent activity</p>
-              <p className="text-sm">Post your first job to get started</p>
-            </div>
+            {!clientProjects || clientProjects.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground" data-testid="text-no-projects">
+                <Briefcase className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No projects yet</p>
+                <p className="text-sm">Projects will appear here once a consultant is hired</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {clientProjects.slice(0, 5).map((project: any, index: number) => (
+                  <div 
+                    key={project.id} 
+                    className="flex items-center justify-between p-3 rounded-md border hover-elevate"
+                    data-testid={`project-item-${index}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-sm truncate" data-testid={`project-title-${index}`}>
+                        {project.title}
+                      </h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge 
+                          variant={
+                            project.status === 'completed' ? 'default' :
+                            project.status === 'in_progress' ? 'secondary' :
+                            project.status === 'cancelled' || project.status === 'disputed' ? 'destructive' :
+                            'outline'
+                          }
+                          data-testid={`project-status-${index}`}
+                        >
+                          {project.status.replace('_', ' ')}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          ﷼{parseFloat(project.budget || '0').toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right ml-4">
+                      <div className="text-xs text-muted-foreground" data-testid={`project-date-${index}`}>
+                        {project.completedAt 
+                          ? `Completed ${new Date(project.completedAt).toLocaleDateString()}`
+                          : project.startDate
+                          ? `Started ${new Date(project.startDate).toLocaleDateString()}`
+                          : `Created ${new Date(project.createdAt).toLocaleDateString()}`
+                        }
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {clientProjects.length > 5 && (
+                  <Button 
+                    variant="ghost" 
+                    className="w-full" 
+                    onClick={() => setLocation('/jobs')}
+                    data-testid="button-view-all-projects"
+                  >
+                    View All Projects
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -607,10 +675,10 @@ export default function Dashboard() {
   return (
     <UserLayout>
       <div className="container mx-auto px-4 md:px-6 py-8">
-        {activeRole === 'both' && renderDualRoleDashboard()}
-        {activeRole === 'client' && renderClientDashboard()}
-        {activeRole === 'consultant' && renderConsultantDashboard()}
-        {!activeRole && (
+        {selectedRole === 'both' && renderDualRoleDashboard()}
+        {selectedRole === 'client' && renderClientDashboard()}
+        {selectedRole === 'consultant' && renderConsultantDashboard()}
+        {!selectedRole && (
           <div className="text-center py-12">
             <h1 className="text-2xl font-bold mb-4">Welcome to EDGEIT24!</h1>
             <p className="text-muted-foreground mb-6">Please complete your profile to get started</p>

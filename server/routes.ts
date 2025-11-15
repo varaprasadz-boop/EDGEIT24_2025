@@ -996,6 +996,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Project endpoints
+  app.get('/api/projects/client', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const limitSchema = z.string().optional().transform(val => {
+        if (!val) return 10;
+        const num = parseInt(val);
+        return isNaN(num) || num < 1 || num > 50 ? 10 : num;
+      });
+
+      const validation = limitSchema.safeParse(req.query.limit);
+      const limit = validation.success ? validation.data : 10;
+
+      const projects = await storage.getClientProjects(userId, { limit });
+      res.json(projects);
+    } catch (error) {
+      console.error("Error fetching client projects:", error);
+      res.status(500).json({ message: "Failed to fetch projects" });
+    }
+  });
+
   // Profile submission for review
   app.post('/api/profiles/client/submit', isAuthenticated, async (req: any, res) => {
     try {
