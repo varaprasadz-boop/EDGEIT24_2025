@@ -2,6 +2,7 @@ import { Route, Switch, Redirect } from "wouter";
 import { AdminLayout } from "@/components/AdminLayout";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminUsers from "@/pages/AdminUsers";
+import AdminProfileApprovals from "@/pages/AdminProfileApprovals";
 import AdminCategories from "@/pages/AdminCategories";
 import AdminVendorRequests from "@/pages/AdminVendorRequests";
 import AdminRequirements from "@/pages/AdminRequirements";
@@ -21,6 +22,7 @@ export function AdminRouter() {
         <Route path="/admin" component={() => <Redirect to="/admin/dashboard" />} />
         <Route path="/admin/dashboard" component={AdminDashboard} />
         <Route path="/admin/users" component={AdminUsers} />
+        <Route path="/admin/profile-approvals" component={AdminProfileApprovals} />
         <Route path="/admin/categories" component={AdminCategories} />
         <Route path="/admin/vendor-requests" component={AdminVendorRequests} />
         <Route path="/admin/requirements" component={AdminRequirements} />

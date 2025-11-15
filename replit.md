@@ -9,168 +9,72 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend
-The frontend is built with **React** and **Vite** for a fast development experience and optimized builds. It uses **Wouter** for client-side routing and **TanStack React Query** for server state management with explicit refetching. The UI is constructed using **shadcn/ui** and **Radix UI**, adhering to Material Design 3 principles with a "New York" style variant. It features CSS variables-based theming supporting light/dark modes with a primary brand green (`#00D9A3`) and dark navy (`#0A0E27`) scheme. Typography uses Inter and Manrope from Google Fonts. The build process leverages **TypeScript** in strict mode with path aliases, and **TailwindCSS** for styling.
+The frontend uses **React**, **Vite**, **Wouter** for routing, and **TanStack React Query** for server state. UI is built with **shadcn/ui** and **Radix UI**, adhering to Material Design 3 with a "New York" style variant. It supports light/dark modes with a primary brand green and dark navy scheme, utilizing CSS variables and **TailwindCSS**. **TypeScript** is used in strict mode.
 
 ### Backend
-The backend utilizes **Express.js** with **TypeScript** for a minimal, unopinionated HTTP server framework, using ESM modules. It employs `tsx` for development and `esbuild` for production bundling. An `IStorage` interface is defined for CRUD operations, currently implemented with `MemStorage` (in-memory) but designed for future migration to PostgreSQL via **Drizzle ORM**. API routes are centrally organized under the `/api` prefix, with custom logging and consistent error handling.
+The backend is built with **Express.js** and **TypeScript**, using `tsx` for development and `esbuild` for production. It defines an `IStorage` interface, currently implemented with `MemStorage` and planned for **PostgreSQL** via **Drizzle ORM**. API routes are under `/api` with custom logging and consistent error handling.
 
 ### Authentication
-The platform uses a custom Email/Password authentication system built with `passport-local` and `bcrypt` for password hashing (10 salt rounds). Sessions are stored in PostgreSQL using `express-session` and `connect-pg-simple`.
-- **API Routes**:
-    - `POST /api/auth/signup`
-    - `POST /api/auth/login`
-    - `POST /api/auth/logout`
-    - `GET /api/auth/user`
-- **Frontend Pages**: `/register` (two-step form), `/login`.
-- **Integration**: `AuthProvider`/`AuthContext` manages global user state and provides authentication functionalities like login, logout, and active role detection, influencing routing and UI components.
+A custom Email/Password authentication system uses `passport-local` and `bcrypt` for hashing. Sessions are stored in PostgreSQL using `express-session` and `connect-pg-simple`. An `AuthProvider`/`AuthContext` manages global user state and authentication functionalities.
 
 ### Database
-**Drizzle ORM** is used for type-safe SQL query building with **PostgreSQL** (via Neon serverless driver). Schema definitions are shared and co-located with **Zod** validators for type safety and validation. `drizzle-kit` manages schema migrations.
+**Drizzle ORM** provides type-safe SQL query building with **PostgreSQL** (Neon serverless driver). Schema definitions are shared and co-located with **Zod** validators. `drizzle-kit` manages migrations.
 
 ### Admin Portal
-The Admin Portal features a comprehensive i18n system with RTL support, using `i18next` and `react-i18next` for translations (English and Arabic). It includes an `AdminLayout` with a `shadcn` Sidebar for navigation across various modules (Overview, Operations, Finance, System).
-
-**DataTable Component** (`client/src/components/admin/DataTable.tsx`):
-- Production-ready foundation for all admin screens, architect-approved
-- **Manual Pagination Mode**: Server-driven pagination with `manualPagination: true`
-  - Fully decoupled from TanStack client-side operations (no sorting/pagination models)
-  - Uses controlled pagination state via `pagination` and `onPaginationChange` props
-  - Backend provides `pageCount` metadata for total pages
-  - Sorting UI automatically disabled in manual mode (can add server sorting hooks later)
-  - Pagination controls bypass TanStack helpers, call `onPaginationChange` directly
-- **Client-Side Mode**: Auto pagination for in-memory datasets
-  - Uses TanStack's built-in sorting and pagination models
-  - Ideal for small datasets that don't require server pagination
-- **Clamping Logic**: Prevents users getting stuck on invalid pages when filters reduce results
-- **Empty State Handling**: Shows "No data" message while keeping pagination controls visible in manual mode
-
-**FilterBar Component** (`client/src/components/admin/FilterBar.tsx`):
-- Reusable search input, filter dropdowns, and active filter pills
-- Triggers pagination reset on search/filter changes
-- Fully bilingual with i18n support
-
-**Completed Screens**:
-- Categories Management (`/admin/categories`): Tree table view with hierarchy indentation (L0/L1/L2 badges), create/edit forms with Lucide icon picker, bilingual fields (name/nameAr, description/descriptionAr, hero sections), parent dropdown with depth-limited options, display order, featured/active/visible toggles, delete protection warnings. Server-side validation enforces 3-level hierarchy (level 0-2), prevents level 3+ creation, validates parent.level + 1 consistency, checks slug uniqueness. Includes reorder endpoint for display_order management
-- Bids Management (`/admin/bids`): Server-side pagination, status filtering (pending, shortlisted, accepted, rejected, withdrawn), job filtering, search across consultant name/email/job title/cover letter, displays bid details with consultant info, client info, proposed budget (SAR), duration, submission date, and viewed status. Uses proper table aliasing (`consultantUser`, `clientUser`) via `drizzle-orm/pg-core` for multi-table joins
-- Payments Management (`/admin/payments`): Server-side pagination, status filtering (pending, processing, completed, failed, refunded), type filtering (deposit, release, refund, withdrawal), search across transaction ID/project title/payer-payee names & emails/description, displays payment details with transaction ID, project title, payer info, payee info, amount (SAR with 2 decimals), type, status, payment method, and transaction date. Uses proper table aliasing (`payerUser`, `payeeUser`) via `drizzle-orm/pg-core` for multi-table joins. Requires `finance:view` permission
-- Contracts Management (`/admin/contracts`): Server-side pagination, status filtering (not_started, in_progress, paused, completed, cancelled, disputed), client/consultant ID filtering, date-range filtering, search across project title/description/job title/client-consultant names & emails, displays contract details with project title, job title, client info, consultant info, budget (SAR), bid amount (SAR), status, milestone progress, payment totals (SAR with transaction count), dispute count, and creation date. Uses proper table aliasing (`clientUser`, `consultantUser`) and joins with jobs, bids, payments, and disputes tables. Includes aggregated payment totals and dispute counts via subqueries. Requires `finance:view` permission
+The Admin Portal features an i18n system with RTL support using `i18next` and `react-i18next` (English/Arabic). It includes an `AdminLayout` with a `shadcn` Sidebar for navigation. A `DataTable` component supports both manual (server-side) and client-side pagination, along with a `FilterBar` component for search and filtering. Key management screens implemented include:
+- **Profile Approvals** (`/admin/profile-approvals`): Review and approve pending client/consultant profiles with tabs for each role type. Admins can approve (generates unique ID), reject (with notes), or request changes (moves to draft). Shows profile details including company/consultant info, skills, and submission dates.
+- Categories, Users, Bids, Payments, Contracts, Vendors, Disputes, Subscription Plans, Email Templates, and Settings.
 
 ### 3-Level Hierarchical Category System
-The platform uses a comprehensive 3-level category hierarchy that serves as the primary segmentation for job postings, consultant services, and marketplace navigation.
-
-**Architecture**:
-- **Level 0 (Primary Categories)**: 4 root categories (Software Services, Digital Marketing, HR, Infra & Hardware)
-- **Level 1 (Subcategories)**: 16 subcategories (4 per primary category)
-- **Level 2 (Super-subcategories)**: 64 super-subcategories (4 per subcategory)
-- **Total**: 84 categories across 3 levels with bilingual content (English/Arabic)
-
-**Schema Features** (`shared/schema.ts`):
-- Level constraint: 0-2 (enforced server-side to prevent hierarchy beyond 3 levels)
-- Landing page fields: heroTitle/heroTitleAr, heroDescription/heroDescriptionAr
-- Junction table: `consultant_categories` with `isPrimary` flag for consultant service offerings
-- Fields: name/nameAr, description/descriptionAr, slug (unique), icon (Lucide), displayOrder, featured, active, visible
-
-**Public API Routes**:
-- `GET /api/categories/root`: Fetches root categories (level 0) for homepage
-- `GET /api/categories/slug/:slug`: Fetches category by slug with children and breadcrumb path (parent traversal)
-
-**Admin API Routes**:
-- `GET /api/admin/categories/tree`: Full tree hierarchy view
-- `GET /api/admin/categories/:id/children`: Child categories of specific parent
-- `POST /api/admin/categories`: Create category (with depth and parent validation)
-- `PUT /api/admin/categories/:id`: Update category
-- `DELETE /api/admin/categories/:id`: Delete category
-- `PATCH /api/admin/categories/:id/toggle`: Toggle active status
-- `PUT /api/admin/categories/reorder`: Bulk reorder by display_order
-
-**Server-Side Validation**:
-- Level enforcement: Prevents creation of level 3+ categories
-- Parent validation: Ensures level = parent.level + 1
-- Slug uniqueness: Checks before creation/update
-- **Delete protection**: Prevents deletion if category has children/jobs/consultants (checks all associations)
-- **Cascade warnings**: Toggle endpoint returns warnings when deactivating parents with active descendants
-
-**Frontend Pages**:
-- **Homepage** (`/`): Displays 4 root categories with "Explore Services" and "Find Consultant" buttons
-- **Category Landing** (`/services/:slug`): Dynamic pages for all 3 levels with breadcrumbs, hero section, and child category grid. All subcategory cards (L0/L1/L2) display BOTH action buttons for consistent navigation
-- **Admin Categories** (`/admin/categories`): Tree table management with hierarchy indentation, L0/L1/L2 badges, delete protection warnings, and cascade deactivation alerts
-
-**Navigation Pattern**:
-- Each category has a unique single-segment slug (e.g., "software-services", "web-development")
-- Navigation: Home → /services/software-services → /services/web-development → /services/frontend-development
-- Breadcrumbs built by API traversing parent relationships
-- Leaf pages (level 2) show featured consultants (planned)
+The platform uses a 3-level category hierarchy (Level 0: Primary, Level 1: Subcategories, Level 2: Super-subcategories) with bilingual content (English/Arabic). This system is central to job postings, consultant services, and marketplace navigation. Server-side validation enforces hierarchy rules, slug uniqueness, and delete protection. Public and Admin API routes support fetching, managing, and reordering categories. The frontend displays root categories on the homepage and dynamic landing pages for all levels with breadcrumbs.
 
 ### Dashboard & Profile Management
-- **Client Dashboard**: Displays active jobs, bids, spending, and messages.
-- **Consultant Dashboard**: Shows available jobs, active bids, earnings, and ratings.
-- **Client Profile (`/profile/client`)**: Allows viewing and editing of company information, industry, size, website, location, and description.
-- **Consultant Profile (`/profile/consultant`)**: Enables creation, viewing, and editing of profiles including full name, title, bio, skills, hourly rate, experience, availability, portfolio showcases, and service packages. Features include a skills tag manager, CRUD for portfolio items, service packages, and a weekly availability calendar.
+**Client Dashboard**: Displays active jobs, bids, spending, and messages, with an approval status banner showing profile completion progress and unique client ID upon approval.
+**Consultant Dashboard**: Shows available jobs, active bids, earnings, and ratings, with an approval status banner showing profile completion progress and unique consultant ID upon approval.
+Both dashboards integrate with React Query for role-specific data and display approval states (Approved, Pending, Rejected, Draft) with profile completion percentages.
+**Client Profile**: Allows editing company information, industry, size, website, location, and description.
+**Consultant Profile**: Enables creation and editing of profiles including personal details, bio, skills, hourly rate, experience, portfolio, and service packages, with features like a skills tag manager and availability calendar.
 
 ### Job Posting & Category Integration
-**Job Posting** (`/post-job`):
-- **Authentication Guard**: Shows appropriate UI states for loading, unauthenticated users (login/register buttons), non-clients (create profile prompt), and authenticated clients (job form)
-- **CascadingCategorySelector Component**: 3-level dropdown navigation (Level 0 → Level 1 → Level 2) for category selection
-- **Required Category**: All jobs must be assigned to a category (enforced in schema and validation)
-- **Category Path Display**: Shows full category path as breadcrumbs in selector
-- **Schema**: `jobs.categoryId` (varchar, required, foreign key to categories.id)
-- **Storage**: `createJob()` validates categoryId exists before insertion
-
-**Category Filtering** (`/browse-jobs`, `/browse-consultants`):
-- **Descendant Category Filtering**: Selecting a parent category includes all child and grandchild categories in results
-- **Performance**: O(n) filtering using adjacency map for efficient tree traversal
-- **Storage Layer**: `listJobs(options)` accepts `{ ownerClientId?, categoryId?, excludeClientId?, limit? }`
-  - `categoryId` filter includes all descendant categories automatically
-  - `excludeClientId` prevents consultants from seeing their own job postings when browsing
-  - Returns enriched jobs with `categoryPathLabel` for display
-- **API Contract**: `GET /api/jobs` returns `{ jobs: Job[], total: number }`
-  - Supports `forConsultant=true` query param for role-based filtering
-  - Supports `categoryId` for hierarchical filtering
-- **Browse Jobs Page**: Flattened category dropdown for filtering with React Query integration
-- **Browse Consultants Page**: Placeholder implementation (minimal MVP scope)
+**Job Posting**: Requires authentication and client role. Features a cascading 3-level category selector for assigning jobs to a specific category.
+**Category Filtering**: Browsing jobs or consultants supports hierarchical category filtering, where selecting a parent category includes all descendant categories in the results. The backend `listJobs()` function handles descendant category inclusion and role-based filtering.
 
 ## External Dependencies
 
 ### Database
-- **Neon Serverless PostgreSQL**: For database hosting.
-- **@neondatabase/serverless**: PostgreSQL driver with WebSocket support.
+- **Neon Serverless PostgreSQL**
+- **@neondatabase/serverless**
 
 ### UI Components
-- **Radix UI**: Unstyled, accessible component primitives (Accordion, Alert Dialog, Avatar, Checkbox, Dialog, Dropdown Menu, Form controls, Navigation Menu, Popover, Select, Tabs, Toast notifications, Tooltip).
-- **Lucide React**: Icon library.
+- **Radix UI**
+- **Lucide React**
 
 ### Internationalization (i18n)
-- **Framework**: `react-i18next` with `i18next` for translations and RTL support
-- **Languages**: English (en) and Arabic (ar)
-- **Translation Structure**:
-  - `common`: Shared UI elements (buttons, labels, navigation)
-  - `services`: Category system translations (24 keys covering Explore Services, Find Consultant, Select Category, etc.)
-  - `categories`: Admin category management translations
-  - Additional sections for auth, profiles, jobs, admin modules
-- **RTL Support**: Automatic layout switching for Arabic with `dir` attribute
-- **Category System**: Fully bilingual with nameAr, descriptionAr, heroTitleAr, heroDescriptionAr fields
+- **react-i18next**
+- **i18next** (English and Arabic)
 
 ### Development Tools
-- **Replit Plugins**: Development banner and cartographer.
-- **Runtime Error Overlay**: Vite plugin for development error reporting.
+- **Replit Plugins** (Development banner, Cartographer)
+- **Vite** (Runtime error overlay)
 
 ### Form Handling & Validation
-- **React Hook Form**: Form state management.
-- **@hookform/resolvers**: Validation integration for React Hook Form.
-- **Zod**: Schema validation library.
+- **React Hook Form**
+- **@hookform/resolvers**
+- **Zod**
 
 ### Utilities
-- **class-variance-authority**: Type-safe variant styling.
-- **clsx + tailwind-merge**: Conditional className composition.
-- **cmdk**: Command palette/search interface.
-- **date-fns**: Date manipulation and formatting.
-- **nanoid**: Unique ID generation.
+- **class-variance-authority**
+- **clsx**
+- **tailwind-merge**
+- **cmdk**
+- **date-fns**
+- **nanoid**
 
 ### Session Management
-- **connect-pg-simple**: PostgreSQL-backed session store.
+- **connect-pg-simple**
 
 ### Planned Integrations
-- Payment processing system.
-- File upload/storage service.
-- Email/OTP service for 2FA.
-- Video conferencing integration (Google Meet/Zoom).
+- Payment processing system
+- File upload/storage service
+- Email/OTP service for 2FA
+- Video conferencing integration (Google Meet/Zoom)

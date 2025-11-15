@@ -22,6 +22,7 @@ import {
   LogOut,
   Layers,
   Mail,
+  CheckCircle,
 } from "lucide-react";
 import {
   Sidebar,
@@ -88,6 +89,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           url: '/admin/users',
           icon: Users,
           testId: 'nav-users',
+        },
+        {
+          title: 'Profile Approvals',
+          url: '/admin/profile-approvals',
+          icon: CheckCircle,
+          testId: 'nav-profile-approvals',
         },
         {
           title: t('sidebar.vendorDirectory'),

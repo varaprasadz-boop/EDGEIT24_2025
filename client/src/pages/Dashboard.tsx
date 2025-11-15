@@ -56,16 +56,40 @@ export default function Dashboard() {
   const activeRole = getActiveRole();
   const [, setLocation] = useLocation();
 
-  // Fetch profile statuses at top level (React hooks rules)
+  // All hooks at top level (React hooks rules)
+  // Profile status queries with explicit queryFn for query parameters
   const { data: clientProfileStatus } = useQuery<ProfileStatus>({
     queryKey: ['/api/profile/status', 'client'],
-    queryFn: () => fetch('/api/profile/status?role=client').then(r => r.json()),
+    queryFn: async () => {
+      const res = await fetch('/api/profile/status?role=client', { credentials: 'include' });
+      if (!res.ok) {
+        throw new Error(`${res.status}: ${await res.text() || res.statusText}`);
+      }
+      return res.json();
+    },
     enabled: !!user && (activeRole === 'client' || activeRole === 'both'),
   });
 
   const { data: consultantProfileStatus } = useQuery<ProfileStatus>({
     queryKey: ['/api/profile/status', 'consultant'],
-    queryFn: () => fetch('/api/profile/status?role=consultant').then(r => r.json()),
+    queryFn: async () => {
+      const res = await fetch('/api/profile/status?role=consultant', { credentials: 'include' });
+      if (!res.ok) {
+        throw new Error(`${res.status}: ${await res.text() || res.statusText}`);
+      }
+      return res.json();
+    },
+    enabled: !!user && (activeRole === 'consultant' || activeRole === 'both'),
+  });
+
+  // Dashboard stats queries
+  const { data: clientStats, isLoading: clientStatsLoading, isError: clientStatsError, refetch: refetchClientStats } = useQuery<DashboardStats>({
+    queryKey: ['/api/dashboard/client/stats'],
+    enabled: !!user && (activeRole === 'client' || activeRole === 'both'),
+  });
+
+  const { data: consultantStats, isLoading: consultantStatsLoading, isError: consultantStatsError, refetch: refetchConsultantStats } = useQuery<ConsultantDashboardStats>({
+    queryKey: ['/api/dashboard/consultant/stats'],
     enabled: !!user && (activeRole === 'consultant' || activeRole === 'both'),
   });
 
@@ -195,12 +219,7 @@ export default function Dashboard() {
   };
 
   const renderClientDashboard = () => {
-    const { data: stats, isLoading: statsLoading, isError, refetch } = useQuery<DashboardStats>({
-      queryKey: ['/api/dashboard/client/stats'],
-      enabled: !!user?.clientProfile,
-    });
-
-    if (statsLoading) {
+    if (clientStatsLoading) {
       return (
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -208,7 +227,7 @@ export default function Dashboard() {
       );
     }
 
-    if (isError) {
+    if (clientStatsError || !clientStats) {
       return (
         <div className="flex items-center justify-center min-h-[400px]">
           <Card className="max-w-md">
@@ -223,7 +242,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <Button 
-                onClick={() => refetch()} 
+                onClick={() => refetchClientStats()} 
                 className="w-full bg-primary text-primary-foreground"
                 data-testid="button-retry-dashboard"
               >
@@ -254,10 +273,10 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-active-jobs">
-                {stats?.activeJobs || 0}
+                {clientStats?.activeJobs || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {stats?.activeJobs ? 'Currently open' : 'No active postings'}
+                {clientStats?.activeJobs ? 'Currently open' : 'No active postings'}
               </p>
             </CardContent>
           </Card>
@@ -269,10 +288,10 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-proposals">
-                {stats?.totalBids || 0}
+                {clientStats?.totalBids || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {stats?.totalBids ? 'Awaiting your review' : 'No proposals yet'}
+                {clientStats?.totalBids ? 'Awaiting your review' : 'No proposals yet'}
               </p>
             </CardContent>
           </Card>
@@ -284,7 +303,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-messages">
-                {stats?.messagesCount || 0}
+                {clientStats?.messagesCount || 0}
               </div>
               <p className="text-xs text-muted-foreground">No unread messages</p>
             </CardContent>
@@ -297,7 +316,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-spending">
-                ﷼ {parseFloat(stats?.totalSpending || "0").toFixed(2)}
+                ﷼ {parseFloat(clientStats?.totalSpending || "0").toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">All time</p>
             </CardContent>
@@ -357,12 +376,7 @@ export default function Dashboard() {
   };
 
   const renderConsultantDashboard = () => {
-    const { data: stats, isLoading: statsLoading, isError, refetch } = useQuery<ConsultantDashboardStats>({
-      queryKey: ['/api/dashboard/consultant/stats'],
-      enabled: !!user?.consultantProfile,
-    });
-
-    if (statsLoading) {
+    if (consultantStatsLoading) {
       return (
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -370,7 +384,7 @@ export default function Dashboard() {
       );
     }
 
-    if (isError) {
+    if (consultantStatsError || !consultantStats) {
       return (
         <div className="flex items-center justify-center min-h-[400px]">
           <Card className="max-w-md">
@@ -385,7 +399,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <Button 
-                onClick={() => refetch()} 
+                onClick={() => refetchConsultantStats()} 
                 className="w-full bg-primary text-primary-foreground"
                 data-testid="button-retry-dashboard"
               >
@@ -416,10 +430,10 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-available-jobs">
-                {stats?.availableJobs || 0}
+                {consultantStats?.availableJobs || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {stats?.availableJobs ? 'Matching your skills' : 'No jobs available'}
+                {consultantStats?.availableJobs ? 'Matching your skills' : 'No jobs available'}
               </p>
             </CardContent>
           </Card>
@@ -431,10 +445,10 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-active-bids">
-                {stats?.activeBids || 0}
+                {consultantStats?.activeBids || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {stats?.activeBids ? 'Awaiting client review' : 'No active bids'}
+                {consultantStats?.activeBids ? 'Awaiting client review' : 'No active bids'}
               </p>
             </CardContent>
           </Card>
@@ -446,7 +460,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-earnings">
-                ﷼ {parseFloat(stats?.totalEarnings || "0").toFixed(2)}
+                ﷼ {parseFloat(consultantStats?.totalEarnings || "0").toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">All time</p>
             </CardContent>
@@ -459,10 +473,10 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-rating">
-                {parseFloat(stats?.rating || "0").toFixed(1) || '-'}
+                {parseFloat(consultantStats?.rating || "0").toFixed(1) || '-'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {stats && parseFloat(stats.rating) > 0 ? 'Average rating' : 'No reviews yet'}
+                {consultantStats && parseFloat(consultantStats.rating) > 0 ? 'Average rating' : 'No reviews yet'}
               </p>
             </CardContent>
           </Card>
