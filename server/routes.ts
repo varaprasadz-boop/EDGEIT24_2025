@@ -11,6 +11,7 @@ import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
 import { randomBytes } from "crypto";
+import { nanoid } from "nanoid";
 
 const queryLimitSchema = z.object({
   limit: z.string().optional().transform(val => val ? parseInt(val) : 10)
@@ -156,7 +157,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phoneCountryCode, 
         phone, 
         companyName,
-        selectedCategories // For consultant role only
+        selectedCategories, // For consultant role only
+        engagementPlan // Engagement plan selection
       } = req.body;
       
       // Validation
@@ -182,6 +184,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (role !== 'client' && role !== 'consultant') {
         return res.status(400).json({ message: "Role must be either 'client' or 'consultant'" });
+      }
+      
+      // Validate engagement plan
+      if (!engagementPlan || !['basic', 'professional', 'enterprise'].includes(engagementPlan)) {
+        return res.status(400).json({ message: "Valid engagement plan is required (basic, professional, or enterprise)" });
       }
       
       // For consultants, validate selectedCategories
@@ -210,6 +217,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         companyName: companyName || null,
         authProvider: 'local',
         emailVerified: false,
+        engagementPlan,
+        paymentStatus: engagementPlan === 'basic' ? 'not_required' : 'pending',
       });
       
       // Auto-create profile based on role
@@ -448,6 +457,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
+  });
+
+  // Mock Payment Endpoints
+  
+  // Create checkout session
+  app.post('/api/payments/checkout', async (req, res) => {
+    try {
+      const { userId, planId } = req.body;
+      
+      if (!userId || !planId) {
+        return res.status(400).json({ message: "userId and planId are required" });
+      }
+      
+      // Create a checkout session ID
+      const sessionId = nanoid();
+      
+      // Return mock checkout URL
+      const checkoutUrl = `/mock-payment?session=${sessionId}&userId=${userId}&planId=${planId}`;
+      
+      res.json({ checkoutUrl, sessionId });
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      res.status(500).json({ message: "Failed to create checkout session" });
+    }
+  });
+
+  // Complete payment
+  app.post('/api/payments/complete', async (req, res) => {
+    try {
+      const { userId, planId, paymentReference } = req.body;
+      
+      if (!userId || !planId) {
+        return res.status(400).json({ message: "userId and planId are required" });
+      }
+      
+      // Generate transaction reference if not provided
+      const txnRef = paymentReference || `TXN-${nanoid(10)}`;
+      
+      // Update user payment status
+      await storage.updateUser(userId, {
+        paymentStatus: 'succeeded',
+        paymentReference: txnRef,
+        paymentCompletedAt: new Date(),
+      });
+      
+      // Create active subscription
+      const subscription = await storage.createUserSubscription(userId, planId);
+      
+      res.json({ 
+        success: true, 
+        message: "Payment completed successfully",
+        subscription,
+        paymentReference: txnRef
+      });
+    } catch (error) {
+      console.error("Error completing payment:", error);
+      res.status(500).json({ message: "Failed to complete payment" });
+    }
   });
 
   // Public: Get subscription plans (for homepage)

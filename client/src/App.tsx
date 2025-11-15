@@ -18,6 +18,7 @@ import ProfileCompletion from "@/pages/ProfileCompletion";
 import Profile from "@/pages/Profile";
 import CategoryLanding from "@/pages/CategoryLanding";
 import AdminLogin from "@/pages/AdminLogin";
+import MockPaymentGateway from "@/pages/MockPaymentGateway";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -35,6 +36,7 @@ function Router() {
       <Route path="/profile/consultant" component={ConsultantProfile} />
       <Route path="/profile" component={Profile} />
       <Route path="/services/:slug" component={CategoryLanding} />
+      <Route path="/mock-payment" component={MockPaymentGateway} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/:rest*" component={AdminRouter} />
       <Route component={NotFound} />

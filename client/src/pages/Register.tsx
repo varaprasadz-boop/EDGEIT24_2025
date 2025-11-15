@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -47,8 +49,15 @@ export default function Register() {
   const [phone, setPhone] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [engagementPlan, setEngagementPlan] = useState("");
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Fetch subscription plans
+  const { data: plans, isLoading: plansLoading } = useQuery<any[]>({
+    queryKey: ['/api/subscription-plans'],
+    enabled: step === 'basic', // Only fetch when on basic step
+  });
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -82,6 +91,15 @@ export default function Register() {
       return;
     }
 
+    if (!engagementPlan) {
+      toast({
+        variant: "destructive",
+        title: "Missing Information",
+        description: "Please select an engagement plan",
+      });
+      return;
+    }
+
     // If consultant, go to categories step. If client, submit directly
     if (selectedRole === "consultant") {
       setStep("categories");
@@ -97,6 +115,13 @@ export default function Register() {
     const categoriesToSend = categoriesOverride !== undefined ? categoriesOverride : selectedCategories;
 
     try {
+      // Find the selected plan to get its name and check if payment is required
+      const selectedPlan = plans?.find((p: any) => p.id === engagementPlan);
+      const isPaidPlan = selectedPlan && parseFloat(selectedPlan.price) > 0;
+      
+      // Map plan name to backend expected format (lowercase)
+      const planIdentifier = selectedPlan ? selectedPlan.name.toLowerCase() : '';
+      
       const response = await apiRequest("POST", "/api/auth/signup", {
         fullName,
         email,
@@ -107,17 +132,27 @@ export default function Register() {
         companyName,
         role: selectedRole,
         selectedCategories: selectedRole === "consultant" ? categoriesToSend : undefined,
+        engagementPlan: planIdentifier, // Send 'basic', 'professional', or 'enterprise'
       });
 
       if (response.ok) {
         const data = await response.json();
-        toast({
-          title: "Account Created",
-          description: "Welcome to EDGEIT24! You can now complete your profile.",
-        });
         
-        // Redirect to dashboard or profile completion
-        window.location.href = data.redirectPath || "/dashboard";
+        if (isPaidPlan) {
+          // Redirect to mock payment gateway for paid plans (using plan UUID)
+          toast({
+            title: "Account Created",
+            description: "Please complete your payment to activate your subscription.",
+          });
+          window.location.href = `/mock-payment?userId=${data.user.id}&planId=${engagementPlan}`;
+        } else {
+          // Redirect to login for free plan
+          toast({
+            title: "Account Created",
+            description: "Welcome to EDGEIT24! You can now log in.",
+          });
+          window.location.href = "/login";
+        }
       } else {
         const error = await response.json();
         toast({
@@ -452,6 +487,35 @@ export default function Register() {
                             </div>
                           </div>
                         </div>
+
+                        {/* Engagement Plan Selection */}
+                        <div className="space-y-2 md:col-span-2">
+                          <Label htmlFor="engagementPlan">Select Engagement Model *</Label>
+                          {plansLoading ? (
+                            <div className="text-sm text-muted-foreground">Loading plans...</div>
+                          ) : (
+                            <RadioGroup
+                              value={engagementPlan}
+                              onValueChange={setEngagementPlan}
+                              className="space-y-3"
+                            >
+                              {plans?.map((plan: any) => (
+                                <div key={plan.id} className="flex items-center space-x-2 border rounded-md p-4 hover-elevate">
+                                  <RadioGroupItem value={plan.id} id={plan.id} data-testid={`radio-plan-${plan.name.toLowerCase()}`} />
+                                  <Label htmlFor={plan.id} className="flex-1 cursor-pointer">
+                                    <div className="font-semibold">{plan.name}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {parseFloat(plan.price) === 0 ? 'Free' : `SAR ${plan.price}/month`}
+                                    </div>
+                                    {plan.description && (
+                                      <div className="text-xs text-muted-foreground mt-1">{plan.description}</div>
+                                    )}
+                                  </Label>
+                                </div>
+                              ))}
+                            </RadioGroup>
+                          )}
+                        </div>
                       </div>
 
                       <div className="pt-4">
@@ -459,7 +523,7 @@ export default function Register() {
                           type="submit"
                           className="w-full bg-primary text-primary-foreground"
                           size="lg"
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || plansLoading}
                           data-testid="button-next-basic"
                         >
                           {selectedRole === "consultant" ? (

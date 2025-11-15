@@ -16,6 +16,7 @@ import {
   profileApprovalEvents,
   uniqueIdCounters,
   quoteRequests,
+  userSubscriptions,
   type User,
   type InsertUser,
   type UpsertUser,
@@ -42,6 +43,7 @@ import {
   type UniqueIdCounter,
   type QuoteRequest,
   type InsertQuoteRequest,
+  type UserSubscription,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, sql, desc, inArray } from "drizzle-orm";
@@ -153,6 +155,11 @@ export interface IStorage {
   createQuoteRequest(quoteRequest: InsertQuoteRequest): Promise<QuoteRequest>;
   getQuoteRequests(userId: string, role: 'client' | 'consultant'): Promise<QuoteRequest[]>;
   updateQuoteRequest(id: string, data: Partial<InsertQuoteRequest>): Promise<QuoteRequest>;
+  
+  // User Subscription operations
+  createUserSubscription(userId: string, planId: string): Promise<UserSubscription>;
+  getUserSubscription(userId: string): Promise<UserSubscription | undefined>;
+  updateSubscriptionStatus(subscriptionId: string, status: string): Promise<UserSubscription>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1046,6 +1053,39 @@ export class DatabaseStorage implements IStorage {
       .update(quoteRequests)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(quoteRequests.id, id))
+      .returning();
+    return updated;
+  }
+  
+  // User Subscription operations
+  async createUserSubscription(userId: string, planId: string): Promise<UserSubscription> {
+    const [subscription] = await db.insert(userSubscriptions).values({
+      userId,
+      planId,
+      status: 'active',
+      startDate: new Date(),
+    }).returning();
+    return subscription;
+  }
+  
+  async getUserSubscription(userId: string): Promise<UserSubscription | undefined> {
+    const [subscription] = await db
+      .select()
+      .from(userSubscriptions)
+      .where(and(
+        eq(userSubscriptions.userId, userId),
+        eq(userSubscriptions.status, 'active')
+      ))
+      .orderBy(desc(userSubscriptions.createdAt))
+      .limit(1);
+    return subscription;
+  }
+  
+  async updateSubscriptionStatus(subscriptionId: string, status: string): Promise<UserSubscription> {
+    const [updated] = await db
+      .update(userSubscriptions)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(userSubscriptions.id, subscriptionId))
       .returning();
     return updated;
   }
