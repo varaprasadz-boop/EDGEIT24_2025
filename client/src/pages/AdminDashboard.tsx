@@ -5,7 +5,6 @@ import { Shield, Users, Briefcase, FileText, MessageSquare, DollarSign, CheckCir
 import { useLocation } from "wouter";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useTranslation } from "react-i18next";
-import { AdminLayout } from "@/components/AdminLayout";
 
 interface AdminStats {
   totalUsers: number;
@@ -58,12 +57,11 @@ export default function AdminDashboard() {
   }
 
   return (
-    <AdminLayout>
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold">{t('dashboard.platformOverview')}</h2>
-          <p className="text-muted-foreground mt-1">{t('dashboard.subtitle')}</p>
-        </div>
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h2 className="text-3xl font-bold">{t('dashboard.platformOverview')}</h2>
+        <p className="text-muted-foreground mt-1">{t('dashboard.subtitle')}</p>
+      </div>
 
         {/* Stats Grid */}
         {isStatsLoading ? (
@@ -192,6 +190,5 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
-    </AdminLayout>
   );
 }
