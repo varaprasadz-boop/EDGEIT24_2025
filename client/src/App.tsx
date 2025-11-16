@@ -38,6 +38,7 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/login" component={Login} />
       <Route path="/verify-2fa" component={Verify2FA} />
+      <Route path="/setup-2fa" component={Setup2FA} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/dashboard" component={Dashboard} />

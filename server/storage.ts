@@ -749,7 +749,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async generateBackupCodes(userId: string): Promise<string[]> {
-    const crypto = require('crypto');
+    const crypto = await import('crypto');
     const backupCodes = Array.from({ length: 10 }, () =>
       crypto.randomBytes(4).toString('hex').toUpperCase()
     );
