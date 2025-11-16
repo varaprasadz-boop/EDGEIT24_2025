@@ -4822,11 +4822,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "File not found" });
       }
 
-      // Verify user is a participant in the conversation
+      // Verify user is the file owner OR a conversation admin
       const participants = await storage.getConversationParticipants(existingFile.conversationId);
-      const isParticipant = participants.some(p => p.userId === userId);
-      if (!isParticipant) {
-        return res.status(403).json({ message: "Access denied" });
+      const userParticipant = participants.find(p => p.userId === userId);
+      const isOwner = existingFile.uploadedById === userId;
+      const isAdmin = userParticipant?.role === 'admin';
+
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ message: "Only file owner or conversation admins can update files" });
       }
 
       const file = await storage.updateMessageFile(req.params.fileId, req.body);
@@ -4851,11 +4854,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Original file not found" });
       }
 
-      // Verify user is a participant in the conversation
+      // Verify user is the file owner OR a conversation admin
       const participants = await storage.getConversationParticipants(originalFile.conversationId);
-      const isParticipant = participants.some(p => p.userId === userId);
-      if (!isParticipant) {
-        return res.status(403).json({ message: "Access denied" });
+      const userParticipant = participants.find(p => p.userId === userId);
+      const isOwner = originalFile.uploadedById === userId;
+      const isAdmin = userParticipant?.role === 'admin';
+
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ message: "Only file owner or conversation admins can create new versions" });
       }
 
       const validatedData = insertFileVersionSchema.parse({
