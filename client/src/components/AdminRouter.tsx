@@ -20,6 +20,8 @@ import AdminEmailTemplates from "@/pages/AdminEmailTemplates";
 import AdminContentPages from "@/pages/admin/AdminContentPages";
 import AdminFooterLinks from "@/pages/admin/AdminFooterLinks";
 import AdminHomeSections from "@/pages/admin/AdminHomeSections";
+import AdminMessages from "@/pages/AdminMessages";
+import AdminConversationViewer from "@/pages/AdminConversationViewer";
 
 export function AdminRouter() {
   const { user, isLoading } = useAuthContext();
@@ -66,6 +68,8 @@ export function AdminRouter() {
         <Route path="/admin/vendor-requests" component={AdminVendorRequests} />
         <Route path="/admin/requirements" component={AdminRequirements} />
         <Route path="/admin/bids" component={AdminBids} />
+        <Route path="/admin/messages/:id" component={AdminConversationViewer} />
+        <Route path="/admin/messages" component={AdminMessages} />
         <Route path="/admin/payments" component={AdminPayments} />
         <Route path="/admin/contracts" component={AdminContracts} />
         <Route path="/admin/subscription-plans" component={AdminSubscriptionPlans} />
