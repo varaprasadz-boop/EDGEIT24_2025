@@ -16,7 +16,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { VerificationBadge } from "@/components/ui/verification-badge";
-import { Briefcase, MapPin, DollarSign, Star, AlertCircle, Edit, Save, X, Award, TrendingUp, Code, FolderOpen, Package, Calendar as CalendarIcon, Info, Tag, ShieldCheck } from "lucide-react";
+import { Briefcase, MapPin, DollarSign, Star, AlertCircle, Edit, Save, X, Award, TrendingUp, Code, FolderOpen, Package, Calendar as CalendarIcon, Info, Tag, ShieldCheck, Building2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 import { useState as useReactState, useEffect } from "react";
@@ -47,6 +47,9 @@ interface ServicePackage {
   description: string;
   price: string;
   deliveryTime: string;
+  addOns?: string[];
+  revisionsIncluded?: number;
+  supportDuration?: string;
 }
 
 interface PricingTemplateForm {
@@ -270,6 +273,10 @@ export default function ConsultantProfile() {
       timezone: profile?.timezone ?? undefined,
       avatar: profile?.avatar ?? undefined,
       responseTime: profile?.responseTime ?? undefined,
+      yearEstablished: profile?.yearEstablished ?? undefined,
+      employeeCount: profile?.employeeCount ?? undefined,
+      businessRegistrationNumber: profile?.businessRegistrationNumber ?? undefined,
+      operatingRegions: profile?.operatingRegions ?? undefined,
     },
   });
 
@@ -292,6 +299,10 @@ export default function ConsultantProfile() {
         timezone: profile.timezone ?? undefined,
         avatar: profile.avatar ?? undefined,
         responseTime: profile.responseTime ?? undefined,
+        yearEstablished: profile.yearEstablished ?? undefined,
+        employeeCount: profile.employeeCount ?? undefined,
+        businessRegistrationNumber: profile.businessRegistrationNumber ?? undefined,
+        operatingRegions: profile.operatingRegions ?? undefined,
       });
       
       // Initialize portfolio items from profile
@@ -373,12 +384,35 @@ export default function ConsultantProfile() {
   };
 
   const addServicePackage = () => {
-    setServicePackages([...servicePackages, { name: "", description: "", price: "", deliveryTime: "" }]);
+    setServicePackages([...servicePackages, { 
+      name: "", 
+      description: "", 
+      price: "", 
+      deliveryTime: "",
+      addOns: [],
+      revisionsIncluded: undefined,
+      supportDuration: ""
+    }]);
   };
 
   const updateServicePackage = (index: number, field: keyof ServicePackage, value: string) => {
     const updated = [...servicePackages];
     updated[index] = { ...updated[index], [field]: value };
+    setServicePackages(updated);
+    form.setValue('servicePackages', updated as any);
+  };
+
+  const updateServicePackageNumber = (index: number, field: keyof ServicePackage, value: number | undefined) => {
+    const updated = [...servicePackages];
+    updated[index] = { ...updated[index], [field]: value };
+    setServicePackages(updated);
+    form.setValue('servicePackages', updated as any);
+  };
+
+  const updateServicePackageAddOns = (index: number, addOnsString: string) => {
+    const updated = [...servicePackages];
+    const addOns = addOnsString.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    updated[index] = { ...updated[index], addOns: addOns.length > 0 ? addOns : undefined };
     setServicePackages(updated);
     form.setValue('servicePackages', updated as any);
   };
@@ -1046,6 +1080,109 @@ export default function ConsultantProfile() {
                   </Card>
                 </div>
 
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold">Business Information</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="yearEstablished"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Year Established</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              min="1900"
+                              max={new Date().getFullYear()}
+                              placeholder={new Date().getFullYear().toString()}
+                              {...field}
+                              value={field.value ?? ""}
+                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                              data-testid="input-year-established" 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="employeeCount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Employee Count</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-employee-count">
+                                <SelectValue placeholder="Select employee count" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="1-10">1-10 employees</SelectItem>
+                              <SelectItem value="11-50">11-50 employees</SelectItem>
+                              <SelectItem value="51-200">51-200 employees</SelectItem>
+                              <SelectItem value="201+">201+ employees</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="businessRegistrationNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business Registration Number</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="CR-XXXX-XXXX" 
+                            {...field} 
+                            value={field.value ?? ""} 
+                            data-testid="input-business-registration" 
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Your company's commercial registration number
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="operatingRegions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Operating Regions</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Saudi Arabia, UAE, Qatar (comma-separated)" 
+                            value={field.value?.join(', ') ?? ""} 
+                            onChange={(e) => {
+                              const regions = e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                              field.onChange(regions.length > 0 ? regions : undefined);
+                            }}
+                            data-testid="input-operating-regions" 
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Countries/regions where you provide services (separated by commas)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <FormLabel>Portfolio Projects</FormLabel>
@@ -1151,6 +1288,28 @@ export default function ConsultantProfile() {
                                   value={pkg.deliveryTime}
                                   onChange={(e) => updateServicePackage(index, 'deliveryTime', e.target.value)}
                                   data-testid={`input-package-delivery-${index}`}
+                                />
+                              </div>
+                              <Input
+                                placeholder="Add-ons (comma-separated, e.g., SEO, Analytics, SSL)"
+                                value={pkg.addOns?.join(', ') ?? ""}
+                                onChange={(e) => updateServicePackageAddOns(index, e.target.value)}
+                                data-testid={`input-package-addons-${index}`}
+                              />
+                              <div className="grid grid-cols-2 gap-3">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  placeholder="Revisions included"
+                                  value={pkg.revisionsIncluded ?? ""}
+                                  onChange={(e) => updateServicePackageNumber(index, 'revisionsIncluded', e.target.value ? parseInt(e.target.value) : undefined)}
+                                  data-testid={`input-package-revisions-${index}`}
+                                />
+                                <Input
+                                  placeholder="Support duration (e.g., 30 days)"
+                                  value={pkg.supportDuration ?? ""}
+                                  onChange={(e) => updateServicePackage(index, 'supportDuration', e.target.value)}
+                                  data-testid={`input-package-support-${index}`}
                                 />
                               </div>
                             </div>
@@ -1460,6 +1619,49 @@ export default function ConsultantProfile() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                Business Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Year Established</div>
+                <div className="font-medium" data-testid="text-year-established">
+                  {profile?.yearEstablished || "Not provided"}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Employee Count</div>
+                <div className="font-medium" data-testid="text-employee-count">
+                  {profile?.employeeCount ? profile.employeeCount.replace('-', ' to ').replace('+', ' or more') : "Not provided"}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Business Registration Number</div>
+                <div className="font-medium" data-testid="text-business-registration">
+                  {profile?.businessRegistrationNumber || "Not provided"}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Operating Regions</div>
+                <div className="flex flex-wrap gap-2">
+                  {profile?.operatingRegions && profile.operatingRegions.length > 0 ? (
+                    profile.operatingRegions.map((region, index) => (
+                      <Badge key={index} variant="outline" data-testid={`badge-region-${index}`}>
+                        {region}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Not provided</span>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
                 <Award className="h-5 w-5 text-primary" />
                 Performance Metrics
               </CardTitle>
@@ -1621,6 +1823,35 @@ export default function ConsultantProfile() {
                           {pkg.deliveryTime}
                         </div>
                       </div>
+                      
+                      {pkg.addOns && pkg.addOns.length > 0 && (
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-2">Add-ons Included:</div>
+                          <div className="flex flex-wrap gap-1">
+                            {pkg.addOns.map((addon, addonIndex) => (
+                              <Badge key={addonIndex} variant="secondary" className="text-xs" data-testid={`badge-addon-${index}-${addonIndex}`}>
+                                {addon}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {pkg.revisionsIncluded !== undefined && (
+                          <div data-testid={`text-package-revisions-${index}`}>
+                            <span className="text-muted-foreground">Revisions:</span>{' '}
+                            <span className="font-medium">{pkg.revisionsIncluded}</span>
+                          </div>
+                        )}
+                        {pkg.supportDuration && (
+                          <div data-testid={`text-package-support-${index}`}>
+                            <span className="text-muted-foreground">Support:</span>{' '}
+                            <span className="font-medium">{pkg.supportDuration}</span>
+                          </div>
+                        )}
+                      </div>
+                      
                       {user && (user.role === 'client' || user.role === 'both') && profile.userId !== user.id && (
                         <Button
                           onClick={() => {

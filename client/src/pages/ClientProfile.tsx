@@ -65,7 +65,9 @@ export default function ClientProfile() {
       contactEmail: profile?.contactEmail ?? user?.email ?? undefined,
       contactPhone: profile?.contactPhone ?? user?.phone ?? undefined,
       phoneCountryCode: profile?.phoneCountryCode ?? user?.phoneCountryCode ?? undefined,
+      businessType: profile?.businessType ?? undefined,
       industry: profile?.industry ?? undefined,
+      region: profile?.region ?? undefined,
       companySize: profile?.companySize ?? undefined,
       website: profile?.website ?? undefined,
       description: profile?.description ?? undefined,
@@ -90,7 +92,9 @@ export default function ClientProfile() {
         contactEmail: profile.contactEmail ?? undefined,
         contactPhone: profile.contactPhone ?? undefined,
         phoneCountryCode: profile.phoneCountryCode ?? undefined,
+        businessType: profile.businessType ?? undefined,
         industry: profile.industry ?? undefined,
+        region: profile.region ?? undefined,
         companySize: profile.companySize ?? undefined,
         website: profile.website ?? undefined,
         description: profile.description ?? undefined,
@@ -104,7 +108,9 @@ export default function ClientProfile() {
         contactEmail: user.email ?? undefined,
         contactPhone: user.phone ?? undefined,
         phoneCountryCode: user.phoneCountryCode ?? undefined,
+        businessType: undefined,
         industry: undefined,
+        region: undefined,
         companySize: undefined,
         website: undefined,
         description: undefined,
@@ -347,13 +353,90 @@ export default function ClientProfile() {
 
                 <FormField
                   control={form.control}
+                  name="businessType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Business Type</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-business-type">
+                            <SelectValue placeholder="Select business type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="individual">Individual</SelectItem>
+                          <SelectItem value="company">Company</SelectItem>
+                          <SelectItem value="enterprise">Enterprise</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="industry"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Industry</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Technology, Finance, Healthcare, etc." {...field} value={field.value ?? ""} data-testid="input-industry" />
-                      </FormControl>
+                      <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-industry">
+                            <SelectValue placeholder="Select industry" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="technology">Technology</SelectItem>
+                          <SelectItem value="finance">Finance & Banking</SelectItem>
+                          <SelectItem value="healthcare">Healthcare</SelectItem>
+                          <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                          <SelectItem value="retail">Retail & E-commerce</SelectItem>
+                          <SelectItem value="education">Education</SelectItem>
+                          <SelectItem value="real_estate">Real Estate</SelectItem>
+                          <SelectItem value="construction">Construction</SelectItem>
+                          <SelectItem value="hospitality">Hospitality & Tourism</SelectItem>
+                          <SelectItem value="telecommunications">Telecommunications</SelectItem>
+                          <SelectItem value="energy">Energy & Utilities</SelectItem>
+                          <SelectItem value="transportation">Transportation & Logistics</SelectItem>
+                          <SelectItem value="government">Government</SelectItem>
+                          <SelectItem value="nonprofit">Non-Profit</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="region"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Region</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-region">
+                            <SelectValue placeholder="Select region" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="riyadh">Riyadh Region</SelectItem>
+                          <SelectItem value="makkah">Makkah Region</SelectItem>
+                          <SelectItem value="madinah">Madinah Region</SelectItem>
+                          <SelectItem value="eastern">Eastern Province</SelectItem>
+                          <SelectItem value="asir">Asir Region</SelectItem>
+                          <SelectItem value="tabuk">Tabuk Region</SelectItem>
+                          <SelectItem value="hail">Hail Region</SelectItem>
+                          <SelectItem value="northern_borders">Northern Borders</SelectItem>
+                          <SelectItem value="jazan">Jazan Region</SelectItem>
+                          <SelectItem value="najran">Najran Region</SelectItem>
+                          <SelectItem value="al_bahah">Al Bahah Region</SelectItem>
+                          <SelectItem value="al_jawf">Al Jawf Region</SelectItem>
+                          <SelectItem value="qassim">Qassim Region</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -372,10 +455,11 @@ export default function ClientProfile() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="small">Small (1-50 employees)</SelectItem>
-                          <SelectItem value="medium">Medium (51-200 employees)</SelectItem>
-                          <SelectItem value="large">Large (201-1000 employees)</SelectItem>
-                          <SelectItem value="enterprise">Enterprise (1000+ employees)</SelectItem>
+                          <SelectItem value="1-10">1-10 employees</SelectItem>
+                          <SelectItem value="11-50">11-50 employees</SelectItem>
+                          <SelectItem value="51-200">51-200 employees</SelectItem>
+                          <SelectItem value="201-500">201-500 employees</SelectItem>
+                          <SelectItem value="500+">500+ employees</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -505,15 +589,27 @@ export default function ClientProfile() {
                 </div>
               </div>
               <div>
+                <div className="text-sm text-muted-foreground mb-1">Business Type</div>
+                <div className="font-medium capitalize" data-testid="text-business-type">
+                  {profile?.businessType || "Not provided"}
+                </div>
+              </div>
+              <div>
                 <div className="text-sm text-muted-foreground mb-1">Industry</div>
-                <div className="font-medium" data-testid="text-industry">
-                  {profile?.industry || "Not provided"}
+                <div className="font-medium capitalize" data-testid="text-industry">
+                  {profile?.industry ? profile.industry.replace(/_/g, ' ') : "Not provided"}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Region</div>
+                <div className="font-medium capitalize" data-testid="text-region">
+                  {profile?.region ? profile.region.replace(/_/g, ' ') : "Not provided"}
                 </div>
               </div>
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Company Size</div>
-                <div className="font-medium capitalize" data-testid="text-company-size">
-                  {profile?.companySize ? profile.companySize.replace('_', ' ') : "Not provided"}
+                <div className="font-medium" data-testid="text-company-size">
+                  {profile?.companySize ? profile.companySize.replace(/-/g, ' to ').replace('+', ' or more') : "Not provided"}
                 </div>
               </div>
             </CardContent>
