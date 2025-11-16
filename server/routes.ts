@@ -4,9 +4,9 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { z } from "zod";
-import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema } from "@shared/schema";
+import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema } from "@shared/schema";
 import { db } from "./db";
-import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, contentPages, footerLinks, homePageSections, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema } from "@shared/schema";
+import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, contentPages, footerLinks, homePageSections, messageFiles, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
@@ -4706,6 +4706,442 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching unread count:", error);
       res.status(500).json({ message: "Failed to fetch unread count" });
+    }
+  });
+
+  // ========================================
+  // MESSAGE FILE ENDPOINTS
+  // ========================================
+
+  // Create message file attachment
+  app.post('/api/conversations/:conversationId/messages/:messageId/files', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Verify user is a participant
+      const participants = await storage.getConversationParticipants(req.params.conversationId);
+      const isParticipant = participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Verify message exists in conversation
+      const message = await storage.getMessage(req.params.messageId);
+      if (!message || message.conversationId !== req.params.conversationId) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+
+      const validatedData = insertMessageFileSchema.parse({
+        ...req.body,
+        messageId: req.params.messageId,
+        uploadedById: userId
+      });
+
+      const file = await storage.createMessageFile(validatedData);
+      res.status(201).json(file);
+    } catch (error: any) {
+      console.error("Error creating message file:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid file data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create message file" });
+    }
+  });
+
+  // Get files for a message
+  app.get('/api/messages/:messageId/files', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Get message and verify user has access via conversation membership
+      const message = await storage.getMessage(req.params.messageId);
+      if (!message) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+
+      const participants = await storage.getConversationParticipants(message.conversationId);
+      const isParticipant = participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const files = await storage.getMessageFiles(req.params.messageId);
+      res.json(files);
+    } catch (error) {
+      console.error("Error fetching message files:", error);
+      res.status(500).json({ message: "Failed to fetch message files" });
+    }
+  });
+
+  // Get all files in a conversation
+  app.get('/api/conversations/:conversationId/files', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Verify user is a participant
+      const participants = await storage.getConversationParticipants(req.params.conversationId);
+      const isParticipant = participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { limit } = queryLimitSchema.parse(req.query);
+      const files = await storage.getConversationFiles(req.params.conversationId, { limit });
+      res.json(files);
+    } catch (error) {
+      console.error("Error fetching conversation files:", error);
+      res.status(500).json({ message: "Failed to fetch conversation files" });
+    }
+  });
+
+  // Update file metadata
+  app.patch('/api/files/:fileId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Get the file to verify access
+      const [existingFile] = await db.select().from(messageFiles).where(eq(messageFiles.id, req.params.fileId));
+      if (!existingFile) {
+        return res.status(404).json({ message: "File not found" });
+      }
+
+      // Verify user is a participant in the conversation
+      const participants = await storage.getConversationParticipants(existingFile.conversationId);
+      const isParticipant = participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const file = await storage.updateMessageFile(req.params.fileId, req.body);
+      res.json(file);
+    } catch (error) {
+      console.error("Error updating file:", error);
+      res.status(500).json({ message: "Failed to update file" });
+    }
+  });
+
+  // Create new file version
+  app.post('/api/files/:fileId/versions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Get the original file to verify access
+      const [originalFile] = await db.select().from(messageFiles).where(eq(messageFiles.id, req.params.fileId));
+      if (!originalFile) {
+        return res.status(404).json({ message: "Original file not found" });
+      }
+
+      // Verify user is a participant in the conversation
+      const participants = await storage.getConversationParticipants(originalFile.conversationId);
+      const isParticipant = participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const validatedData = insertFileVersionSchema.parse({
+        ...req.body,
+        originalFileId: req.params.fileId,
+        uploadedById: userId
+      });
+
+      const version = await storage.createFileVersion(validatedData);
+      res.status(201).json(version);
+    } catch (error: any) {
+      console.error("Error creating file version:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid version data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create file version" });
+    }
+  });
+
+  // Get file versions
+  app.get('/api/files/:fileId/versions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Get the original file to verify access
+      const [originalFile] = await db.select().from(messageFiles).where(eq(messageFiles.id, req.params.fileId));
+      if (!originalFile) {
+        return res.status(404).json({ message: "Original file not found" });
+      }
+
+      // Verify user is a participant in the conversation
+      const participants = await storage.getConversationParticipants(originalFile.conversationId);
+      const isParticipant = participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const versions = await storage.getFileVersions(req.params.fileId);
+      res.json(versions);
+    } catch (error) {
+      console.error("Error fetching file versions:", error);
+      res.status(500).json({ message: "Failed to fetch file versions" });
+    }
+  });
+
+  // ========================================
+  // MEETING ENDPOINTS
+  // ========================================
+
+  // Create meeting
+  app.post('/api/conversations/:conversationId/meetings', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Verify user is a participant
+      const participants = await storage.getConversationParticipants(req.params.conversationId);
+      const isParticipant = participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const validatedData = insertMeetingLinkSchema.parse({
+        ...req.body,
+        conversationId: req.params.conversationId,
+        createdById: userId
+      });
+
+      const meeting = await storage.createMeeting(validatedData);
+      res.status(201).json(meeting);
+    } catch (error: any) {
+      console.error("Error creating meeting:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid meeting data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create meeting" });
+    }
+  });
+
+  // Get conversation meetings
+  app.get('/api/conversations/:conversationId/meetings', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Verify user is a participant
+      const participants = await storage.getConversationParticipants(req.params.conversationId);
+      const isParticipant = participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const upcomingParam = req.query.upcoming;
+      const upcoming = upcomingParam === 'true';
+      const meetings = await storage.getConversationMeetings(req.params.conversationId, { upcoming });
+      res.json(meetings);
+    } catch (error) {
+      console.error("Error fetching meetings:", error);
+      res.status(500).json({ message: "Failed to fetch meetings" });
+    }
+  });
+
+  // Get single meeting
+  app.get('/api/meetings/:meetingId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const meeting = await storage.getMeeting(req.params.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+
+      // Verify user is a participant in the conversation
+      const participants = await storage.getConversationParticipants(meeting.conversationId);
+      const isParticipant = participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      res.json(meeting);
+    } catch (error) {
+      console.error("Error fetching meeting:", error);
+      res.status(500).json({ message: "Failed to fetch meeting" });
+    }
+  });
+
+  // Update meeting
+  app.patch('/api/meetings/:meetingId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const meeting = await storage.getMeeting(req.params.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+
+      // Verify user is the creator or a conversation admin
+      const participants = await storage.getConversationParticipants(meeting.conversationId);
+      const userParticipant = participants.find(p => p.userId === userId);
+      const canUpdate = meeting.createdById === userId || userParticipant?.role === 'admin';
+
+      if (!canUpdate) {
+        return res.status(403).json({ message: "Only the meeting creator or conversation admins can update meetings" });
+      }
+
+      const updatedMeeting = await storage.updateMeeting(req.params.meetingId, req.body);
+      res.json(updatedMeeting);
+    } catch (error) {
+      console.error("Error updating meeting:", error);
+      res.status(500).json({ message: "Failed to update meeting" });
+    }
+  });
+
+  // Add meeting participant
+  app.post('/api/meetings/:meetingId/participants', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const meeting = await storage.getMeeting(req.params.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+
+      // Verify user is a conversation participant
+      const conversationParticipants = await storage.getConversationParticipants(meeting.conversationId);
+      const isConversationParticipant = conversationParticipants.some(p => p.userId === userId);
+      if (!isConversationParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const validatedData = insertMeetingParticipantSchema.parse({
+        ...req.body,
+        meetingId: req.params.meetingId
+      });
+
+      const participant = await storage.addMeetingParticipant(validatedData);
+      res.status(201).json(participant);
+    } catch (error: any) {
+      console.error("Error adding meeting participant:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid participant data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to add meeting participant" });
+    }
+  });
+
+  // Get meeting participants
+  app.get('/api/meetings/:meetingId/participants', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const meeting = await storage.getMeeting(req.params.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+
+      // Verify user is a conversation participant
+      const conversationParticipants = await storage.getConversationParticipants(meeting.conversationId);
+      const isConversationParticipant = conversationParticipants.some(p => p.userId === userId);
+      if (!isConversationParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const participants = await storage.getMeetingParticipants(req.params.meetingId);
+      res.json(participants);
+    } catch (error) {
+      console.error("Error fetching meeting participants:", error);
+      res.status(500).json({ message: "Failed to fetch meeting participants" });
+    }
+  });
+
+  // Update meeting participant RSVP
+  app.patch('/api/meetings/:meetingId/participants/:participantId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const meeting = await storage.getMeeting(req.params.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+
+      // Verify user is a conversation participant
+      const conversationParticipants = await storage.getConversationParticipants(meeting.conversationId);
+      const isConversationParticipant = conversationParticipants.some(p => p.userId === userId);
+      if (!isConversationParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const participant = await storage.updateMeetingParticipant(req.params.participantId, req.body);
+      res.json(participant);
+    } catch (error) {
+      console.error("Error updating meeting participant:", error);
+      res.status(500).json({ message: "Failed to update meeting participant" });
+    }
+  });
+
+  // Create meeting reminder
+  app.post('/api/meetings/:meetingId/reminders', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const meeting = await storage.getMeeting(req.params.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+
+      // Verify user is a conversation participant
+      const conversationParticipants = await storage.getConversationParticipants(meeting.conversationId);
+      const isConversationParticipant = conversationParticipants.some(p => p.userId === userId);
+      if (!isConversationParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const validatedData = insertMeetingReminderSchema.parse({
+        ...req.body,
+        meetingId: req.params.meetingId
+      });
+
+      const reminder = await storage.createMeetingReminder(validatedData);
+      res.status(201).json(reminder);
+    } catch (error: any) {
+      console.error("Error creating meeting reminder:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid reminder data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create meeting reminder" });
     }
   });
 
