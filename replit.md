@@ -64,6 +64,8 @@ A comprehensive real-time messaging system supports one-on-one conversations, fi
 - user_typing/user_stopped_typing: Live typing indicators
 - user_online/user_offline: Presence tracking
 - read_receipt: Message read status updates
+- meeting_created/meeting_updated: Real-time meeting scheduling updates
+- rsvp_updated: Real-time RSVP status changes
 
 **File Attachments System:**
 - FileUpload component with drag-and-drop support and validation (25MB max size)
@@ -74,6 +76,17 @@ A comprehensive real-time messaging system supports one-on-one conversations, fi
 - Real-time file updates via WebSocket integration
 - File metadata: fileName, fileSize, mimeType, fileUrl, thumbnailUrl
 - Security: File scan status tracking (pending/clean/infected)
+
+**Meeting Scheduling System:**
+- MeetingScheduler component: Dialog-based UI with react-day-picker for date/time selection
+- Meeting type support: Google Meet, Zoom, Microsoft Teams, and custom links
+- MeetingCard component: Display meeting details with participant RSVP status
+- RSVP functionality: Accept, decline, or tentative responses for meeting invitations
+- Real-time updates: WebSocket broadcasts for meeting creation, updates, and RSVP changes
+- Schedule button integrated in conversation header
+- Meetings displayed prominently at top of conversation thread
+- Meeting metadata: title, description, scheduledAt, duration, meetingType, meetingUrl, status
+- Participant tracking: Full RSVP status (pending, accepted, declined, tentative) with timestamps
 
 ## External Dependencies
 
