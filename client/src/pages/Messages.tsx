@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useLocation, useRoute } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Helmet } from "react-helmet-async";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -54,6 +56,8 @@ export default function Messages() {
   const [match, params] = useRoute("/messages/:conversationId?");
   const [messageInput, setMessageInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const selectedConversationId = params?.conversationId;
 
@@ -86,29 +90,50 @@ export default function Messages() {
     }
   }, [user, setLocation]);
 
+  const sendMessageMutation = useMutation({
+    mutationFn: async (variables: { content: string; conversationId: string }) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/conversations/${variables.conversationId}/messages`,
+        { content: variables.content }
+      );
+      return await response.json();
+    },
+    onSuccess: async (_data, variables) => {
+      setMessageInput("");
+      // Invalidate messages query to refetch using the ID from mutation variables
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/conversations", variables.conversationId, "messages"],
+      });
+      // Invalidate unread count for this conversation
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/conversations", variables.conversationId, "unread-count"],
+      });
+      // Also invalidate conversations list to update last message time
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/conversations"],
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to send message",
+        description: error.message || "An error occurred while sending your message",
+        variant: "destructive",
+      });
+    },
+  });
+
   const filteredConversations = conversations?.filter((conv) =>
-    conv.title?.toLowerCase().includes(searchQuery.toLowerCase())
+    (conv.title?.toLowerCase() ?? "").includes(searchQuery.toLowerCase())
   );
 
-  const handleSendMessage = async () => {
-    if (!messageInput.trim() || !selectedConversationId) return;
+  const handleSendMessage = () => {
+    if (!messageInput.trim() || !selectedConversationId || sendMessageMutation.isPending) return;
     
-    try {
-      const response = await fetch(`/api/conversations/${selectedConversationId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: messageInput }),
-        credentials: "include",
-      });
-
-      if (response.ok) {
-        setMessageInput("");
-        // Refresh messages
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error("Failed to send message:", error);
-    }
+    sendMessageMutation.mutate({
+      content: messageInput,
+      conversationId: selectedConversationId,
+    });
   };
 
   if (!user) {
@@ -307,16 +332,17 @@ export default function Messages() {
                   </Button>
                   
                   <Textarea
-                    placeholder="Type a message..."
+                    placeholder={selectedConversationId ? "Type a message..." : "Select a conversation to send messages"}
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
+                      if (e.key === "Enter" && !e.shiftKey && selectedConversationId) {
                         e.preventDefault();
                         handleSendMessage();
                       }
                     }}
                     className="min-h-[80px] resize-none"
+                    disabled={!selectedConversationId}
                     data-testid="input-message"
                   />
 
@@ -331,7 +357,7 @@ export default function Messages() {
                     <Button
                       size="icon"
                       onClick={handleSendMessage}
-                      disabled={!messageInput.trim()}
+                      disabled={!messageInput.trim() || sendMessageMutation.isPending || !selectedConversationId}
                       data-testid="button-send-message"
                     >
                       <Send className="h-4 w-4" />
