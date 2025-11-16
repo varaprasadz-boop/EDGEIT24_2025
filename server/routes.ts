@@ -3216,35 +3216,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Advanced job search (must come before /api/jobs to avoid route conflict)
   app.get('/api/jobs/search', isAuthenticated, async (req: any, res) => {
     try {
-      // Parse query parameters
-      const search = req.query.search as string | undefined;
-      const categoryId = req.query.categoryId as string | undefined;
-      const minBudget = req.query.minBudget ? parseFloat(req.query.minBudget) : undefined;
-      const maxBudget = req.query.maxBudget ? parseFloat(req.query.maxBudget) : undefined;
-      const skills = req.query.skills ? (req.query.skills as string).split(',') : undefined;
-      const experienceLevel = req.query.experienceLevel as string | undefined;
-      const status = req.query.status as string | undefined;
-      const budgetType = req.query.budgetType as string | undefined;
-      const limit = req.query.limit ? parseInt(req.query.limit) : 50;
-      const offset = req.query.offset ? parseInt(req.query.offset) : 0;
+      // Strict string preprocessor - rejects non-strings with z.NEVER to prevent filter bypass
+      const strictOptionalString = z.preprocess(
+        val => {
+          if (val === undefined) return undefined;
+          if (typeof val !== "string") return z.NEVER;
+          return val;
+        },
+        z.string()
+      ).optional();
 
-      const { jobs, total } = await storage.searchJobs({
-        search,
-        categoryId,
-        minBudget,
-        maxBudget,
-        skills,
-        experienceLevel,
-        status,
-        budgetType,
-        limit,
-        offset,
+      // Validate and parse query parameters with strict preprocessing
+      const jobSearchSchema = z.object({
+        search: z.string().max(200).optional(),
+        categoryId: strictOptionalString.pipe(z.string().uuid()).optional(),
+        minBudget: z.coerce.number().min(0).optional(),
+        maxBudget: z.coerce.number().min(0).optional(),
+        skills: strictOptionalString.transform(val => val?.split(',').map(part => part.trim()).filter(Boolean) ?? []),
+        experienceLevel: z.enum(['junior', 'mid', 'senior', 'expert']).optional(),
+        status: z.string().optional(),
+        budgetType: z.enum(['fixed', 'hourly']).optional(),
+        limit: z.coerce.number().min(1).max(100).default(50),
+        offset: z.coerce.number().min(0).default(0),
       });
 
-      res.json({ jobs, total });
+      const parsed = jobSearchSchema.safeParse(req.query);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid query parameters", errors: parsed.error.errors });
+      }
+
+      const { search, categoryId, minBudget, maxBudget, skills, experienceLevel, status, budgetType, limit, offset } = parsed.data;
+
+      try {
+        const { jobs, total } = await storage.searchJobs({
+          search,
+          categoryId,
+          minBudget,
+          maxBudget,
+          skills,
+          experienceLevel,
+          status,
+          budgetType,
+          limit,
+          offset,
+        });
+
+        res.json({ jobs, total });
+      } catch (storageError) {
+        console.error("Storage error searching jobs:", storageError);
+        res.status(500).json({ message: "Failed to search jobs" });
+      }
     } catch (error) {
-      console.error("Error searching jobs:", error);
-      res.status(500).json({ message: "Failed to search jobs" });
+      console.error("Validation error searching jobs:", error);
+      res.status(400).json({ message: "Invalid request parameters" });
+    }
+  });
+
+  // Advanced consultant search
+  app.get('/api/consultants/search', isAuthenticated, async (req: any, res) => {
+    try {
+      // Strict string preprocessor - rejects non-strings with z.NEVER to prevent filter bypass
+      const strictOptionalString = z.preprocess(
+        val => {
+          if (val === undefined) return undefined;
+          if (typeof val !== "string") return z.NEVER;
+          return val;
+        },
+        z.string()
+      ).optional();
+
+      // Validate and parse query parameters with strict preprocessing
+      const consultantSearchSchema = z.object({
+        search: z.string().max(200).optional(),
+        categoryId: strictOptionalString.pipe(z.string().uuid()).optional(),
+        minRate: z.coerce.number().min(0).optional(),
+        maxRate: z.coerce.number().min(0).optional(),
+        skills: strictOptionalString.transform(val => val?.split(',').map(part => part.trim()).filter(Boolean) ?? []),
+        experience: z.enum(['junior', 'mid', 'senior', 'expert']).optional(),
+        minRating: z.coerce.number().min(0).max(5).optional(),
+        operatingRegions: strictOptionalString.transform(val => val?.split(',').map(part => part.trim()).filter(Boolean) ?? []),
+        availability: z.enum(['available', 'busy', 'unavailable']).optional(),
+        verified: z.enum(['true', 'false']).optional().transform(v => v === 'true'),
+        limit: z.coerce.number().min(1).max(100).default(50),
+        offset: z.coerce.number().min(0).default(0),
+      });
+
+      const parsed = consultantSearchSchema.safeParse(req.query);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid query parameters", errors: parsed.error.errors });
+      }
+
+      const { search, categoryId, minRate, maxRate, skills, experience, minRating, operatingRegions, availability, verified, limit, offset } = parsed.data;
+
+      try {
+        const { consultants, total } = await storage.searchConsultants({
+          search,
+          categoryId,
+          minRate,
+          maxRate,
+          skills,
+          experience,
+          minRating,
+          operatingRegions,
+          availability,
+          verified,
+          limit,
+          offset,
+        });
+
+        res.json({ consultants, total });
+      } catch (storageError) {
+        console.error("Storage error searching consultants:", storageError);
+        res.status(500).json({ message: "Failed to search consultants" });
+      }
+    } catch (error) {
+      console.error("Validation error searching consultants:", error);
+      res.status(400).json({ message: "Invalid request parameters" });
     }
   });
 

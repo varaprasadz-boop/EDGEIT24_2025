@@ -252,6 +252,21 @@ export interface IStorage {
     offset?: number;
   }): Promise<{ jobs: (Job & { categoryPathLabel: string })[]; total: number }>;
   
+  searchConsultants(options?: {
+    search?: string;
+    categoryId?: string;
+    minRate?: number;
+    maxRate?: number;
+    skills?: string[];
+    experience?: string;
+    minRating?: number;
+    operatingRegions?: string[];
+    availability?: string;
+    verified?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ consultants: (ConsultantProfile & { categoryPathLabel: string; primaryCategoryId: string | null })[]; total: number }>;
+  
   // Quote Request operations
   createQuoteRequest(quoteRequest: InsertQuoteRequest): Promise<QuoteRequest>;
   getQuoteRequests(userId: string, role: 'client' | 'consultant'): Promise<QuoteRequest[]>;
@@ -1582,14 +1597,15 @@ export class DatabaseStorage implements IStorage {
     // Build where clause with AND conditions
     const conditions = [];
 
-    // Text search in title and description
+    // Text search in title and description (parameterized to prevent SQL injection)
     if (search && search.trim()) {
+      const searchParam = sql.param(search, 'text');
       conditions.push(
-        sql`(${jobs.title} ILIKE ${`%${search}%`} OR ${jobs.description} ILIKE ${`%${search}%`})`
+        sql`(${jobs.title} ILIKE '%' || ${searchParam} || '%' OR ${jobs.description} ILIKE '%' || ${searchParam} || '%')`
       );
     }
 
-    // Category filtering (hierarchical)
+    // Category filtering (hierarchical) - categoryId validated at API layer via Zod
     if (categoryId) {
       const categoryIds = getDescendantCategoryIds(categoryId);
       conditions.push(inArray(jobs.categoryId, categoryIds));
@@ -1608,13 +1624,13 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(jobs.budgetType, budgetType));
     }
 
-    // Skills filtering (check if job skills array contains any of the searched skills)
+    // Skills filtering (array overlap with secure typed parameter binding)
     if (skills && skills.length > 0) {
-      // PostgreSQL array overlap operator: job.skills && search_skills
-      conditions.push(sql`${jobs.skills} && ${skills}`);
+      const searchSkills = sql.param(skills, 'text[]');
+      conditions.push(sql`${jobs.skills} && ${searchSkills}`);
     }
 
-    // Experience level filtering
+    // Experience level filtering - validated at API layer via Zod enum
     if (experienceLevel) {
       conditions.push(eq(jobs.experienceLevel, experienceLevel));
     }
@@ -1667,6 +1683,190 @@ export class DatabaseStorage implements IStorage {
     }));
 
     return { jobs: jobsWithPaths, total: count };
+  }
+
+  async searchConsultants(options?: {
+    search?: string;
+    categoryId?: string;
+    minRate?: number;
+    maxRate?: number;
+    skills?: string[];
+    experience?: string;
+    minRating?: number;
+    operatingRegions?: string[];
+    availability?: string;
+    verified?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ consultants: (ConsultantProfile & { categoryPathLabel: string; primaryCategoryId: string | null })[]; total: number }> {
+    const {
+      search,
+      categoryId,
+      minRate,
+      maxRate,
+      skills,
+      experience,
+      minRating,
+      operatingRegions,
+      availability,
+      verified,
+      limit = 50,
+      offset = 0,
+    } = options || {};
+
+    // Fetch all categories upfront for hierarchical filtering and path computation
+    const allCategories = await db.select().from(categories);
+
+    // Helper to get all descendant category IDs
+    const getDescendantCategoryIds = (categoryId: string): string[] => {
+      const childrenMap = new Map<string, string[]>();
+      for (const cat of allCategories) {
+        if (cat.parentId) {
+          if (!childrenMap.has(cat.parentId)) {
+            childrenMap.set(cat.parentId, []);
+          }
+          childrenMap.get(cat.parentId)!.push(cat.id);
+        }
+      }
+      
+      const descendants: string[] = [categoryId];
+      const addDescendants = (parentId: string) => {
+        const children = childrenMap.get(parentId) || [];
+        for (const childId of children) {
+          descendants.push(childId);
+          addDescendants(childId);
+        }
+      };
+      addDescendants(categoryId);
+      return descendants;
+    };
+
+    // Build filter conditions
+    const conditions: SQL<unknown>[] = [];
+
+    // Text search on fullName, title, bio (parameterized to prevent SQL injection)
+    if (search) {
+      const searchParam = sql.param(search, 'text');
+      conditions.push(sql`(
+        ${consultantProfiles.fullName} ILIKE '%' || ${searchParam} || '%' OR
+        ${consultantProfiles.title} ILIKE '%' || ${searchParam} || '%' OR
+        ${consultantProfiles.bio} ILIKE '%' || ${searchParam} || '%'
+      )`);
+    }
+
+    // Category filtering (hierarchical - includes all descendant categories) - categoryId validated at API layer via Zod
+    if (categoryId) {
+      const categoryIds = getDescendantCategoryIds(categoryId);
+      // Use subquery with proper inArray for category filtering
+      const consultantIdsInCategory = db
+        .select({ id: consultantCategories.consultantProfileId })
+        .from(consultantCategories)
+        .where(inArray(consultantCategories.categoryId, categoryIds));
+      
+      conditions.push(inArray(consultantProfiles.id, consultantIdsInCategory));
+    }
+
+    // Hourly rate range filtering (only when filters provided, to include NULL rates when no filter)
+    if (minRate !== undefined) {
+      conditions.push(sql`${consultantProfiles.hourlyRate} IS NOT NULL AND ${consultantProfiles.hourlyRate} >= ${minRate.toString()}`);
+    }
+    if (maxRate !== undefined) {
+      conditions.push(sql`${consultantProfiles.hourlyRate} IS NOT NULL AND ${consultantProfiles.hourlyRate} <= ${maxRate.toString()}`);
+    }
+
+    // Skills filtering (array overlap with secure typed parameter binding)
+    if (skills && skills.length > 0) {
+      const searchSkills = sql.param(skills, 'text[]');
+      conditions.push(sql`${consultantProfiles.skills} && ${searchSkills}`);
+    }
+
+    // Experience level filtering - validated at API layer via Zod enum
+    if (experience) {
+      conditions.push(eq(consultantProfiles.experience, experience));
+    }
+
+    // Minimum rating filtering
+    if (minRating !== undefined) {
+      conditions.push(sql`${consultantProfiles.rating} >= ${minRating.toString()}`);
+    }
+
+    // Operating regions filtering (array overlap with secure typed parameter binding)
+    if (operatingRegions && operatingRegions.length > 0) {
+      const searchRegions = sql.param(operatingRegions, 'text[]');
+      conditions.push(sql`${consultantProfiles.operatingRegions} && ${searchRegions}`);
+    }
+
+    // Availability filtering - validated at API layer via Zod enum
+    if (availability) {
+      conditions.push(eq(consultantProfiles.availability, availability));
+    }
+
+    // Verified filtering
+    if (verified !== undefined) {
+      conditions.push(eq(consultantProfiles.verified, verified));
+    }
+
+    // Default filters: only show approved and complete profiles
+    conditions.push(eq(consultantProfiles.approvalStatus, 'approved'));
+    conditions.push(eq(consultantProfiles.profileStatus, 'complete'));
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Get total count with same filters (no limit/offset)
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(consultantProfiles)
+      .where(whereClause);
+
+    // Fetch consultants with filters and pagination
+    const consultantList = await db
+      .select()
+      .from(consultantProfiles)
+      .where(whereClause)
+      .orderBy(desc(consultantProfiles.rating), desc(consultantProfiles.totalReviews))
+      .limit(limit)
+      .offset(offset);
+
+    // Helper to build category path
+    const buildCategoryPath = (categoryId: string | null): string => {
+      if (!categoryId) return "No Primary Service";
+      
+      const categoryMap = new Map(allCategories.map(c => [c.id, c]));
+      const path: string[] = [];
+      let current = categoryMap.get(categoryId);
+      
+      while (current) {
+        path.unshift(current.name);
+        current = current.parentId ? categoryMap.get(current.parentId) : undefined;
+      }
+      
+      return path.length > 0 ? path.join(" / ") : "No Primary Service";
+    };
+
+    // Get primary category for each consultant
+    const consultantIds = consultantList.map(c => c.id);
+    const primaryCategories = consultantIds.length > 0
+      ? await db
+          .select()
+          .from(consultantCategories)
+          .where(and(
+            inArray(consultantCategories.consultantProfileId, consultantIds),
+            eq(consultantCategories.isPrimary, true)
+          ))
+      : [];
+
+    const primaryCategoryMap = new Map(
+      primaryCategories.map(cc => [cc.consultantProfileId, cc.categoryId])
+    );
+
+    // Enrich consultants with category path and primary category ID
+    const consultantsWithPaths = consultantList.map(consultant => ({
+      ...consultant,
+      primaryCategoryId: primaryCategoryMap.get(consultant.id) || null,
+      categoryPathLabel: buildCategoryPath(primaryCategoryMap.get(consultant.id) || null),
+    }));
+
+    return { consultants: consultantsWithPaths, total: count };
   }
   
   // Quote Request operations
