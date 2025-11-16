@@ -34,6 +34,7 @@ import {
   conversationPreferences,
   conversationPins,
   fileVersions,
+  rateLimits,
   type User,
   type InsertUser,
   type UpsertUser,
@@ -91,6 +92,8 @@ import {
   type InsertConversationPin,
   type FileVersion,
   type InsertFileVersion,
+  type RateLimit,
+  type InsertRateLimit,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, sql, desc, inArray } from "drizzle-orm";
@@ -301,6 +304,12 @@ export interface IStorage {
   pinConversation(userId: string, conversationId: string, displayOrder?: number): Promise<ConversationPin>;
   unpinConversation(userId: string, conversationId: string): Promise<void>;
   getUserPinnedConversations(userId: string): Promise<ConversationPin[]>;
+  
+  // Rate Limit operations
+  getRateLimit(userId: string, endpoint: string): Promise<RateLimit | undefined>;
+  createRateLimit(limit: InsertRateLimit): Promise<RateLimit>;
+  incrementRateLimit(userId: string, endpoint: string): Promise<void>;
+  cleanupExpiredRateLimits(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1823,6 +1832,46 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(fileVersions)
       .where(eq(fileVersions.originalFileId, originalFileId))
       .orderBy(desc(fileVersions.createdAt));
+  }
+
+  // Rate Limit operations
+  async getRateLimit(userId: string, endpoint: string): Promise<RateLimit | undefined> {
+    const [limit] = await db.select().from(rateLimits)
+      .where(and(
+        eq(rateLimits.userId, userId),
+        eq(rateLimits.endpoint, endpoint)
+      ))
+      .limit(1);
+    return limit;
+  }
+
+  async createRateLimit(limit: InsertRateLimit): Promise<RateLimit> {
+    const [created] = await db.insert(rateLimits)
+      .values(limit)
+      .onConflictDoUpdate({
+        target: [rateLimits.userId, rateLimits.endpoint],
+        set: {
+          requestCount: 1,
+          windowStart: limit.windowStart,
+          expiresAt: limit.expiresAt,
+        },
+      })
+      .returning();
+    return created;
+  }
+
+  async incrementRateLimit(userId: string, endpoint: string): Promise<void> {
+    await db.update(rateLimits)
+      .set({ requestCount: sql`${rateLimits.requestCount} + 1` })
+      .where(and(
+        eq(rateLimits.userId, userId),
+        eq(rateLimits.endpoint, endpoint)
+      ));
+  }
+
+  async cleanupExpiredRateLimits(): Promise<void> {
+    await db.delete(rateLimits)
+      .where(sql`${rateLimits.expiresAt} < NOW()`);
   }
 }
 

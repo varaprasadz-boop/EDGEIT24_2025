@@ -979,6 +979,19 @@ export const fileVersions = pgTable("file_versions", {
   originalVersionIdx: index("file_versions_original_version_idx").on(table.originalFileId, table.versionNumber),
 }));
 
+// Rate Limits - Persistent rate limiting for API endpoints
+export const rateLimits = pgTable("rate_limits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull(), // API endpoint path
+  requestCount: integer("request_count").default(0).notNull(),
+  windowStart: timestamp("window_start").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+}, (table) => ({
+  userEndpointUnique: uniqueIndex("rate_limits_user_endpoint_unique").on(table.userId, table.endpoint),
+  expiresAtIdx: index("rate_limits_expires_at_idx").on(table.expiresAt),
+}));
+
 // =============================================================================
 // ZOD SCHEMAS & TYPES
 // =============================================================================
@@ -1577,6 +1590,14 @@ export const insertFileVersionSchema = createInsertSchema(fileVersions).omit({
 
 export type InsertFileVersion = z.infer<typeof insertFileVersionSchema>;
 export type FileVersion = typeof fileVersions.$inferSelect;
+
+// Rate Limits
+export const insertRateLimitSchema = createInsertSchema(rateLimits).omit({
+  id: true,
+});
+
+export type InsertRateLimit = z.infer<typeof insertRateLimitSchema>;
+export type RateLimit = typeof rateLimits.$inferSelect;
 
 // ============================================================================
 // WebSocket Events & Real-time Communication

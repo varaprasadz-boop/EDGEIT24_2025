@@ -15,6 +15,20 @@ import { randomBytes } from "crypto";
 import { nanoid } from "nanoid";
 import { UploadPolicy } from './uploadPolicy';
 import { FileScanService } from './fileScanService';
+import { RateLimits, initializeRateLimiter } from './middleware/rateLimiter';
+
+// Initialize rate limiter with storage
+initializeRateLimiter(storage);
+
+// Periodic cleanup of expired rate limits (every 5 minutes)
+setInterval(async () => {
+  try {
+    await storage.cleanupExpiredRateLimits();
+    console.log('[RateLimiter] Expired rate limits cleaned up');
+  } catch (error) {
+    console.error('[RateLimiter] Error cleaning up expired rate limits:', error);
+  }
+}, 5 * 60 * 1000);
 
 const queryLimitSchema = z.object({
   limit: z.string().optional().transform(val => val ? parseInt(val) : 10)
@@ -4331,7 +4345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================================================
 
   // Conversations
-  app.post('/api/conversations', isAuthenticated, async (req: any, res) => {
+  app.post('/api/conversations', isAuthenticated, RateLimits.createConversation, async (req: any, res) => {
     try {
       const userId = getUserIdFromRequest(req);
       if (!userId) {
@@ -4555,7 +4569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Messages
-  app.post('/api/conversations/:conversationId/messages', isAuthenticated, async (req: any, res) => {
+  app.post('/api/conversations/:conversationId/messages', isAuthenticated, RateLimits.sendMessage, async (req: any, res) => {
     try {
       const userId = getUserIdFromRequest(req);
       if (!userId) {
@@ -4724,7 +4738,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const fileScanService = new FileScanService(storage);
 
   // Create message file attachment
-  app.post('/api/conversations/:conversationId/messages/:messageId/files', isAuthenticated, async (req: any, res) => {
+  app.post('/api/conversations/:conversationId/messages/:messageId/files', isAuthenticated, RateLimits.fileUpload, async (req: any, res) => {
     try {
       const userId = getUserIdFromRequest(req);
       if (!userId) {
@@ -4931,7 +4945,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ========================================
 
   // Create meeting
-  app.post('/api/conversations/:conversationId/meetings', isAuthenticated, async (req: any, res) => {
+  app.post('/api/conversations/:conversationId/meetings', isAuthenticated, RateLimits.createMeeting, async (req: any, res) => {
     try {
       const userId = getUserIdFromRequest(req);
       if (!userId) {
