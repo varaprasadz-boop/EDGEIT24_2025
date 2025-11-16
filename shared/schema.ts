@@ -563,6 +563,20 @@ export const notifications = pgTable("notifications", {
   messageIdx: index("notifications_message_idx").on(table.relatedMessageId), // For message-specific queries
 }));
 
+// Notification Preferences - Global notification settings per user
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  emailNotificationsEnabled: boolean("email_notifications_enabled").default(true).notNull(),
+  inAppNotificationsEnabled: boolean("in_app_notifications_enabled").default(true).notNull(),
+  // Array of notification types to receive (null means all types enabled)
+  enabledTypes: text("enabled_types").array(), // ['bid_received', 'payment', 'review', etc.] or null for all
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("notification_preferences_user_id_idx").on(table.userId),
+}));
+
 // Saved Items - Bookmarks for jobs or consultants
 export const savedItems = pgTable("saved_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1210,6 +1224,16 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
 
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+
+// Notification Preferences
+export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
 
 // Saved Items
 export const insertSavedItemSchema = createInsertSchema(savedItems).omit({

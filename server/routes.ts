@@ -3462,6 +3462,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===========================
+  // NOTIFICATIONS ROUTES
+  // ===========================
+
+  // GET /api/notifications - Get user's notifications with pagination and filtering
+  app.get('/api/notifications', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      const read = req.query.read === 'true' ? true : req.query.read === 'false' ? false : undefined;
+
+      const result = await storage.getNotifications(userId, { limit, offset, read });
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  // GET /api/notifications/unread-count - Get count of unread notifications
+  app.get('/api/notifications/unread-count', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const count = await storage.getUnreadCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ message: "Failed to fetch unread count" });
+    }
+  });
+
+  // PUT /api/notifications/:id/mark-read - Mark a notification as read
+  app.put('/api/notifications/:id/mark-read', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Fetch notification first to verify ownership BEFORE updating
+      const notification = await storage.getNotification(req.params.id);
+      
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+
+      // Verify ownership
+      if (notification.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Now safe to update
+      const updated = await storage.markNotificationAsRead(req.params.id);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  // PUT /api/notifications/mark-all-read - Mark all notifications as read
+  app.put('/api/notifications/mark-all-read', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      await storage.markAllNotificationsAsRead(userId);
+      res.json({ message: "All notifications marked as read" });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications as read" });
+    }
+  });
+
+  // DELETE /api/notifications/:id - Delete a notification
+  app.delete('/api/notifications/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Fetch notification first to verify ownership BEFORE deleting
+      const notification = await storage.getNotification(req.params.id);
+      
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+
+      // Verify ownership
+      if (notification.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Now safe to delete
+      await storage.deleteNotification(req.params.id);
+      res.json({ message: "Notification deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      res.status(500).json({ message: "Failed to delete notification" });
+    }
+  });
+
+  // GET /api/notification-preferences - Get user's notification preferences
+  app.get('/api/notification-preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      let preferences = await storage.getNotificationPreferences(userId);
+      
+      // If no preferences exist, create defaults
+      if (!preferences) {
+        preferences = await storage.upsertNotificationPreferences(userId, {
+          emailNotificationsEnabled: true,
+          inAppNotificationsEnabled: true,
+          enabledTypes: null,
+        });
+      }
+
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error fetching notification preferences:", error);
+      res.status(500).json({ message: "Failed to fetch notification preferences" });
+    }
+  });
+
+  // PUT /api/notification-preferences - Update user's notification preferences
+  app.put('/api/notification-preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const updateSchema = z.object({
+        emailNotificationsEnabled: z.boolean().optional(),
+        inAppNotificationsEnabled: z.boolean().optional(),
+        enabledTypes: z.array(z.string()).nullable().optional(),
+      });
+
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const updated = await storage.upsertNotificationPreferences(userId, parsed.data);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating notification preferences:", error);
+      res.status(500).json({ message: "Failed to update notification preferences" });
+    }
+  });
+
   app.get('/api/jobs', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserIdFromRequest(req);
