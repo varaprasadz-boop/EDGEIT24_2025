@@ -4,6 +4,7 @@ import {
   clientProfiles,
   consultantProfiles,
   consultantCategories,
+  teamMembers,
   categories,
   jobs,
   bids,
@@ -42,6 +43,9 @@ import {
   type InsertClientProfile,
   type ConsultantProfile,
   type InsertConsultantProfile,
+  type TeamMember,
+  type InsertTeamMember,
+  type UpdateTeamMember,
   type Job,
   type InsertJob,
   type Bid,
@@ -160,6 +164,16 @@ export interface IStorage {
   getClientProfile(userId: string): Promise<ClientProfile | undefined>;
   createClientProfile(profile: InsertClientProfile): Promise<ClientProfile>;
   updateClientProfile(userId: string, profile: Partial<InsertClientProfile>): Promise<ClientProfile>;
+  
+  // Team Members operations
+  getTeamMembers(clientProfileId: string): Promise<TeamMember[]>;
+  getTeamMember(id: string): Promise<TeamMember | undefined>;
+  inviteTeamMember(member: InsertTeamMember, invitationToken: string, expiry: Date): Promise<TeamMember>;
+  updateTeamMember(id: string, data: Partial<UpdateTeamMember>): Promise<TeamMember>;
+  revokeTeamMember(id: string, revokedBy: string): Promise<TeamMember>;
+  acceptInvitation(token: string, userId: string): Promise<TeamMember>;
+  declineInvitation(token: string): Promise<TeamMember>;
+  getTeamMemberByToken(token: string): Promise<TeamMember | undefined>;
   
   // Consultant Profile operations
   getConsultantProfile(userId: string): Promise<ConsultantProfile | undefined>;
@@ -443,6 +457,98 @@ export class DatabaseStorage implements IStorage {
       .where(eq(clientProfiles.userId, userId))
       .returning();
     return updated;
+  }
+
+  // Team Members operations
+  async getTeamMembers(clientProfileId: string): Promise<TeamMember[]> {
+    const members = await db
+      .select()
+      .from(teamMembers)
+      .where(eq(teamMembers.clientProfileId, clientProfileId))
+      .orderBy(desc(teamMembers.createdAt));
+    return members;
+  }
+
+  async getTeamMember(id: string): Promise<TeamMember | undefined> {
+    const [member] = await db
+      .select()
+      .from(teamMembers)
+      .where(eq(teamMembers.id, id));
+    return member;
+  }
+
+  async inviteTeamMember(
+    member: InsertTeamMember,
+    invitationToken: string,
+    expiry: Date
+  ): Promise<TeamMember> {
+    const [created] = await db
+      .insert(teamMembers)
+      .values({
+        ...member,
+        invitationToken,
+        invitationSentAt: new Date(),
+        invitationExpiry: expiry,
+      })
+      .returning();
+    return created;
+  }
+
+  async updateTeamMember(id: string, data: Partial<UpdateTeamMember>): Promise<TeamMember> {
+    const [updated] = await db
+      .update(teamMembers)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(teamMembers.id, id))
+      .returning();
+    return updated;
+  }
+
+  async revokeTeamMember(id: string, revokedBy: string): Promise<TeamMember> {
+    const [updated] = await db
+      .update(teamMembers)
+      .set({
+        status: 'revoked',
+        revokedAt: new Date(),
+        revokedBy,
+        updatedAt: new Date(),
+      })
+      .where(eq(teamMembers.id, id))
+      .returning();
+    return updated;
+  }
+
+  async acceptInvitation(token: string, userId: string): Promise<TeamMember> {
+    const [updated] = await db
+      .update(teamMembers)
+      .set({
+        status: 'accepted',
+        userId,
+        acceptedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(teamMembers.invitationToken, token))
+      .returning();
+    return updated;
+  }
+
+  async declineInvitation(token: string): Promise<TeamMember> {
+    const [updated] = await db
+      .update(teamMembers)
+      .set({
+        status: 'declined',
+        updatedAt: new Date(),
+      })
+      .where(eq(teamMembers.invitationToken, token))
+      .returning();
+    return updated;
+  }
+
+  async getTeamMemberByToken(token: string): Promise<TeamMember | undefined> {
+    const [member] = await db
+      .select()
+      .from(teamMembers)
+      .where(eq(teamMembers.invitationToken, token));
+    return member;
   }
 
   // Consultant Profile operations

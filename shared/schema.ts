@@ -92,6 +92,31 @@ export const clientProfiles = pgTable("client_profiles", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Team Members - Manage team members for client organizations
+export const teamMembers = pgTable("team_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientProfileId: varchar("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }), // null until invitation accepted
+  email: text("email").notNull(), // Email for invitation
+  role: text("role").notNull().default('member'), // 'owner', 'admin', 'member', 'viewer'
+  status: text("status").notNull().default('pending'), // 'pending', 'accepted', 'declined', 'revoked'
+  // Permissions
+  canViewProjects: boolean("can_view_projects").default(true),
+  canEditProjects: boolean("can_edit_projects").default(false),
+  canManageTeam: boolean("can_manage_team").default(false),
+  canManageBilling: boolean("can_manage_billing").default(false),
+  // Invitation management
+  invitationToken: varchar("invitation_token").unique(),
+  invitationSentAt: timestamp("invitation_sent_at"),
+  invitationExpiry: timestamp("invitation_expiry"),
+  invitedBy: varchar("invited_by").notNull().references(() => users.id),
+  acceptedAt: timestamp("accepted_at"),
+  revokedAt: timestamp("revoked_at"),
+  revokedBy: varchar("revoked_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Consultant Profiles - Service provider information
 export const consultantProfiles = pgTable("consultant_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1047,6 +1072,32 @@ export const insertClientProfileSchema = createInsertSchema(clientProfiles).omit
 
 export type InsertClientProfile = z.infer<typeof insertClientProfileSchema>;
 export type ClientProfile = typeof clientProfiles.$inferSelect;
+
+// Team Members
+export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  invitationToken: true,
+  invitationSentAt: true,
+  invitationExpiry: true,
+  acceptedAt: true,
+  revokedAt: true,
+  revokedBy: true,
+  userId: true,
+}).extend({
+  email: z.string().email("Invalid email address"),
+  role: z.enum(['owner', 'admin', 'member', 'viewer']).default('member'),
+  status: z.enum(['pending', 'accepted', 'declined', 'revoked']).default('pending'),
+});
+
+export const updateTeamMemberSchema = insertTeamMemberSchema.partial().extend({
+  id: z.string(),
+});
+
+export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
+export type UpdateTeamMember = z.infer<typeof updateTeamMemberSchema>;
+export type TeamMember = typeof teamMembers.$inferSelect;
 
 // Consultant Profiles
 export const insertConsultantProfileSchema = createInsertSchema(consultantProfiles).omit({
