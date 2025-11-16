@@ -31,6 +31,12 @@ export const users = pgTable("users", {
   phoneVerificationToken: varchar("phone_verification_token"),
   phoneTokenExpiry: timestamp("phone_token_expiry"),
   phoneVerifiedAt: timestamp("phone_verified_at"),
+  // Password reset fields
+  passwordResetToken: varchar("password_reset_token"),
+  passwordResetTokenExpiry: timestamp("password_reset_token_expiry"),
+  // Terms of Service acceptance
+  termsAccepted: boolean("terms_accepted").default(false),
+  termsAcceptedAt: timestamp("terms_accepted_at"),
   authProvider: text("auth_provider").default('local'), // 'local', 'replit', 'google', 'github'
   replitSub: varchar("replit_sub").unique(), // OIDC subject ID for linking accounts
   // Engagement plan and payment tracking
@@ -1697,3 +1703,52 @@ export const conversationActionSchema = z.object({
 });
 
 export type ConversationAction = z.infer<typeof conversationActionSchema>;
+
+// =============================================================================
+// SECURITY & SESSION MANAGEMENT TABLES
+// =============================================================================
+
+// Login History table - Track all login/logout events
+export const loginHistory = pgTable("login_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  action: text("action").notNull(), // 'login' or 'logout'
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  location: text("location"), // Country, city if available
+  deviceInfo: text("device_info"), // Browser, OS, device type
+  success: boolean("success").default(true), // Track failed login attempts too
+  failureReason: text("failure_reason"), // Reason for failure if success=false
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("login_history_user_id_idx").on(table.userId),
+  timestampIdx: index("login_history_timestamp_idx").on(table.timestamp),
+}));
+
+export const insertLoginHistorySchema = createInsertSchema(loginHistory).omit({
+  id: true,
+  timestamp: true,
+});
+export type InsertLoginHistory = z.infer<typeof insertLoginHistorySchema>;
+export type LoginHistory = typeof loginHistory.$inferSelect;
+
+// Active Sessions table - Track all active user sessions
+export const activeSessions = pgTable("active_sessions", {
+  id: varchar("id").primaryKey(), // session ID from express-session
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  deviceInfo: text("device_info"), // Browser, OS, device type
+  location: text("location"), // Country, city if available
+  lastActivity: timestamp("last_activity").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("active_sessions_user_id_idx").on(table.userId),
+  lastActivityIdx: index("active_sessions_last_activity_idx").on(table.lastActivity),
+}));
+
+export const insertActiveSessionSchema = createInsertSchema(activeSessions).omit({
+  createdAt: true,
+});
+export type InsertActiveSession = z.infer<typeof insertActiveSessionSchema>;
+export type ActiveSession = typeof activeSessions.$inferSelect;

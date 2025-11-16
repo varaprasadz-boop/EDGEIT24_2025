@@ -175,7 +175,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phone, 
         companyName,
         selectedCategories, // For consultant role only
-        engagementPlan // Engagement plan selection
+        engagementPlan, // Engagement plan selection
+        termsAccepted // Terms of Service acceptance
       } = req.body;
       
       // Validation
@@ -227,6 +228,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "At least one expertise category is required for consultants" });
       }
       
+      // Validate Terms of Service acceptance
+      if (!termsAccepted) {
+        return res.status(400).json({ message: "You must accept the Terms of Service and Privacy Policy to continue" });
+      }
+      
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
@@ -250,6 +256,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         emailVerified: false,
         engagementPlan,
         paymentStatus: expectedPaymentStatus,
+        termsAccepted: true,
+        termsAcceptedAt: new Date(),
       });
       
       // Auto-create profile based on role
@@ -297,18 +305,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Login route
   app.post('/api/auth/login', (req, res, next) => {
-    passport.authenticate('local', (err: any, user: any, info: any) => {
+    const { rememberMe } = req.body;
+    
+    passport.authenticate('local', async (err: any, user: any, info: any) => {
       if (err) {
         return res.status(500).json({ message: "Login failed" });
       }
       
+      const ipAddress = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || '').split(',')[0].trim();
+      const userAgent = req.headers['user-agent'] || '';
+      
       if (!user) {
+        // Track failed login attempt
+        if (req.body.email) {
+          const failedUser = await storage.getUserByEmail(req.body.email);
+          if (failedUser) {
+            await storage.createLoginHistory({
+              userId: failedUser.id,
+              action: 'login',
+              ipAddress,
+              userAgent,
+              deviceInfo: userAgent,
+              success: false,
+              failureReason: info?.message || "Invalid credentials",
+            });
+          }
+        }
         return res.status(401).json({ message: info?.message || "Invalid email or password" });
       }
       
-      req.login(user, (loginErr) => {
+      req.login(user, async (loginErr) => {
         if (loginErr) {
           return res.status(500).json({ message: "Login failed" });
+        }
+        
+        // Set session cookie maxAge based on rememberMe
+        // Remember Me: 30 days, Regular: 24 hours
+        if (req.session) {
+          req.session.cookie.maxAge = rememberMe 
+            ? 30 * 24 * 60 * 60 * 1000 // 30 days in milliseconds
+            : 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+          
+          // Track successful login
+          await storage.createLoginHistory({
+            userId: user.id,
+            action: 'login',
+            ipAddress,
+            userAgent,
+            deviceInfo: userAgent,
+            success: true,
+          });
+          
+          // Create or update active session
+          await storage.createActiveSession({
+            id: req.session.id,
+            userId: user.id,
+            ipAddress,
+            userAgent,
+            deviceInfo: userAgent,
+            lastActivity: new Date(),
+          });
         }
         
         res.json({
@@ -323,11 +379,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Logout route
-  app.post('/api/auth/logout', (req, res) => {
-    req.logout((err) => {
+  app.post('/api/auth/logout', async (req: any, res) => {
+    const userId = getUserIdFromRequest(req);
+    const sessionId = req.session?.id;
+    const ipAddress = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || '').split(',')[0].trim();
+    const userAgent = req.headers['user-agent'] || '';
+    
+    req.logout(async (err: any) => {
       if (err) {
         return res.status(500).json({ message: "Logout failed" });
       }
+      
+      // Track logout
+      if (userId) {
+        await storage.createLoginHistory({
+          userId,
+          action: 'logout',
+          ipAddress,
+          userAgent,
+          deviceInfo: userAgent,
+          success: true,
+        });
+        
+        // Remove active session
+        if (sessionId) {
+          await storage.terminateSession(sessionId);
+        }
+      }
+      
       res.json({ message: "Logged out successfully" });
     });
   });
@@ -375,6 +454,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error changing password:", error);
       res.status(500).json({ message: "Failed to change password" });
+    }
+  });
+  
+  // Password reset routes
+  app.post('/api/auth/request-reset', async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      
+      // Don't reveal if user exists (security best practice)
+      if (!user) {
+        return res.json({ 
+          message: "If an account with that email exists, a password reset link has been sent." 
+        });
+      }
+
+      // Generate crypto-secure reset token
+      const token = randomBytes(32).toString('hex');
+      
+      // Token expires in 1 hour
+      const expiry = new Date();
+      expiry.setHours(expiry.getHours() + 1);
+
+      await storage.setPasswordResetToken(user.id, token, expiry);
+
+      // TODO: Send actual email with reset link
+      // For testing: Log the link to console (never expose in response)
+      const resetLink = `/reset-password?token=${token}`;
+      console.log(`[TESTING ONLY] Password reset link for ${user.email}: ${resetLink}`);
+      
+      res.json({ 
+        message: "If an account with that email exists, a password reset link has been sent." 
+      });
+    } catch (error) {
+      console.error("Error requesting password reset:", error);
+      res.status(500).json({ message: "Failed to process password reset request" });
+    }
+  });
+
+  app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+
+      if (!token || !newPassword) {
+        return res.status(400).json({ message: "Token and new password are required" });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+
+      const user = await storage.getUserByPasswordResetToken(token);
+      
+      if (!user || !user.passwordResetToken) {
+        return res.status(400).json({ message: "Invalid or expired reset token" });
+      }
+
+      // Check if token is expired
+      if (user.passwordResetTokenExpiry && user.passwordResetTokenExpiry < new Date()) {
+        await storage.invalidatePasswordResetToken(user.id);
+        return res.status(400).json({ message: "Reset token has expired. Please request a new one." });
+      }
+
+      // Hash new password and update
+      const newPasswordHash = await hashPassword(newPassword);
+      await storage.resetPassword(user.id, newPasswordHash);
+
+      res.json({ message: "Password reset successfully. You can now log in with your new password." });
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ message: "Failed to reset password" });
     }
   });
   

@@ -94,6 +94,10 @@ import {
   type InsertFileVersion,
   type RateLimit,
   type InsertRateLimit,
+  type LoginHistory,
+  type InsertLoginHistory,
+  type ActiveSession,
+  type InsertActiveSession,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, sql, desc, inArray } from "drizzle-orm";
@@ -135,6 +139,12 @@ export interface IStorage {
   getUserByEmailToken(token: string): Promise<User | undefined>;
   verifyUserEmail(userId: string): Promise<User>;
   invalidateEmailVerificationToken(userId: string): Promise<void>;
+  
+  // Password reset operations
+  setPasswordResetToken(userId: string, token: string, expiry: Date): Promise<void>;
+  getUserByPasswordResetToken(token: string): Promise<User | undefined>;
+  resetPassword(userId: string, newPasswordHash: string): Promise<void>;
+  invalidatePasswordResetToken(userId: string): Promise<void>;
   
   // Client Profile operations
   getClientProfile(userId: string): Promise<ClientProfile | undefined>;
@@ -310,6 +320,17 @@ export interface IStorage {
   createRateLimit(limit: InsertRateLimit): Promise<RateLimit>;
   incrementRateLimit(userId: string, endpoint: string): Promise<void>;
   cleanupExpiredRateLimits(): Promise<void>;
+  
+  // Login History operations
+  createLoginHistory(loginHistory: InsertLoginHistory): Promise<LoginHistory>;
+  getLoginHistory(userId: string, options?: { limit?: number; offset?: number }): Promise<LoginHistory[]>;
+  
+  // Active Session operations
+  createActiveSession(session: InsertActiveSession): Promise<ActiveSession>;
+  getActiveSessions(userId: string): Promise<ActiveSession[]>;
+  updateSessionActivity(sessionId: string): Promise<void>;
+  terminateSession(sessionId: string): Promise<void>;
+  cleanupInactiveSessions(maxInactiveMinutes?: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -575,6 +596,49 @@ export class DatabaseStorage implements IStorage {
     if (!updated) {
       throw new Error(`Failed to invalidate email verification token for user ${userId}`);
     }
+  }
+
+  // Password reset operations
+  async setPasswordResetToken(userId: string, token: string, expiry: Date): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        passwordResetToken: token,
+        passwordResetTokenExpiry: expiry,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async getUserByPasswordResetToken(token: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.passwordResetToken, token));
+    return user;
+  }
+
+  async resetPassword(userId: string, newPasswordHash: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        password: newPasswordHash,
+        passwordResetToken: null,
+        passwordResetTokenExpiry: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async invalidatePasswordResetToken(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        passwordResetToken: null,
+        passwordResetTokenExpiry: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
   }
 
   // KYC Document operations
@@ -1863,6 +1927,77 @@ export class DatabaseStorage implements IStorage {
   async cleanupExpiredRateLimits(): Promise<void> {
     await db.delete(rateLimits)
       .where(sql`${rateLimits.expiresAt} < NOW()`);
+  }
+
+  // Login History operations
+  async createLoginHistory(loginHistory: InsertLoginHistory): Promise<LoginHistory> {
+    const { loginHistory: loginHistoryTable } = await import("@shared/schema");
+    const [created] = await db.insert(loginHistoryTable)
+      .values(loginHistory)
+      .returning();
+    return created;
+  }
+
+  async getLoginHistory(userId: string, options?: { limit?: number; offset?: number }): Promise<LoginHistory[]> {
+    const { loginHistory: loginHistoryTable } = await import("@shared/schema");
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+    
+    const history = await db.select()
+      .from(loginHistoryTable)
+      .where(eq(loginHistoryTable.userId, userId))
+      .orderBy(desc(loginHistoryTable.timestamp))
+      .limit(limit)
+      .offset(offset);
+    return history;
+  }
+
+  // Active Session operations
+  async createActiveSession(session: InsertActiveSession): Promise<ActiveSession> {
+    const { activeSessions } = await import("@shared/schema");
+    const [created] = await db.insert(activeSessions)
+      .values(session)
+      .onConflictDoUpdate({
+        target: activeSessions.id,
+        set: {
+          ipAddress: session.ipAddress,
+          userAgent: session.userAgent,
+          deviceInfo: session.deviceInfo,
+          location: session.location,
+          lastActivity: new Date(),
+        },
+      })
+      .returning();
+    return created;
+  }
+
+  async getActiveSessions(userId: string): Promise<ActiveSession[]> {
+    const { activeSessions } = await import("@shared/schema");
+    const sessions = await db.select()
+      .from(activeSessions)
+      .where(eq(activeSessions.userId, userId))
+      .orderBy(desc(activeSessions.lastActivity));
+    return sessions;
+  }
+
+  async updateSessionActivity(sessionId: string): Promise<void> {
+    const { activeSessions } = await import("@shared/schema");
+    await db.update(activeSessions)
+      .set({ lastActivity: new Date() })
+      .where(eq(activeSessions.id, sessionId));
+  }
+
+  async terminateSession(sessionId: string): Promise<void> {
+    const { activeSessions } = await import("@shared/schema");
+    await db.delete(activeSessions)
+      .where(eq(activeSessions.id, sessionId));
+  }
+
+  async cleanupInactiveSessions(maxInactiveMinutes: number = 60): Promise<void> {
+    const { activeSessions } = await import("@shared/schema");
+    const cutoffTime = new Date(Date.now() - maxInactiveMinutes * 60 * 1000);
+    await db.delete(activeSessions)
+      .where(sql`${activeSessions.lastActivity} < ${cutoffTime}`);
   }
 }
 

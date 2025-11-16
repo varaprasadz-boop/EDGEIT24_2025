@@ -14,8 +14,16 @@ The frontend uses React with Vite, Wouter for routing, and TanStack React Query 
 ### Backend
 The backend is built with Express.js and TypeScript, using tsx for development and esbuild for production. It features an IStorage interface, with current MemStorage and planned PostgreSQL via Drizzle ORM. API routes are under `/api` and include custom logging and consistent error handling.
 
-### Authentication
+### Authentication & Security
 A custom Email/Password authentication system leverages passport-local and bcrypt. Sessions are stored in PostgreSQL using express-session and connect-pg-simple. An AuthProvider/AuthContext manages global user state.
+
+**Enhanced Authentication Features (November 2025):**
+- Password Reset Flow: Crypto-secure token-based password reset with 1-hour expiry, ForgotPassword and ResetPassword pages
+- Terms of Service Acceptance: Required checkbox during registration with timestamp tracking (termsAccepted, termsAcceptedAt fields)
+- Remember Me Functionality: Configurable session duration (24 hours default, 30 days with Remember Me checkbox)
+- Login History Tracking: Complete audit trail of all login/logout events with IP address, user agent, device info, success/failure tracking, and failure reason logging
+- Active Sessions Management: Real-time tracking of all active user sessions with device info, last activity timestamps, and session termination capability
+- Security Infrastructure: loginHistory and activeSessions tables with indexed queries for performance
 
 ### Engagement Model Registration & Payment System
 Users select an engagement plan (Basic/Professional/Enterprise) during registration, determining feature access and payment requirements. The system incorporates robust security for payment processing, session integrity, and multi-layer validation to prevent price manipulation. A mock payment gateway is used for development.
@@ -143,3 +151,27 @@ A comprehensive real-time messaging system supports one-on-one conversations, fi
 
 ### Session Management
 - connect-pg-simple
+
+## Test Accounts
+
+For testing and development, the following accounts are available:
+
+**Super Admin:**
+- Email: superadmin@edgeit24.com
+- Password: 123456
+- Role: admin
+- Access: Full platform administration
+
+**Test Client:**
+- Email: client@edgeit24.com
+- Password: 123456
+- Role: client
+- Access: Client dashboard and features
+
+**Test Consultant:**
+- Email: consultant@edgeit24.com
+- Password: 123456
+- Role: consultant
+- Access: Consultant dashboard and features
+
+Note: Complete profile setup via /profile/complete after first login for full functionality.

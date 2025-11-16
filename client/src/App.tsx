@@ -9,6 +9,8 @@ import { AdminRouter } from "@/components/AdminRouter";
 import Home from "@/pages/Home";
 import Register from "@/pages/Register";
 import Login from "@/pages/Login";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import Dashboard from "@/pages/Dashboard";
 import PostJob from "@/pages/PostJob";
 import BrowseJobs from "@/pages/BrowseJobs";
@@ -32,6 +34,8 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/register" component={Register} />
       <Route path="/login" component={Login} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/post-job" component={PostJob} />
       <Route path="/my-jobs" component={MyJobs} />

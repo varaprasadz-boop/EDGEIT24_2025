@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -18,6 +19,7 @@ export default function Login() {
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -44,6 +46,7 @@ export default function Login() {
       const response = await apiRequest("POST", "/api/auth/login", {
         email,
         password,
+        rememberMe,
       });
 
       if (response.ok) {
@@ -148,6 +151,20 @@ export default function Login() {
                 </div>
 
                 <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="remember"
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                      data-testid="checkbox-remember-me"
+                    />
+                    <label
+                      htmlFor="remember"
+                      className="text-sm cursor-pointer text-muted-foreground"
+                    >
+                      Remember me
+                    </label>
+                  </div>
                   <div className="text-sm">
                     <a
                       href="/forgot-password"

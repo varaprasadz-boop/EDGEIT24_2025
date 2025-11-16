@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -50,6 +51,7 @@ export default function Register() {
   const [companyName, setCompanyName] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [engagementPlan, setEngagementPlan] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -100,6 +102,15 @@ export default function Register() {
       return;
     }
 
+    if (!termsAccepted) {
+      toast({
+        variant: "destructive",
+        title: "Terms Required",
+        description: "Please accept the Terms of Service and Privacy Policy to continue",
+      });
+      return;
+    }
+
     // If consultant, go to categories step. If client, submit directly
     if (selectedRole === "consultant") {
       setStep("categories");
@@ -133,6 +144,7 @@ export default function Register() {
         role: selectedRole,
         selectedCategories: selectedRole === "consultant" ? categoriesToSend : undefined,
         engagementPlan: planIdentifier, // Send 'basic', 'professional', or 'enterprise'
+        termsAccepted,
       });
 
       if (response.ok) {
@@ -547,27 +559,41 @@ export default function Register() {
                         </Button>
                       </div>
 
-                      <div className="text-center pt-4 text-sm text-muted-foreground">
-                        By signing up, you agree to our{" "}
-                        <a 
-                          href={selectedRole === "consultant" ? "/legal/terms-consultant" : "/legal/terms-client"} 
-                          className="text-primary hover:underline"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          data-testid="link-terms"
+                      {/* Terms of Service Acceptance */}
+                      <div className="flex items-start space-x-2 pt-2">
+                        <Checkbox
+                          id="terms"
+                          checked={termsAccepted}
+                          onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
+                          data-testid="checkbox-terms"
+                        />
+                        <label
+                          htmlFor="terms"
+                          className="text-sm text-muted-foreground leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                         >
-                          Terms & Conditions
-                        </a>{" "}
-                        and{" "}
-                        <a 
-                          href="/legal/privacy-policy" 
-                          className="text-primary hover:underline"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          data-testid="link-privacy"
-                        >
-                          Privacy Policy
-                        </a>
+                          I agree to the{" "}
+                          <a 
+                            href={selectedRole === "consultant" ? "/legal/terms-consultant" : "/legal/terms-client"} 
+                            className="text-primary hover:underline"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            data-testid="link-terms"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Terms & Conditions
+                          </a>{" "}
+                          and{" "}
+                          <a 
+                            href="/legal/privacy-policy" 
+                            className="text-primary hover:underline"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            data-testid="link-privacy"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Privacy Policy
+                          </a>
+                        </label>
                       </div>
                     </form>
                   </CardContent>
