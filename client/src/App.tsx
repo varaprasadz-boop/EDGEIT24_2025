@@ -21,6 +21,8 @@ import CategoryLanding from "@/pages/CategoryLanding";
 import AdminLogin from "@/pages/AdminLogin";
 import MockPaymentGateway from "@/pages/MockPaymentGateway";
 import LegalPage from "@/pages/LegalPage";
+import Settings from "@/pages/Settings";
+import MyJobs from "@/pages/MyJobs";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -31,12 +33,14 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/post-job" component={PostJob} />
+      <Route path="/my-jobs" component={MyJobs} />
       <Route path="/browse-jobs" component={BrowseJobs} />
       <Route path="/browse-consultants" component={BrowseConsultants} />
       <Route path="/profile/complete" component={ProfileCompletion} />
       <Route path="/profile/client" component={ClientProfile} />
       <Route path="/profile/consultant" component={ConsultantProfile} />
       <Route path="/profile" component={Profile} />
+      <Route path="/settings" component={Settings} />
       <Route path="/services/:slug" component={CategoryLanding} />
       <Route path="/legal/:slug" component={LegalPage} />
       <Route path="/mock-payment" component={MockPaymentGateway} />

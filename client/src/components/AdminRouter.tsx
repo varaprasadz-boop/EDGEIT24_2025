@@ -1,4 +1,7 @@
-import { Route, Switch, Redirect } from "wouter";
+import { Route, Switch, Redirect, useLocation } from "wouter";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "@/components/AdminLayout";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminUsers from "@/pages/AdminUsers";
@@ -19,6 +22,39 @@ import AdminFooterLinks from "@/pages/admin/AdminFooterLinks";
 import AdminHomeSections from "@/pages/admin/AdminHomeSections";
 
 export function AdminRouter() {
+  const { user, isLoading } = useAuthContext();
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  // Block non-admin users from accessing admin routes
+  useEffect(() => {
+    if (!isLoading && user && user.role !== 'admin') {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to access the admin area.",
+        variant: "destructive",
+      });
+      setLocation('/dashboard');
+    }
+  }, [user, isLoading, setLocation, toast]);
+
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Block access if not admin
+  if (!user || user.role !== 'admin') {
+    return null; // Will redirect via useEffect
+  }
+
   return (
     <AdminLayout>
       <Switch>

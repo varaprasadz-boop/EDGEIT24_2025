@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,9 +14,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CascadingCategorySelector } from "@/components/CascadingCategorySelector";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Briefcase, ArrowLeft } from "lucide-react";
+import { Briefcase, ArrowLeft, UserCircle, Clock, AlertCircle, Users } from "lucide-react";
 import { insertJobSchema } from "@shared/schema";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { Progress } from "@/components/ui/progress";
 
 // Extend schema with validation
 const postJobSchema = insertJobSchema.extend({
@@ -26,6 +27,15 @@ const postJobSchema = insertJobSchema.extend({
 });
 
 type PostJobFormData = z.infer<typeof postJobSchema>;
+
+interface ProfileStatus {
+  role: 'client' | 'consultant';
+  profileStatus: 'draft' | 'submitted' | 'complete';
+  approvalStatus: 'pending' | 'approved' | 'rejected';
+  uniqueId: string | null;
+  adminNotes: string | null;
+  completionPercentage: number;
+}
 
 export default function PostJob() {
   const [, setLocation] = useLocation();
@@ -37,6 +47,24 @@ export default function PostJob() {
   // Check if user has client role (safely after user is loaded)
   const activeRole = user ? getActiveRole() : null;
   const isClient = activeRole === 'client' || activeRole === 'both';
+
+  // Fetch client profile status (handle 403 gracefully - means no profile exists)
+  const { data: profileStatus, isLoading: profileLoading } = useQuery<ProfileStatus | null>({
+    queryKey: ['/api/profile/status', 'client'],
+    queryFn: async () => {
+      const res = await fetch('/api/profile/status?role=client', { credentials: 'include' });
+      if (res.status === 403) {
+        // User doesn't have a client profile yet
+        return null;
+      }
+      if (!res.ok) {
+        throw new Error(`${res.status}: ${await res.text() || res.statusText}`);
+      }
+      return res.json();
+    },
+    enabled: !!user && isClient,
+    retry: false, // Don't retry on 403
+  });
 
   const form = useForm<PostJobFormData>({
     resolver: zodResolver(postJobSchema),
@@ -99,7 +127,7 @@ export default function PostJob() {
   };
 
   // Show loading state
-  if (isLoading) {
+  if (isLoading || profileLoading) {
     return (
       <div className="container max-w-4xl mx-auto p-6">
         <div className="text-center py-12">
@@ -169,6 +197,175 @@ export default function PostJob() {
     );
   }
 
+  // No profile exists (403 from API) - show create profile message
+  if (profileStatus === null) {
+    return (
+      <div className="container max-w-4xl mx-auto p-6 space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Client Profile Required</CardTitle>
+            <CardDescription>
+              You need to create a client profile before posting jobs.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Create your client profile to start posting jobs and connecting with IT consultants.
+            </p>
+            <Button onClick={() => setLocation('/profile/client')} data-testid="button-create-profile">
+              Create Client Profile
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Check profile status and show appropriate message
+  if (profileStatus) {
+    // Profile is incomplete - needs completion
+    if (profileStatus.profileStatus === 'draft' && profileStatus.completionPercentage < 100) {
+      return (
+        <div className="container max-w-4xl mx-auto p-6 space-y-6">
+          <Card className="border-blue-500 bg-blue-500/5" data-testid="card-profile-incomplete">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCircle className="h-5 w-5 text-blue-600" />
+                Complete Your Profile
+              </CardTitle>
+              <CardDescription>
+                You need to complete your client profile before posting jobs.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Profile completion</span>
+                  <span className="font-medium">{profileStatus.completionPercentage}%</span>
+                </div>
+                <Progress value={profileStatus.completionPercentage} className="h-2" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Complete all required fields in your profile, then submit it for admin approval.
+              </p>
+              <Button 
+                onClick={() => setLocation('/profile/client')} 
+                data-testid="button-complete-profile"
+              >
+                Complete Profile
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // Profile is pending approval
+    if (profileStatus.approvalStatus === 'pending' && profileStatus.profileStatus === 'submitted') {
+      return (
+        <div className="container max-w-4xl mx-auto p-6 space-y-6">
+          <Card className="border-amber-500 bg-amber-500/5" data-testid="card-profile-pending">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-amber-600" />
+                Profile Under Review
+              </CardTitle>
+              <CardDescription>
+                Your profile is being reviewed by our admin team
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Your profile has been submitted for review. You'll be able to post jobs once it's approved. 
+                Meanwhile, you can browse consultants and suppliers.
+              </p>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => setLocation('/browse-consultants')} 
+                  data-testid="button-browse-consultants"
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Browse Consultants
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => setLocation('/dashboard')} 
+                  data-testid="button-dashboard"
+                >
+                  Go to Dashboard
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // Profile was rejected
+    if (profileStatus.approvalStatus === 'rejected') {
+      return (
+        <div className="container max-w-4xl mx-auto p-6 space-y-6">
+          <Card className="border-destructive bg-destructive/5" data-testid="card-profile-rejected">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                Profile Rejected
+              </CardTitle>
+              <CardDescription>
+                Your profile needs updates before you can post jobs
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {profileStatus.adminNotes && (
+                <div className="p-3 rounded-md bg-muted">
+                  <p className="text-sm font-medium mb-1">Admin feedback:</p>
+                  <p className="text-sm text-muted-foreground">{profileStatus.adminNotes}</p>
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Please update your profile based on the admin feedback and resubmit for approval.
+              </p>
+              <Button 
+                onClick={() => setLocation('/profile/client')} 
+                data-testid="button-update-profile"
+              >
+                Update & Resubmit Profile
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // Profile exists but not approved - catch any other states
+    if (profileStatus.approvalStatus !== 'approved') {
+      return (
+        <div className="container max-w-4xl mx-auto p-6 space-y-6">
+          <Card className="border-amber-500 bg-amber-500/5" data-testid="card-profile-not-approved">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+                Profile Approval Required
+              </CardTitle>
+              <CardDescription>
+                Your profile needs to be approved before posting jobs
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Please complete and submit your profile for admin approval.
+              </p>
+              <Button onClick={() => setLocation('/profile/client')} data-testid="button-view-profile">
+                View Profile
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+  }
+
+  // Only render job posting form if profile is approved
   return (
     <div className="container max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center gap-4">
