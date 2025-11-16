@@ -22,7 +22,28 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { NewConversationDialog } from "@/components/NewConversationDialog";
+import { FileUpload } from "@/components/FileUpload";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { FileIcon, Download } from "lucide-react";
 import type { WsMessage } from "@shared/schema";
+
+type MessageFile = {
+  id: string;
+  messageId: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  fileUrl: string;
+  thumbnailUrl: string | null;
+  createdAt: Date;
+};
 
 type Conversation = {
   id: string;
@@ -58,6 +79,8 @@ export default function Messages() {
   const [match, params] = useRoute("/messages/:conversationId?");
   const [messageInput, setMessageInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -86,6 +109,44 @@ export default function Messages() {
     enabled: !!selectedConversationId,
   });
 
+  // Fetch message files for the conversation
+  // Include messages in query key so it refetches when messages change
+  const messageIds = messages?.map(m => m.id) || [];
+  const { data: messageFilesMap = {} } = useQuery<Record<string, MessageFile[]>>({
+    queryKey: ["/api/conversations", selectedConversationId, "files", messageIds.join(",")],
+    queryFn: async () => {
+      if (!selectedConversationId) return {};
+      
+      // Use the conversation files endpoint which is more efficient
+      const response = await fetch(`/api/conversations/${selectedConversationId}/files?limit=100`, {
+        credentials: "include",
+      });
+      
+      if (!response.ok) return {};
+      
+      const files: MessageFile[] = await response.json();
+      
+      // Create a map of messageId -> files[], initializing all message IDs
+      const filesMap: Record<string, MessageFile[]> = {};
+      
+      // Initialize all message IDs with empty arrays
+      messageIds.forEach(id => {
+        filesMap[id] = [];
+      });
+      
+      // Populate with actual files
+      files.forEach(file => {
+        if (!filesMap[file.messageId]) {
+          filesMap[file.messageId] = [];
+        }
+        filesMap[file.messageId].push(file);
+      });
+      
+      return filesMap;
+    },
+    enabled: !!selectedConversationId && messageIds.length > 0,
+  });
+
   // WebSocket state
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
@@ -105,6 +166,9 @@ export default function Messages() {
         if (message.payload.conversationId) {
           queryClient.invalidateQueries({
             queryKey: ["/api/conversations", message.payload.conversationId, "messages"],
+          });
+          queryClient.invalidateQueries({
+            queryKey: ["/api/conversations", message.payload.conversationId, "files"],
           });
           queryClient.invalidateQueries({
             queryKey: ["/api/conversations"],
@@ -205,20 +269,67 @@ export default function Messages() {
     }
   }, [selectedConversationId, isConnected, startTyping]);
 
-  const sendMessageMutation = useMutation({
-    mutationFn: async (variables: { content: string; conversationId: string }) => {
+  const uploadFileMutation = useMutation({
+    mutationFn: async (variables: { 
+      file: File; 
+      messageId: string; 
+      conversationId: string;
+    }) => {
+      // Upload file to server (simulated for now - would use actual file upload)
+      // In a real implementation, this would upload to cloud storage and get a URL
+      const fileUrl = `https://storage.example.com/files/${variables.file.name}`;
+      
       const response = await apiRequest(
         "POST",
-        `/api/conversations/${variables.conversationId}/messages`,
-        { content: variables.content }
+        `/api/conversations/${variables.conversationId}/messages/${variables.messageId}/files`,
+        {
+          fileName: variables.file.name,
+          fileSize: variables.file.size,
+          mimeType: variables.file.type,
+          fileUrl: fileUrl,
+        }
       );
       return await response.json();
     },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to upload file",
+        description: error.message || "An error occurred while uploading the file",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const sendMessageMutation = useMutation({
+    mutationFn: async (variables: { content: string; conversationId: string; file?: File }) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/conversations/${variables.conversationId}/messages`,
+        { content: variables.content || (variables.file ? `Sent a file: ${variables.file.name}` : "") }
+      );
+      const message = await response.json();
+      
+      // If there's a file, upload it
+      if (variables.file) {
+        await uploadFileMutation.mutateAsync({
+          file: variables.file,
+          messageId: message.id,
+          conversationId: variables.conversationId,
+        });
+      }
+      
+      return message;
+    },
     onSuccess: async (_data, variables) => {
       setMessageInput("");
+      setSelectedFile(null);
       // Invalidate messages query to refetch using the ID from mutation variables
       await queryClient.invalidateQueries({
         queryKey: ["/api/conversations", variables.conversationId, "messages"],
+      });
+      // Invalidate files query to refetch uploaded files
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/conversations", variables.conversationId, "files"],
       });
       // Invalidate unread count for this conversation
       await queryClient.invalidateQueries({
@@ -243,11 +354,12 @@ export default function Messages() {
   );
 
   const handleSendMessage = () => {
-    if (!messageInput.trim() || !selectedConversationId || sendMessageMutation.isPending) return;
+    if ((!messageInput.trim() && !selectedFile) || !selectedConversationId || sendMessageMutation.isPending) return;
     
     sendMessageMutation.mutate({
       content: messageInput,
       conversationId: selectedConversationId,
+      file: selectedFile || undefined,
     });
   };
 
@@ -411,7 +523,37 @@ export default function Messages() {
                                 : "bg-muted"
                             }`}
                           >
-                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                            {message.content && (
+                              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                            )}
+                            
+                            {/* Display attached files */}
+                            {messageFilesMap[message.id]?.map((file) => (
+                              <a
+                                key={file.id}
+                                href={file.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download={file.fileName}
+                                className={`mt-2 flex items-center gap-2 p-2 rounded border hover-elevate active-elevate-2 ${
+                                  isOwnMessage
+                                    ? "border-primary-foreground/20 bg-primary-foreground/10"
+                                    : "border-border bg-background/50"
+                                }`}
+                                data-testid={`file-${file.id}`}
+                                aria-label={`Download ${file.fileName}`}
+                              >
+                                <FileIcon className="h-4 w-4 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium truncate">{file.fileName}</p>
+                                  <p className="text-xs opacity-70">
+                                    {(file.fileSize / 1024).toFixed(1)} KB
+                                  </p>
+                                </div>
+                                <Download className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                              </a>
+                            ))}
+                            
                             <p
                               className={`text-xs mt-1 ${
                                 isOwnMessage
@@ -444,14 +586,44 @@ export default function Messages() {
 
               {/* Message Input */}
               <div className="p-4 border-t">
+                {selectedFile && (
+                  <div className="mb-3">
+                    <FileUpload
+                      onFileSelect={setSelectedFile}
+                      onFileRemove={() => setSelectedFile(null)}
+                      disabled={sendMessageMutation.isPending}
+                    />
+                  </div>
+                )}
+                
                 <div className="flex items-end gap-2">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    data-testid="button-attach-file"
-                  >
-                    <Paperclip className="h-5 w-5" />
-                  </Button>
+                  <Dialog open={isFileDialogOpen} onOpenChange={setIsFileDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        disabled={!selectedConversationId}
+                        data-testid="button-attach-file"
+                      >
+                        <Paperclip className="h-5 w-5" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Attach File</DialogTitle>
+                        <DialogDescription>
+                          Select a file to attach to your message
+                        </DialogDescription>
+                      </DialogHeader>
+                      <FileUpload
+                        onFileSelect={(file) => {
+                          setSelectedFile(file);
+                          setIsFileDialogOpen(false);
+                        }}
+                        maxSizeMB={25}
+                      />
+                    </DialogContent>
+                  </Dialog>
                   
                   <Textarea
                     placeholder={selectedConversationId ? "Type a message..." : "Select a conversation to send messages"}
@@ -482,7 +654,7 @@ export default function Messages() {
                     <Button
                       size="icon"
                       onClick={handleSendMessage}
-                      disabled={!messageInput.trim() || sendMessageMutation.isPending || !selectedConversationId}
+                      disabled={(!messageInput.trim() && !selectedFile) || sendMessageMutation.isPending || !selectedConversationId}
                       data-testid="button-send-message"
                     >
                       <Send className="h-4 w-4" />
