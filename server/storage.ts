@@ -104,6 +104,9 @@ import {
   type InsertActiveSession,
   type UserActivityLog,
   type InsertUserActivityLog,
+  type SavedSearch,
+  type InsertSavedSearch,
+  savedSearches,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, sql, desc, inArray } from "drizzle-orm";
@@ -375,6 +378,18 @@ export interface IStorage {
     startDate?: Date;
     endDate?: Date;
   }): Promise<UserActivityLog[]>;
+  
+  // Saved Searches operations
+  createSavedSearch(savedSearch: InsertSavedSearch): Promise<SavedSearch>;
+  getSavedSearches(userId: string): Promise<SavedSearch[]>;
+  getSavedSearch(id: string): Promise<SavedSearch | undefined>;
+  updateSavedSearch(id: string, data: {
+    name?: string;
+    filters?: any;
+    notificationsEnabled?: boolean;
+    lastNotifiedAt?: Date | null;
+  }): Promise<SavedSearch>;
+  deleteSavedSearch(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2331,6 +2346,45 @@ export class DatabaseStorage implements IStorage {
     }
     
     return await query;
+  }
+
+  // Saved Searches operations
+  async createSavedSearch(savedSearch: InsertSavedSearch): Promise<SavedSearch> {
+    const [created] = await db.insert(savedSearches).values(savedSearch).returning();
+    return created;
+  }
+
+  async getSavedSearches(userId: string): Promise<SavedSearch[]> {
+    return await db.select()
+      .from(savedSearches)
+      .where(eq(savedSearches.userId, userId))
+      .orderBy(desc(savedSearches.createdAt));
+  }
+
+  async getSavedSearch(id: string): Promise<SavedSearch | undefined> {
+    const [search] = await db.select()
+      .from(savedSearches)
+      .where(eq(savedSearches.id, id));
+    return search;
+  }
+
+  async updateSavedSearch(id: string, data: {
+    name?: string;
+    filters?: any;
+    notificationsEnabled?: boolean;
+    lastNotifiedAt?: Date | null;
+  }): Promise<SavedSearch> {
+    // Only allow updating safe fields - userId and searchType are immutable
+    const [updated] = await db.update(savedSearches)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(savedSearches.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSavedSearch(id: string): Promise<void> {
+    await db.delete(savedSearches)
+      .where(eq(savedSearches.id, id));
   }
 }
 

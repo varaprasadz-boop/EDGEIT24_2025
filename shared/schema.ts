@@ -1837,3 +1837,28 @@ export const insertUserActivityLogSchema = createInsertSchema(userActivityLog).o
 });
 export type InsertUserActivityLog = z.infer<typeof insertUserActivityLogSchema>;
 export type UserActivityLog = typeof userActivityLog.$inferSelect;
+
+// Saved Searches table - Allow clients to save search criteria and get alerts
+export const savedSearches = pgTable("saved_searches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // User-given name for the saved search
+  searchType: text("search_type").notNull(), // 'jobs' or 'consultants'
+  // Search filters stored as JSONB for flexibility
+  filters: jsonb("filters").notNull(), // { category, budget, skills, experience, location, rating, etc. }
+  notificationsEnabled: boolean("notifications_enabled").default(false), // Alert user when new matches appear
+  lastNotifiedAt: timestamp("last_notified_at"), // Track when we last sent a notification
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("saved_searches_user_id_idx").on(table.userId),
+  searchTypeIdx: index("saved_searches_search_type_idx").on(table.searchType),
+}));
+
+export const insertSavedSearchSchema = createInsertSchema(savedSearches).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSavedSearch = z.infer<typeof insertSavedSearchSchema>;
+export type SavedSearch = typeof savedSearches.$inferSelect;
