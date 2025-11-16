@@ -6,9 +6,9 @@ import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { wsManager } from "./websocket";
 import { z } from "zod";
-import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema } from "@shared/schema";
+import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema, insertTeamMemberSchema } from "@shared/schema";
 import { db } from "./db";
-import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, contentPages, footerLinks, homePageSections, messageFiles, conversations, messages, meetingLinks, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema } from "@shared/schema";
+import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, teamMembers, contentPages, footerLinks, homePageSections, messageFiles, conversations, messages, meetingLinks, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
@@ -1697,6 +1697,190 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating client profile:", error);
       res.status(500).json({ message: "Failed to update client profile" });
+    }
+  });
+
+  // Team Members API - Client organization team management
+  // Get all team members for client organization
+  app.get('/api/team-members', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Get client profile
+      const clientProfile = await storage.getClientProfile(userId);
+      if (!clientProfile) {
+        return res.status(404).json({ message: "Client profile not found" });
+      }
+
+      const members = await storage.getTeamMembers(clientProfile.id);
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching team members:", error);
+      res.status(500).json({ message: "Failed to fetch team members" });
+    }
+  });
+
+  // Invite team member
+  app.post('/api/team-members/invite', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Get client profile
+      const clientProfile = await storage.getClientProfile(userId);
+      if (!clientProfile) {
+        return res.status(404).json({ message: "Client profile not found" });
+      }
+
+      // Validate request
+      const validation = insertTeamMemberSchema.safeParse({
+        ...req.body,
+        clientProfileId: clientProfile.id,
+        invitedBy: userId,
+      });
+
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid invitation data", errors: validation.error });
+      }
+
+      // Generate invitation token and expiry (7 days)
+      const invitationToken = nanoid(32);
+      const expiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      // Create team member invitation
+      const member = await storage.inviteTeamMember(validation.data, invitationToken, expiry);
+
+      // TODO: Send invitation email with token link
+
+      res.status(201).json(member);
+    } catch (error) {
+      console.error("Error inviting team member:", error);
+      res.status(500).json({ message: "Failed to send invitation" });
+    }
+  });
+
+  // Update team member (role, permissions)
+  app.patch('/api/team-members/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Get team member
+      const member = await storage.getTeamMember(req.params.id);
+      if (!member) {
+        return res.status(404).json({ message: "Team member not found" });
+      }
+
+      // Verify requester is from same organization
+      const clientProfile = await storage.getClientProfile(userId);
+      if (!clientProfile || clientProfile.id !== member.clientProfileId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Update team member
+      const updated = await storage.updateTeamMember(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating team member:", error);
+      res.status(500).json({ message: "Failed to update team member" });
+    }
+  });
+
+  // Revoke team member
+  app.delete('/api/team-members/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Get team member
+      const member = await storage.getTeamMember(req.params.id);
+      if (!member) {
+        return res.status(404).json({ message: "Team member not found" });
+      }
+
+      // Verify requester is from same organization
+      const clientProfile = await storage.getClientProfile(userId);
+      if (!clientProfile || clientProfile.id !== member.clientProfileId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Revoke team member
+      const revoked = await storage.revokeTeamMember(req.params.id, userId);
+      res.json(revoked);
+    } catch (error) {
+      console.error("Error revoking team member:", error);
+      res.status(500).json({ message: "Failed to revoke team member" });
+    }
+  });
+
+  // Accept invitation (public endpoint with token)
+  app.post('/api/team-members/accept/:token', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Get invitation by token
+      const member = await storage.getTeamMemberByToken(req.params.token);
+      if (!member) {
+        return res.status(404).json({ message: "Invalid or expired invitation" });
+      }
+
+      // Check if invitation is expired
+      if (member.invitationExpiry && new Date() > member.invitationExpiry) {
+        return res.status(400).json({ message: "Invitation has expired" });
+      }
+
+      // Check if invitation is already accepted or declined
+      if (member.status !== 'pending') {
+        return res.status(400).json({ message: `Invitation already ${member.status}` });
+      }
+
+      // Verify email matches invited email
+      const user = await storage.getUser(userId);
+      if (user?.email !== member.email) {
+        return res.status(403).json({ message: "Invitation email does not match your account" });
+      }
+
+      // Accept invitation
+      const accepted = await storage.acceptInvitation(req.params.token, userId);
+      res.json(accepted);
+    } catch (error) {
+      console.error("Error accepting invitation:", error);
+      res.status(500).json({ message: "Failed to accept invitation" });
+    }
+  });
+
+  // Decline invitation (public endpoint with token)
+  app.post('/api/team-members/decline/:token', async (req, res) => {
+    try {
+      // Get invitation by token
+      const member = await storage.getTeamMemberByToken(req.params.token);
+      if (!member) {
+        return res.status(404).json({ message: "Invalid or expired invitation" });
+      }
+
+      // Check if invitation is already accepted or declined
+      if (member.status !== 'pending') {
+        return res.status(400).json({ message: `Invitation already ${member.status}` });
+      }
+
+      // Decline invitation
+      const declined = await storage.declineInvitation(req.params.token);
+      res.json(declined);
+    } catch (error) {
+      console.error("Error declining invitation:", error);
+      res.status(500).json({ message: "Failed to decline invitation" });
     }
   });
 
