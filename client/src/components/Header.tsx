@@ -12,6 +12,7 @@ import {
 import { Menu, User, LogOut, Settings, LayoutDashboard } from "lucide-react";
 import { useState } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { NotificationBell } from "@/components/NotificationBell";
 import logoUrl from "@assets/image_1762432763578.png";
 
 export function Header() {
@@ -63,17 +64,19 @@ export function Header() {
 
         <div className="hidden md:flex items-center space-x-4">
           {isAuthenticated ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full" data-testid="button-user-menu">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={user?.profileImageUrl || undefined} alt={getUserDisplayName()} />
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      {getUserInitials()}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
+            <>
+              <NotificationBell />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full" data-testid="button-user-menu">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={user?.profileImageUrl || undefined} alt={getUserDisplayName()} />
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {getUserInitials()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal" data-testid="text-user-info">
                   <div className="flex flex-col space-y-1">
@@ -106,7 +109,8 @@ export function Header() {
                   Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>
+              </DropdownMenu>
+            </>
           ) : (
             <>
               <Button variant="outline" asChild className="border-white/20 text-white" data-testid="button-signin">
