@@ -1307,27 +1307,29 @@ export class DatabaseStorage implements IStorage {
   async getUserConversations(userId: string, options?: { archived?: boolean; limit?: number }): Promise<Conversation[]> {
     const limit = options?.limit || 50;
     
-    // Step 1: Get all conversation IDs for this user (no limit yet)
-    const participantRecords = await db
-      .select({ conversationId: conversationParticipants.conversationId })
-      .from(conversationParticipants)
-      .where(eq(conversationParticipants.userId, userId));
-    
-    if (participantRecords.length === 0) {
-      return [];
-    }
-    
-    const conversationIds = participantRecords.map(p => p.conversationId);
-    
-    // Step 2: Fetch conversations with filtering, ordering, and limit applied correctly
-    const conditions = [inArray(conversations.id, conversationIds)];
+    // OPTIMIZED: Single JOIN query instead of two separate queries
+    // Uses indexed userId and lastMessageAt for efficient filtering and sorting
+    const conditions = [eq(conversationParticipants.userId, userId)];
     if (options?.archived !== undefined) {
       conditions.push(eq(conversations.archived, options.archived));
     }
     
     return await db
-      .select()
-      .from(conversations)
+      .select({
+        id: conversations.id,
+        title: conversations.title,
+        type: conversations.type,
+        relatedEntityType: conversations.relatedEntityType,
+        relatedEntityId: conversations.relatedEntityId,
+        archived: conversations.archived,
+        archivedBy: conversations.archivedBy,
+        archivedAt: conversations.archivedAt,
+        lastMessageAt: conversations.lastMessageAt,
+        createdAt: conversations.createdAt,
+        updatedAt: conversations.updatedAt,
+      })
+      .from(conversationParticipants)
+      .innerJoin(conversations, eq(conversationParticipants.conversationId, conversations.id))
       .where(and(...conditions))
       .orderBy(desc(conversations.lastMessageAt))
       .limit(limit);
@@ -1586,23 +1588,12 @@ export class DatabaseStorage implements IStorage {
   async getConversationFiles(conversationId: string, options?: { limit?: number }): Promise<MessageFile[]> {
     const limit = options?.limit || 50;
     
-    // Step 1: Get all message IDs from the conversation (no limit)
-    const conversationMessages = await db
-      .select({ id: messages.id })
-      .from(messages)
-      .where(eq(messages.conversationId, conversationId));
-    
-    if (conversationMessages.length === 0) {
-      return [];
-    }
-    
-    const messageIds = conversationMessages.map(m => m.id);
-    
-    // Step 2: Fetch files with ordering and limit applied correctly
+    // OPTIMIZED: Direct query using conversationId index (no N+1 query)
+    // messageFiles table has conversationId column with index for efficient lookup
     return await db
       .select()
       .from(messageFiles)
-      .where(inArray(messageFiles.messageId, messageIds))
+      .where(eq(messageFiles.conversationId, conversationId))
       .orderBy(desc(messageFiles.createdAt))
       .limit(limit);
   }
