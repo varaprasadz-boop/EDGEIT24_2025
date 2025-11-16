@@ -425,19 +425,6 @@ export const projects = pgTable("projects", {
   statusIdx: index("projects_status_idx").on(table.status),
 }));
 
-// Messages - Chat between users
-export const messages = pgTable("messages", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  senderId: varchar("sender_id").notNull().references(() => users.id),
-  receiverId: varchar("receiver_id").notNull().references(() => users.id),
-  projectId: varchar("project_id").references(() => projects.id), // Optional, if message is project-related
-  content: text("content").notNull(),
-  attachments: text("attachments").array(),
-  read: boolean("read").default(false),
-  readAt: timestamp("read_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
 // Quote Requests - Client requests for quotes from consultants' service packages
 export const quoteRequests = pgTable("quote_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -516,17 +503,29 @@ export const reviews = pgTable("reviews", {
 });
 
 // Notifications - System and user notifications
+// Supports messaging notifications via type='new_message', 'message_reply', 'meeting_scheduled', etc.
+// relatedConversationId and relatedMessageId provide direct FK links for messaging notifications
 export const notifications = pgTable("notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  type: text("type").notNull(), // 'bid_received', 'bid_accepted', 'message', 'payment', 'review', etc.
+  type: text("type").notNull(), // 'bid_received', 'bid_accepted', 'new_message', 'message_reply', 'meeting_scheduled', 'payment', 'review', etc.
   title: text("title").notNull(),
   message: text("message").notNull(),
   link: text("link"), // URL to navigate to
+  metadata: jsonb("metadata"), // Additional context (e.g., { senderId, meetingId })
+  relatedConversationId: varchar("related_conversation_id").references(() => conversations.id, { onDelete: "cascade" }), // FK for messaging notifications
+  relatedMessageId: varchar("related_message_id").references(() => messages.id, { onDelete: "cascade" }), // FK for message-specific notifications
   read: boolean("read").default(false),
   readAt: timestamp("read_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  userIdIdx: index("notifications_user_id_idx").on(table.userId),
+  typeIdx: index("notifications_type_idx").on(table.type),
+  readIdx: index("notifications_read_idx").on(table.read),
+  userUnreadIdx: index("notifications_user_unread_idx").on(table.userId, table.read),
+  conversationIdx: index("notifications_conversation_idx").on(table.relatedConversationId), // For messaging analytics
+  messageIdx: index("notifications_message_idx").on(table.relatedMessageId), // For message-specific queries
+}));
 
 // Saved Items - Bookmarks for jobs or consultants
 export const savedItems = pgTable("saved_items", {
@@ -718,6 +717,269 @@ export const emailTemplates = pgTable("email_templates", {
 });
 
 // =============================================================================
+// MESSAGING & COLLABORATION SYSTEM
+// =============================================================================
+// Comprehensive messaging system supporting:
+// - One-on-one and group conversations
+// - Real-time message delivery with WebSocket support
+// - File attachments with version tracking
+// - Message threading and replies
+// - Read receipts and delivery tracking
+// - Message templates for quick replies
+// - Meeting scheduling and management
+// - Conversation labels and organization
+// - Admin moderation capabilities
+//
+// DESIGN DECISIONS:
+// - conversation_preferences: Consolidated into conversation_participants (muted, pinned fields)
+// - conversation_pins: Merged into conversation_participants.pinned field
+// - file_versions: Implemented in message_files (parentFileId, versionNumber for version tracking)
+// - notifications: Uses existing notifications table with enhanced metadata field for messaging context
+// =============================================================================
+
+// Conversations - Main conversation container between participants
+export const conversations = pgTable("conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title"), // Optional conversation title
+  type: text("type").notNull().default('direct'), // 'direct' for 1-on-1, 'group' for future expansion
+  relatedEntityType: text("related_entity_type"), // 'job', 'bid', 'contract', 'quick_quote'
+  relatedEntityId: varchar("related_entity_id"), // ID of the related entity
+  archived: boolean("archived").default(false),
+  archivedBy: varchar("archived_by").references(() => users.id),
+  archivedAt: timestamp("archived_at"),
+  lastMessageAt: timestamp("last_message_at"), // For sorting conversations
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  lastMessageIdx: index("conversations_last_message_idx").on(table.lastMessageAt),
+  archivedIdx: index("conversations_archived_idx").on(table.archived),
+  relatedEntityIdx: index("conversations_related_entity_idx").on(table.relatedEntityType, table.relatedEntityId),
+}));
+
+// Conversation Participants - Who is part of each conversation
+// Consolidates conversation_preferences (muted, pinned) and access control (role)
+export const conversationParticipants = pgTable("conversation_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: text("role").notNull().default('participant'), // 'participant', 'admin' - REQUIRED for RBAC
+  status: text("status").notNull().default('active'), // 'active', 'left', 'removed' - For access control
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  lastReadAt: timestamp("last_read_at"), // Track when user last read messages
+  unreadCount: integer("unread_count").default(0).notNull(), // Cached unread count for performance
+  muted: boolean("muted").default(false).notNull(), // Mute notifications for this conversation
+  pinned: boolean("pinned").default(false).notNull(), // Pin conversation to top
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  conversationUserIdx: uniqueIndex("conversation_participants_conversation_user_idx").on(table.conversationId, table.userId),
+  userIdIdx: index("conversation_participants_user_id_idx").on(table.userId),
+  pinnedIdx: index("conversation_participants_pinned_idx").on(table.pinned),
+  unreadIdx: index("conversation_participants_unread_idx").on(table.userId, table.unreadCount), // For inbox unread queries
+  roleStatusIdx: index("conversation_participants_role_status_idx").on(table.role, table.status), // For RBAC queries
+}));
+
+// Messages - Individual messages within conversations
+// NOTE: Uses RESTRICT on conversation deletion to preserve audit trail
+export const messages = pgTable("messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "restrict" }), // RESTRICT for audit retention
+  senderId: varchar("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(), // Message text content
+  messageType: text("message_type").notNull().default('text'), // 'text', 'file', 'meeting', 'system'
+  metadata: jsonb("metadata"), // For file info, meeting details, etc.
+  replyToId: varchar("reply_to_id").references(() => messages.id), // For threaded messages
+  edited: boolean("edited").default(false),
+  editedAt: timestamp("edited_at"),
+  deleted: boolean("deleted").default(false), // Soft delete
+  deletedAt: timestamp("deleted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  conversationCreatedIdx: index("messages_conversation_created_idx").on(table.conversationId, table.createdAt),
+  senderIdx: index("messages_sender_idx").on(table.senderId),
+  deletedIdx: index("messages_deleted_idx").on(table.deleted),
+  replyToIdx: index("messages_reply_to_idx").on(table.replyToId), // Index for thread queries
+  // Full-text search index for message content
+  contentSearchIdx: index("messages_content_search_idx").using("gin", sql`to_tsvector('english', ${table.content})`),
+}));
+
+// Message Receipts - Track read/delivered status for each participant
+export const messageReceipts = pgTable("message_receipts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  deliveredAt: timestamp("delivered_at"),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  messageUserIdx: uniqueIndex("message_receipts_message_user_idx").on(table.messageId, table.userId),
+  userUnreadIdx: index("message_receipts_user_unread_idx").on(table.userId, table.readAt),
+  unreadLookupsIdx: index("message_receipts_unread_lookups_idx").on(table.messageId, table.userId, table.readAt), // Composite for unread queries
+}));
+
+// Message Templates - Quick reply templates for users
+export const messageTemplates = pgTable("message_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(), // Template name/title
+  content: text("content").notNull(), // Template message content
+  category: text("category"), // For organizing templates
+  usageCount: integer("usage_count").default(0), // Track how often used
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("message_templates_user_id_idx").on(table.userId),
+  categoryIdx: index("message_templates_category_idx").on(table.category),
+}));
+
+// Message Files - File attachments in messages with version tracking
+// NOTE: parentFileId uses SET NULL to preserve version history when parent is deleted
+export const messageFiles = pgTable("message_files", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "restrict" }), // RESTRICT for audit
+  uploadedBy: varchar("uploaded_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size").notNull(), // In bytes
+  mimeType: text("mime_type").notNull(),
+  fileUrl: text("file_url").notNull(), // Storage URL
+  thumbnailUrl: text("thumbnail_url"), // For image/document previews
+  versionNumber: integer("version_number").default(1).notNull(),
+  parentFileId: varchar("parent_file_id").references(() => messageFiles.id, { onDelete: "set null" }), // SET NULL to preserve history
+  scanStatus: text("scan_status").default('pending'), // 'pending', 'clean', 'infected'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  messageIdIdx: index("message_files_message_id_idx").on(table.messageId),
+  conversationIdIdx: index("message_files_conversation_id_idx").on(table.conversationId),
+  parentFileIdx: index("message_files_parent_file_idx").on(table.parentFileId),
+  versionHistoryIdx: index("message_files_version_history_idx").on(table.parentFileId, table.versionNumber), // For version tracking
+}));
+
+// Meeting Links - Scheduled meetings within conversations
+export const meetingLinks = pgTable("meeting_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  messageId: varchar("message_id").references(() => messages.id), // Associated message
+  createdBy: varchar("created_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  scheduledAt: timestamp("scheduled_at").notNull(), // Meeting date/time
+  duration: integer("duration"), // In minutes
+  meetingType: text("meeting_type").notNull(), // 'google_meet', 'zoom', 'teams', 'other'
+  meetingUrl: text("meeting_url").notNull(), // The actual meeting link
+  status: text("status").notNull().default('scheduled'), // 'scheduled', 'completed', 'cancelled'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  conversationIdIdx: index("meeting_links_conversation_id_idx").on(table.conversationId),
+  scheduledAtIdx: index("meeting_links_scheduled_at_idx").on(table.scheduledAt),
+  statusIdx: index("meeting_links_status_idx").on(table.status),
+}));
+
+// Meeting Participants - Track who is invited to meetings
+export const meetingParticipants = pgTable("meeting_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  meetingId: varchar("meeting_id").notNull().references(() => meetingLinks.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  responseStatus: text("response_status").default('pending'), // 'pending', 'accepted', 'declined', 'tentative'
+  joinedAt: timestamp("joined_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  meetingUserIdx: uniqueIndex("meeting_participants_meeting_user_idx").on(table.meetingId, table.userId),
+  userIdIdx: index("meeting_participants_user_id_idx").on(table.userId),
+}));
+
+// Meeting Reminders - Track reminders sent for meetings
+export const meetingReminders = pgTable("meeting_reminders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  meetingId: varchar("meeting_id").notNull().references(() => meetingLinks.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  reminderType: text("reminder_type").notNull(), // '1_hour', '15_min', '1_day', 'custom'
+  reminderTime: timestamp("reminder_time").notNull(),
+  sent: boolean("sent").default(false),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  meetingUserIdx: index("meeting_reminders_meeting_user_idx").on(table.meetingId, table.userId),
+  reminderTimeIdx: index("meeting_reminders_reminder_time_idx").on(table.reminderTime),
+  sentIdx: index("meeting_reminders_sent_idx").on(table.sent),
+}));
+
+// Conversation Labels - Custom labels for organizing conversations
+export const conversationLabels = pgTable("conversation_labels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  label: text("label").notNull(), // 'important', 'follow_up', 'urgent', custom labels
+  color: varchar("color"), // Hex color for visual distinction
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  conversationLabelIdx: uniqueIndex("conversation_labels_conversation_label_idx").on(table.conversationId, table.userId, table.label),
+  userIdIdx: index("conversation_labels_user_id_idx").on(table.userId),
+}));
+
+// Message Moderation - Admin actions on messages
+export const messageModeration = pgTable("message_moderation", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
+  moderatedBy: varchar("moderated_by").notNull().references(() => users.id), // Admin user
+  action: text("action").notNull(), // 'flagged', 'hidden', 'redacted', 'warned', 'cleared'
+  reason: text("reason"),
+  notes: text("notes"), // Admin notes
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  messageIdIdx: index("message_moderation_message_id_idx").on(table.messageId),
+  moderatedByIdx: index("message_moderation_moderated_by_idx").on(table.moderatedBy),
+  actionIdx: index("message_moderation_action_idx").on(table.action),
+}));
+
+// =============================================================================
+// ADDITIONAL MESSAGING TABLES (Per architectural requirements)
+// =============================================================================
+
+// Conversation Preferences - Dedicated per-user conversation preferences
+export const conversationPreferences = pgTable("conversation_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  notificationsEnabled: boolean("notifications_enabled").default(true).notNull(),
+  soundEnabled: boolean("sound_enabled").default(true).notNull(),
+  previewEnabled: boolean("preview_enabled").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userConversationIdx: uniqueIndex("conversation_preferences_user_conversation_idx").on(table.userId, table.conversationId),
+  userIdIdx: index("conversation_preferences_user_id_idx").on(table.userId),
+}));
+
+// Conversation Pins - Track pinned conversations per user
+export const conversationPins = pgTable("conversation_pins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  pinnedAt: timestamp("pinned_at").defaultNow().notNull(),
+  displayOrder: integer("display_order").default(0), // For custom pin ordering
+}, (table) => ({
+  userConversationIdx: uniqueIndex("conversation_pins_user_conversation_idx").on(table.userId, table.conversationId),
+  userOrderIdx: index("conversation_pins_user_order_idx").on(table.userId, table.displayOrder),
+}));
+
+// File Versions - Dedicated file version history ledger
+export const fileVersions = pgTable("file_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  originalFileId: varchar("original_file_id").notNull().references(() => messageFiles.id, { onDelete: "cascade" }),
+  versionFileId: varchar("version_file_id").notNull().references(() => messageFiles.id, { onDelete: "cascade" }),
+  versionNumber: integer("version_number").notNull(),
+  changeDescription: text("change_description"),
+  uploadedBy: varchar("uploaded_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  originalFileIdx: index("file_versions_original_file_idx").on(table.originalFileId),
+  versionFileIdx: index("file_versions_version_file_idx").on(table.versionFileId),
+  originalVersionIdx: index("file_versions_original_version_idx").on(table.originalFileId, table.versionNumber),
+}));
+
+// =============================================================================
 // ZOD SCHEMAS & TYPES
 // =============================================================================
 
@@ -840,19 +1102,6 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
 
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Project = typeof projects.$inferSelect;
-
-// Messages
-export const insertMessageSchema = createInsertSchema(messages).omit({
-  id: true,
-  read: true,
-  readAt: true,
-  createdAt: true,
-}).extend({
-  content: z.string().min(1, "Message cannot be empty"),
-});
-
-export type InsertMessage = z.infer<typeof insertMessageSchema>;
-export type Message = typeof messages.$inferSelect;
 
 // Payments
 export const insertPaymentSchema = createInsertSchema(payments).omit({
@@ -1112,3 +1361,182 @@ export const insertHomePageSectionSchema = createInsertSchema(homePageSections).
 
 export type InsertHomePageSection = z.infer<typeof insertHomePageSectionSchema>;
 export type HomePageSection = typeof homePageSections.$inferSelect;
+
+// =============================================================================
+// MESSAGING & COLLABORATION SCHEMAS
+// =============================================================================
+
+// Conversations
+export const conversationTypeEnum = z.enum(['direct', 'group']);
+export const CONVERSATION_TYPES = conversationTypeEnum.options;
+
+export const insertConversationSchema = createInsertSchema(conversations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastMessageAt: true,
+}).extend({
+  type: conversationTypeEnum.default('direct'),
+  archived: z.boolean().optional(),
+});
+
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+export type Conversation = typeof conversations.$inferSelect;
+
+// Conversation Participants
+export const participantRoleEnum = z.enum(['participant', 'admin']);
+
+export const insertConversationParticipantSchema = createInsertSchema(conversationParticipants).omit({
+  id: true,
+  createdAt: true,
+  joinedAt: true,
+  lastReadAt: true,
+  unreadCount: true,
+}).extend({
+  role: participantRoleEnum.optional(),
+  muted: z.boolean().optional(),
+  pinned: z.boolean().optional(),
+});
+
+export type InsertConversationParticipant = z.infer<typeof insertConversationParticipantSchema>;
+export type ConversationParticipant = typeof conversationParticipants.$inferSelect;
+
+// Messages
+export const messageTypeEnum = z.enum(['text', 'file', 'meeting', 'system']);
+export const MESSAGE_TYPES = messageTypeEnum.options;
+
+export const insertMessageSchema = createInsertSchema(messages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  edited: true,
+  editedAt: true,
+  deleted: true,
+  deletedAt: true,
+}).extend({
+  content: z.string().min(1, "Message content is required"),
+  messageType: messageTypeEnum.default('text'),
+});
+
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type Message = typeof messages.$inferSelect;
+
+// Message Receipts
+export const insertMessageReceiptSchema = createInsertSchema(messageReceipts).omit({
+  id: true,
+  createdAt: true,
+  deliveredAt: true,
+  readAt: true,
+});
+
+export type InsertMessageReceipt = z.infer<typeof insertMessageReceiptSchema>;
+export type MessageReceipt = typeof messageReceipts.$inferSelect;
+
+// Message Templates
+export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  usageCount: true,
+}).extend({
+  title: z.string().min(1, "Template title is required"),
+  content: z.string().min(1, "Template content is required"),
+});
+
+export type InsertMessageTemplate = z.infer<typeof insertMessageTemplateSchema>;
+export type MessageTemplate = typeof messageTemplates.$inferSelect;
+
+// Message Files
+export const fileScanStatusEnum = z.enum(['pending', 'clean', 'infected']);
+
+export const insertMessageFileSchema = createInsertSchema(messageFiles).omit({
+  id: true,
+  createdAt: true,
+  versionNumber: true,
+  scanStatus: true,
+}).extend({
+  fileName: z.string().min(1, "File name is required"),
+  fileSize: z.number().int().positive("File size must be positive"),
+  mimeType: z.string().min(1, "MIME type is required"),
+  fileUrl: z.string().url("Valid file URL is required"),
+});
+
+export type InsertMessageFile = z.infer<typeof insertMessageFileSchema>;
+export type MessageFile = typeof messageFiles.$inferSelect;
+
+// Meeting Links
+export const meetingTypeEnum = z.enum(['google_meet', 'zoom', 'teams', 'other']);
+export const meetingStatusEnum = z.enum(['scheduled', 'completed', 'cancelled']);
+export const MEETING_TYPES = meetingTypeEnum.options;
+export const MEETING_STATUSES = meetingStatusEnum.options;
+
+export const insertMeetingLinkSchema = createInsertSchema(meetingLinks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  title: z.string().min(1, "Meeting title is required"),
+  scheduledAt: z.date().or(z.string()),
+  meetingType: meetingTypeEnum,
+  meetingUrl: z.string().url("Valid meeting URL is required"),
+  status: meetingStatusEnum.default('scheduled'),
+});
+
+export type InsertMeetingLink = z.infer<typeof insertMeetingLinkSchema>;
+export type MeetingLink = typeof meetingLinks.$inferSelect;
+
+// Meeting Participants
+export const meetingResponseStatusEnum = z.enum(['pending', 'accepted', 'declined', 'tentative']);
+
+export const insertMeetingParticipantSchema = createInsertSchema(meetingParticipants).omit({
+  id: true,
+  createdAt: true,
+  joinedAt: true,
+}).extend({
+  responseStatus: meetingResponseStatusEnum.optional(),
+});
+
+export type InsertMeetingParticipant = z.infer<typeof insertMeetingParticipantSchema>;
+export type MeetingParticipant = typeof meetingParticipants.$inferSelect;
+
+// Meeting Reminders
+export const reminderTypeEnum = z.enum(['1_hour', '15_min', '1_day', 'custom']);
+
+export const insertMeetingReminderSchema = createInsertSchema(meetingReminders).omit({
+  id: true,
+  createdAt: true,
+  sent: true,
+  sentAt: true,
+}).extend({
+  reminderType: reminderTypeEnum,
+  reminderTime: z.date().or(z.string()),
+});
+
+export type InsertMeetingReminder = z.infer<typeof insertMeetingReminderSchema>;
+export type MeetingReminder = typeof meetingReminders.$inferSelect;
+
+// Conversation Labels
+export const insertConversationLabelSchema = createInsertSchema(conversationLabels).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  label: z.string().min(1, "Label is required"),
+});
+
+export type InsertConversationLabel = z.infer<typeof insertConversationLabelSchema>;
+export type ConversationLabel = typeof conversationLabels.$inferSelect;
+
+// Message Moderation
+export const moderationActionEnum = z.enum(['flagged', 'hidden', 'redacted', 'warned', 'cleared']);
+export const MODERATION_ACTIONS = moderationActionEnum.options;
+
+export const insertMessageModerationSchema = createInsertSchema(messageModeration).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  action: moderationActionEnum,
+  reason: z.string().optional(),
+});
+
+export type InsertMessageModeration = z.infer<typeof insertMessageModerationSchema>;
+export type MessageModeration = typeof messageModeration.$inferSelect;
