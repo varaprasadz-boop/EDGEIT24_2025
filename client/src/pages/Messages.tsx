@@ -23,6 +23,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { NewConversationDialog } from "@/components/NewConversationDialog";
 import { FileUpload } from "@/components/FileUpload";
+import { MeetingScheduler } from "@/components/MeetingScheduler";
+import { MeetingCard } from "@/components/MeetingCard";
 import {
   Dialog,
   DialogContent,
@@ -31,8 +33,30 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { FileIcon, Download } from "lucide-react";
+import { Calendar, FileIcon, Download } from "lucide-react";
 import type { WsMessage } from "@shared/schema";
+
+type MeetingLink = {
+  id: string;
+  conversationId: string;
+  createdBy: string;
+  title: string;
+  description: string | null;
+  scheduledAt: Date;
+  duration: number | null;
+  meetingType: string;
+  meetingUrl: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type MeetingParticipant = {
+  id: string;
+  meetingId: string;
+  userId: string;
+  responseStatus: string;
+};
 
 type MessageFile = {
   id: string;
@@ -145,6 +169,38 @@ export default function Messages() {
       return filesMap;
     },
     enabled: !!selectedConversationId && messageIds.length > 0,
+  });
+
+  // Fetch meetings for the conversation
+  const { data: meetings = [] } = useQuery<MeetingLink[]>({
+    queryKey: ["/api/conversations", selectedConversationId, "meetings"],
+    enabled: !!selectedConversationId,
+  });
+
+  // Fetch meeting participants for all meetings
+  const { data: meetingParticipantsMap = {} } = useQuery<Record<string, MeetingParticipant[]>>({
+    queryKey: ["/api/conversations", selectedConversationId, "meeting-participants"],
+    queryFn: async () => {
+      if (!meetings || meetings.length === 0) return {};
+      
+      const participantsPromises = meetings.map(async (meeting) => {
+        const response = await fetch(`/api/meetings/${meeting.id}/participants`, {
+          credentials: "include",
+        });
+        if (!response.ok) return { meetingId: meeting.id, participants: [] };
+        const participants = await response.json();
+        return { meetingId: meeting.id, participants };
+      });
+      
+      const results = await Promise.all(participantsPromises);
+      const participantsMap: Record<string, MeetingParticipant[]> = {};
+      results.forEach(({ meetingId, participants }) => {
+        participantsMap[meetingId] = participants;
+      });
+      
+      return participantsMap;
+    },
+    enabled: !!selectedConversationId && meetings.length > 0,
   });
 
   // WebSocket state
@@ -349,6 +405,72 @@ export default function Messages() {
     },
   });
 
+  const createMeetingMutation = useMutation({
+    mutationFn: async (data: {
+      conversationId: string;
+      title: string;
+      description?: string;
+      scheduledAt: string;
+      duration?: number;
+      meetingType: string;
+      meetingUrl: string;
+    }) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/conversations/${data.conversationId}/meetings`,
+        data
+      );
+      return await response.json();
+    },
+    onSuccess: async (_data, variables) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/conversations", variables.conversationId, "meetings"],
+      });
+      toast({
+        title: "Meeting scheduled",
+        description: "Meeting has been scheduled successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to schedule meeting",
+        description: error.message || "An error occurred while scheduling the meeting",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateRsvpMutation = useMutation({
+    mutationFn: async (data: {
+      meetingId: string;
+      participantId: string;
+      status: "accepted" | "declined" | "tentative";
+    }) => {
+      const response = await apiRequest(
+        "PATCH",
+        `/api/meetings/${data.meetingId}/participants/${data.participantId}`,
+        { responseStatus: data.status }
+      );
+      return await response.json();
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/conversations", selectedConversationId, "meeting-participants"],
+      });
+      toast({
+        title: "RSVP updated",
+        description: "Your response has been recorded",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to update RSVP",
+        description: error.message || "An error occurred while updating your response",
+        variant: "destructive",
+      });
+    },
+  });
+
   const filteredConversations = conversations?.filter((conv) =>
     (conv.title?.toLowerCase() ?? "").includes(searchQuery.toLowerCase())
   );
@@ -479,29 +601,83 @@ export default function Messages() {
                   </div>
                 </div>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      data-testid="button-conversation-menu"
-                    >
-                      <MoreVertical className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem data-testid="menu-view-details">
-                      View details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem data-testid="menu-archive">
-                      Archive conversation
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="flex items-center gap-2">
+                  <MeetingScheduler
+                    conversationId={selectedConversationId}
+                    onSchedule={async (data) => {
+                      await createMeetingMutation.mutateAsync({
+                        conversationId: selectedConversationId,
+                        ...data,
+                      });
+                    }}
+                    trigger={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        data-testid="button-schedule-meeting"
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Schedule Meeting
+                      </Button>
+                    }
+                  />
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        data-testid="button-conversation-menu"
+                      >
+                        <MoreVertical className="h-5 w-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem data-testid="menu-view-details">
+                        View details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem data-testid="menu-archive">
+                        Archive conversation
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
 
               {/* Messages */}
               <ScrollArea className="flex-1 p-4">
+                {/* Display Meetings */}
+                {meetings.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
+                      Scheduled Meetings
+                    </h3>
+                    <div className="space-y-3">
+                      {meetings.map((meeting) => (
+                        <MeetingCard
+                          key={meeting.id}
+                          meeting={meeting}
+                          currentUserId={user?.id || ""}
+                          participants={meetingParticipantsMap[meeting.id] || []}
+                          onRsvp={async (meetingId, status) => {
+                            const participant = meetingParticipantsMap[meetingId]?.find(
+                              (p) => p.userId === user?.id
+                            );
+                            if (participant) {
+                              await updateRsvpMutation.mutateAsync({
+                                meetingId,
+                                participantId: participant.id,
+                                status,
+                              });
+                            }
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <Separator className="my-4" />
+                  </div>
+                )}
+
                 {messagesLoading ? (
                   <div className="text-center text-muted-foreground">
                     Loading messages...
