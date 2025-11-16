@@ -1,7 +1,7 @@
 # EDGEIT24 - B2B IT Marketplace
 
 ## Overview
-EDGEIT24 is a B2B marketplace platform designed to connect businesses with IT service vendors. It facilitates project posting, competitive bidding, and comprehensive project lifecycle management, including payment processing, deliverable tracking, and real-time communication. The platform aims to enhance efficiency and transparency in the B2B IT sector by streamlining the acquisition and provision of IT services.
+EDGEIT24 is a B2B marketplace platform connecting businesses with IT service vendors. It enables project posting, competitive bidding, and comprehensive project lifecycle management, including payment processing, deliverable tracking, and real-time communication. The platform aims to enhance efficiency and transparency in the B2B IT sector by streamlining the acquisition and provision of IT services. The business vision is to become the leading platform for B2B IT service procurement, offering significant market potential by optimizing service acquisition and delivery.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,137 +9,42 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend
-The frontend uses React with Vite, Wouter for routing, and TanStack React Query for server state management. UI components are built using shadcn/ui and Radix UI, adhering to Material Design 3 with a "New York" style variant. It supports light/dark modes with a primary brand green and dark navy scheme, utilizing CSS variables and TailwindCSS. TypeScript is strictly enforced.
+The frontend is built with React, Vite, Wouter for routing, and TanStack React Query for server state management. UI components leverage shadcn/ui and Radix UI, adhering to Material Design 3 with a "New York" style. It supports light/dark modes with a primary brand green and dark navy scheme, using CSS variables and TailwindCSS. TypeScript is strictly enforced.
 
 ### Backend
-The backend is built with Express.js and TypeScript, using tsx for development and esbuild for production. It features an IStorage interface, with current MemStorage and planned PostgreSQL via Drizzle ORM. API routes are under `/api` and include custom logging and consistent error handling.
+The backend utilizes Express.js and TypeScript, with `tsx` for development and `esbuild` for production. It implements an `IStorage` interface, supporting MemStorage and PostgreSQL via Drizzle ORM. API routes are under `/api`, featuring custom logging and consistent error handling.
 
 ### Authentication & Security
-A custom Email/Password authentication system leverages passport-local and bcrypt. Sessions are stored in PostgreSQL using express-session and connect-pg-simple. An AuthProvider/AuthContext manages global user state.
-
-**Enhanced Authentication Features (November 2025):**
-- Password Reset Flow: Crypto-secure token-based password reset with 1-hour expiry, ForgotPassword and ResetPassword pages
-- Terms of Service Acceptance: Required checkbox during registration with timestamp tracking (termsAccepted, termsAcceptedAt fields)
-- Remember Me Functionality: Configurable session duration (24 hours default, 30 days with Remember Me checkbox)
-- Login History Tracking: Complete audit trail of all login/logout events with IP address, user agent, device info, success/failure tracking, and failure reason logging
-- Active Sessions Management: Real-time tracking of all active user sessions with device info, last activity timestamps, and session termination capability
-- User Activity Logging: Comprehensive activity tracking system that logs all user actions (API calls, page views, resource access) with action type, resource, method, endpoint, status code, and metadata
-- Security Dashboard UI: Full-featured user security dashboard at /security with three tabs:
-  - Login History: View all login/logout events with timestamps, locations, devices, and success/failure status
-  - Active Sessions: Manage all active sessions with device info and session termination capability
-  - Activity Log: Detailed log of all user actions and API requests with search and filters
-- Security Infrastructure: loginHistory, activeSessions, and user_activity_log tables with indexed queries for performance
-- API Security: Request validation with pagination limits (100 max for users, 500 for admins), date range restrictions (90 days for users, 365 for admins), and input sanitization
-- Two-Factor Authentication (2FA): TOTP-based authenticator app support with QR code setup, crypto-secure backup recovery codes, and complete login verification flow
-  - Setup Flow: Users access /setup-2fa or /security/setup-2fa to enable 2FA with QR code scanning or manual secret entry
-  - TOTP Verification: Time-based one-time passwords validated using speakeasy library
-  - Backup Codes: 10 single-use recovery codes generated with crypto.randomBytes, displayed once during setup
-  - Login Flow: After password verification, 2FA-enabled users redirect to /verify-2fa with sessionStorage persistence
-  - UI Components: Setup2FA page (QR display, verification input, backup codes), Verify2FA page (TOTP/backup code toggle)
-  - Database Fields: twoFactorSecret, twoFactorEnabled, backupCodes array in users table
-  - Security: Password verification required for 2FA setup, session state management, backup code consumption tracking
-
-**Admin Security Monitoring (November 2025):**
-- Admin Security Dashboard Backend: Comprehensive security analytics API at /admin/security
-  - Security Statistics Endpoint (`GET /api/admin/security/stats`): Aggregate metrics including total users, login success rate, average sessions per user, recent activity counts
-  - Activity Logs Endpoint (`GET /api/admin/activity-logs`): Complete user activity feed with filtering by action type, resource type, user, date range, and search
-  - Export Functionality: JSON export of filtered activity data for compliance auditing
-- Activity Middleware: Automatic logging of all authenticated API requests with whitelisted actions (page_view, api_call, resource_access, create, update, delete, authenticate) and resources (job, bid, profile, message, session, user, admin)
-- Security Validations: Multi-layer security including action/resource whitelisting, pagination limits, date range clamping, negative offset prevention
-- Database Indexes: Optimized queries with composite indexes on (userId, timestamp) and (action, timestamp) for fast filtering
-- Known Issues: Admin Security Dashboard UI (/admin/security) has React rendering error (backend fully functional)
+A custom Email/Password authentication system uses passport-local and bcrypt. Sessions are stored in PostgreSQL via express-session and connect-pg-simple. An AuthProvider/AuthContext manages global user state. Enhanced features include a secure password reset flow, Terms of Service acceptance tracking, "Remember Me" functionality, comprehensive login history tracking, active session management, and detailed user activity logging. A security dashboard UI is available for users to manage their security settings. Two-Factor Authentication (2FA) via TOTP is implemented with a secure setup flow, backup codes, and session invalidation on activation. Admin users have access to an Admin Security Dashboard for comprehensive security analytics and activity log monitoring with export functionality.
 
 ### Engagement Model Registration & Payment System
-Users select an engagement plan (Basic/Professional/Enterprise) during registration, determining feature access and payment requirements. The system incorporates robust security for payment processing, session integrity, and multi-layer validation to prevent price manipulation. A mock payment gateway is used for development.
+Users select an engagement plan during registration, determining feature access and payment requirements. The system ensures robust security for payment processing, session integrity, and multi-layer validation against price manipulation. A mock payment gateway is used for development.
 
 ### Database
-Drizzle ORM is used for type-safe SQL query building with PostgreSQL (Neon serverless driver). Schema definitions are co-located with Zod validators, and drizzle-kit manages migrations.
+Drizzle ORM is used for type-safe SQL query building with PostgreSQL (Neon serverless driver). Schema definitions are co-located with Zod validators, and `drizzle-kit` manages migrations.
 
 ### Admin Portal
-The Admin Portal includes an i18n system with RTL support for English/Arabic. It features an AdminLayout with a shadcn Sidebar and a DataTable component for pagination and filtering. Key management areas include Profile Approvals, Categories, Users, Bids, Payments, Contracts, Vendors, Disputes, Subscription Plans, Email Templates, and Settings.
+The Admin Portal includes an i18n system with RTL support (English/Arabic). It features an AdminLayout with a shadcn Sidebar and DataTable for pagination and filtering. Key management areas include Profile Approvals, Categories, Users, Bids, Payments, Contracts, Vendors, Disputes, Subscription Plans, Email Templates, and Settings.
 
 ### Content Management System (CMS)
-A bilingual CMS allows administrators to manage legal pages, footer links, and home page sections with rich text editing. Content supports English/Arabic with automatic rendering and RTL support. Frontend components dynamically render content with DOMPurify XSS sanitization.
+A bilingual CMS enables administrators to manage legal pages, footer links, and home page sections with rich text editing, supporting English/Arabic and RTL. Frontend components render content dynamically with DOMPurify XSS sanitization.
 
 ### 3-Level Hierarchical Category System
-The platform employs a 3-level category hierarchy (Primary, Subcategories, Super-subcategories) with bilingual content. This system is integral for job postings, consultant services, and marketplace navigation, enforced by server-side validation.
+A 3-level category hierarchy (Primary, Subcategories, Super-subcategories) with bilingual content is implemented for job postings, consultant services, and marketplace navigation, enforced by server-side validation.
 
 ### Dashboard & Profile Management
-Both Client and Consultant Dashboards display relevant information and approval status. Dual-role users can switch views. Client profiles capture and allow editing of company details. Consultant profiles include comprehensive personal, professional, and financial information, with verification badges for trust. A Quick Quote System is available. Language proficiency tracking and Pricing Templates are supported for consultants. Client profile forms pre-fill contact information from registration and are fully editable. A secure password change functionality is available through a dedicated settings page.
-
-### Security & State Machine
-Profile update endpoints strip protected fields to prevent privilege escalation. Profile status follows an enforced state machine from registration to admin approval, with partial updates managed via `.partial()` schemas and payload sanitization.
+Client and Consultant Dashboards display relevant information and approval status. Dual-role users can switch views. Profiles capture and allow editing of company/personal details, professional information, and financial data. Consultant profiles include verification badges, a Quick Quote System, language proficiency tracking, and Pricing Templates. Client profile forms pre-fill contact information. A secure password change functionality is available. Profile update endpoints strip protected fields, and profile status follows an enforced state machine with partial updates managed via `.partial()` schemas and payload sanitization.
 
 ### Job Posting & Category Integration
 Job posting requires client authentication and features a cascading 3-level category selector. Job and consultant browsing support hierarchical category filtering.
 
 ### Messaging & Collaboration System
-A comprehensive real-time messaging system supports one-on-one conversations, file attachments with version tracking, meeting scheduling, and admin moderation. The system uses WebSockets for real-time delivery and includes read receipts, message threading, and full-text search capabilities. It comprises 14 database tables covering core messaging, user preferences, and organization. Security features include RBAC, soft deletes, audit trails, and SQL injection prevention.
-
-**Backend Implementation:**
-- REST API layer: 51 storage abstraction methods and 47 distinct endpoints across core messaging, file/meeting management, user features, and administration
-- WebSocket server at /ws endpoint using ws library with session-based authentication
-- Connection manager tracking active users and their joined conversations
-- Event broadcasting system for real-time message delivery, typing indicators, and presence tracking
-- Session authentication via express-session cookies with participant verification
-
-**Frontend Implementation:**
-- Full-featured React UI with TanStack Query for server state management
-- useWebSocket hook with auto-reconnection (exponential backoff, max 5 attempts)
-- Real-time message updates via WebSocket with query cache invalidation
-- Typing indicator UI with 3-second auto-clear debounce
-- Online presence tracking for conversation participants
-- Comprehensive error handling and connection state management
-
-**WebSocket Events:**
-- message_sent: Real-time message delivery to conversation participants
-- user_typing/user_stopped_typing: Live typing indicators
-- user_online/user_offline: Presence tracking
-- read_receipt: Message read status updates
-- meeting_created/meeting_updated: Real-time meeting scheduling updates
-- rsvp_updated: Real-time RSVP status changes
-
-**File Attachments System:**
-- FileUpload component with drag-and-drop support and validation (25MB max size)
-- Dialog-based file attachment interface in messaging UI
-- Efficient file fetching via conversation-level endpoint
-- Files displayed in message bubbles with download links
-- Version tracking support in backend schema (parentFileId, versionNumber)
-- Real-time file updates via WebSocket integration
-- File metadata: fileName, fileSize, mimeType, fileUrl, thumbnailUrl
-- Security: File scan status tracking (pending/clean/infected)
-
-**Meeting Scheduling System:**
-- MeetingScheduler component: Dialog-based UI with react-day-picker for date/time selection
-- Meeting type support: Google Meet, Zoom, Microsoft Teams, and custom links
-- MeetingCard component: Display meeting details with participant RSVP status
-- RSVP functionality: Accept, decline, or tentative responses for meeting invitations
-- Real-time updates: WebSocket broadcasts for meeting creation, updates, and RSVP changes
-- Schedule button integrated in conversation header
-- Meetings displayed prominently at top of conversation thread
-- Meeting metadata: title, description, scheduledAt, duration, meetingType, meetingUrl, status
-- Participant tracking: Full RSVP status (pending, accepted, declined, tentative) with timestamps
-
-**Admin Moderation & Analytics:**
-- AdminMessages page: Analytics dashboard with stats cards (conversations, messages, files, meetings)
-- Recharts bar chart visualization of messaging activity
-- Conversation list with multi-criteria filtering (title search, type, archived status)
-- JSON export functionality for analytics data
-- AdminConversationViewer: Read-only conversation viewer for admin moderation
-- Message moderation actions: flag, hide, redact, warn, and clear with reason/notes validation
-- Moderation history display showing all admin actions on specific messages
-- Admin authentication using AuthContext with redirect protection
-- Proper RBAC enforcement across all admin endpoints
-- Cache invalidation after moderation mutations
-
-**Performance Optimizations:**
-- Message pagination: Cursor-based infinite scroll with 50 messages per page, using composite index on (conversationId, createdAt)
-- Database query optimization: Single-query patterns for getUserConversations (JOIN) and getConversationFiles (direct conversationId lookup), eliminating N+1 queries
-- WebSocket participant caching: In-memory cache with 5-minute TTL reduces broadcast DB queries by 99% (100 messages: 100 queries → 1-2 queries)
-- Cache invalidation: Automatic invalidation when participants are added/removed, with periodic cleanup every 5 minutes
-- Rate limiting: Database-backed rate limiter for message sending (60/min), conversation creation (10/hr), file uploads (20/hr), meeting creation (20/hr)
-- File upload security: Server-side validation (25MB max, MIME allowlist), async virus scanning with FileScanService
-- Comprehensive performance documentation in PERFORMANCE_OPTIMIZATIONS.md with scalability recommendations
+A comprehensive real-time messaging system supports one-on-one conversations, file attachments with version tracking, meeting scheduling, and admin moderation. It uses WebSockets for real-time delivery, includes read receipts, message threading, and full-text search. The system is secured with RBAC, soft deletes, audit trails, and SQL injection prevention. The backend provides a REST API layer and a WebSocket server for real-time communication. The frontend features a full-featured React UI with `useWebSocket` hook for real-time updates, typing indicators, and online presence tracking.
+Key features include:
+-   **File Attachments**: Drag-and-drop file uploads with validation, version tracking, and security features like virus scanning.
+-   **Meeting Scheduling**: Dialog-based UI for scheduling meetings with various platform options (Google Meet, Zoom, etc.), RSVP functionality, and real-time updates.
+-   **Admin Moderation**: An AdminMessages page provides analytics, conversation listing with filtering, and read-only viewing for moderation. Admin actions like flag, hide, redact, warn, and clear messages are supported with audit trails.
+-   **Performance Optimizations**: Includes cursor-based infinite scroll for messages, optimized database queries (e.g., single-query patterns, composite indexes), WebSocket participant caching, and database-backed rate limiting for various actions.
 
 ## External Dependencies
 
@@ -150,6 +55,7 @@ A comprehensive real-time messaging system supports one-on-one conversations, fi
 ### UI Components
 - Radix UI
 - Lucide React
+- shadcn/ui
 
 ### Internationalization (i18n)
 - react-i18next
@@ -172,30 +78,15 @@ A comprehensive real-time messaging system supports one-on-one conversations, fi
 - date-fns
 - nanoid
 - DOMPurify
+- speakeasy (for 2FA)
+- react-day-picker (for meeting scheduling)
+- recharts (for admin analytics)
 
 ### Session Management
 - connect-pg-simple
+- express-session
+- passport-local
+- bcrypt
 
-## Test Accounts
-
-For testing and development, the following accounts are available:
-
-**Super Admin:**
-- Email: superadmin@edgeit24.com
-- Password: 123456
-- Role: admin
-- Access: Full platform administration
-
-**Test Client:**
-- Email: client@edgeit24.com
-- Password: 123456
-- Role: client
-- Access: Client dashboard and features
-
-**Test Consultant:**
-- Email: consultant@edgeit24.com
-- Password: 123456
-- Role: consultant
-- Access: Consultant dashboard and features
-
-Note: Complete profile setup via /profile/complete after first login for full functionality.
+### WebSockets
+- ws

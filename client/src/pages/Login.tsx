@@ -49,6 +49,10 @@ export default function Login() {
         rememberMe,
       });
 
+      if (!response) {
+        throw new Error("No response from server");
+      }
+
       if (response.ok) {
         const data = await response.json();
         
@@ -58,6 +62,7 @@ export default function Login() {
             userId: data.userId,
             rememberMe
           }));
+          setIsSubmitting(false);
           setLocation('/verify-2fa');
           return;
         }
@@ -76,15 +81,15 @@ export default function Login() {
           title: "Login Failed",
           description: error.message || "Invalid email or password",
         });
+        setIsSubmitting(false);
       }
     } catch (error) {
       console.error("Login error:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Invalid email or password",
+        description: error instanceof Error ? error.message : "Invalid email or password",
       });
-    } finally {
       setIsSubmitting(false);
     }
   };

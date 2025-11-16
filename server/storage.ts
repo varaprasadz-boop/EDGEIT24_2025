@@ -716,8 +716,8 @@ export class DatabaseStorage implements IStorage {
       return false;
     }
 
-    const speakeasy = require('speakeasy');
-    return speakeasy.totp.verify({
+    const speakeasy = await import('speakeasy');
+    return speakeasy.default.totp.verify({
       secret: user.twoFactorSecret,
       encoding: 'base32',
       token,

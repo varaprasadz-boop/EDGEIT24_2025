@@ -753,6 +753,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Development-only TOTP generation endpoint for testing
+  if (process.env.NODE_ENV === 'development') {
+    app.post('/api/test/2fa/totp', isAuthenticated, async (req: any, res) => {
+      try {
+        const testAuthHeader = req.headers['x-test-auth'];
+        if (testAuthHeader !== 'test-2fa-automation') {
+          return res.status(403).json({ message: "Forbidden: Invalid test authorization" });
+        }
+
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+          return res.status(401).json({ message: "Authentication required" });
+        }
+
+        const user = await storage.getUser(userId);
+        if (!user || !user.twoFactorSecret) {
+          return res.status(400).json({ message: "2FA not setup for this user" });
+        }
+
+        const token = speakeasy.totp({
+          secret: user.twoFactorSecret,
+          encoding: 'base32',
+        });
+
+        console.log(`[TEST] Generated TOTP for user ${userId}: ${token}`);
+        
+        res.json({ token });
+      } catch (error) {
+        console.error("Error generating test TOTP:", error);
+        res.status(500).json({ message: "Failed to generate test TOTP" });
+      }
+    });
+  }
+  
   // Change password route
   app.post('/api/auth/change-password', isAuthenticated, async (req: any, res) => {
     try {
