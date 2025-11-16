@@ -4930,6 +4930,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const meeting = await storage.createMeeting(validatedData);
+      
+      // Broadcast new meeting to conversation participants
+      await wsManager.broadcastNewMeeting(req.params.conversationId, meeting);
+      
       res.status(201).json(meeting);
     } catch (error: any) {
       console.error("Error creating meeting:", error);
@@ -5008,13 +5012,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify user is the creator or a conversation admin
       const participants = await storage.getConversationParticipants(meeting.conversationId);
       const userParticipant = participants.find(p => p.userId === userId);
-      const canUpdate = meeting.createdById === userId || userParticipant?.role === 'admin';
+      const canUpdate = meeting.createdBy === userId || userParticipant?.role === 'admin';
 
       if (!canUpdate) {
         return res.status(403).json({ message: "Only the meeting creator or conversation admins can update meetings" });
       }
 
       const updatedMeeting = await storage.updateMeeting(req.params.meetingId, req.body);
+      
+      // Broadcast meeting update to conversation participants
+      await wsManager.broadcastMeetingUpdate(meeting.conversationId, updatedMeeting);
+      
       res.json(updatedMeeting);
     } catch (error) {
       console.error("Error updating meeting:", error);
@@ -5107,6 +5115,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const participant = await storage.updateMeetingParticipant(req.params.participantId, req.body);
+      
+      // Broadcast RSVP update to conversation participants
+      await wsManager.broadcastRsvpUpdate(meeting.conversationId, req.params.meetingId, participant);
+      
       res.json(participant);
     } catch (error) {
       console.error("Error updating meeting participant:", error);

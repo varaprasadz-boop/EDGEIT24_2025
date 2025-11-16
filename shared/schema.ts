@@ -1601,6 +1601,9 @@ export const wsEventTypeEnum = z.enum([
   'user_offline',
   'conversation_updated',
   'read_receipt',
+  'meeting_created',
+  'meeting_updated',
+  'rsvp_updated',
   
   // Connection events
   'connected',

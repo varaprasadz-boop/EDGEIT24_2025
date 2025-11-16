@@ -294,6 +294,29 @@ export default function Messages() {
           });
         }
         break;
+
+      case "meeting_created":
+      case "meeting_updated":
+        // Invalidate meetings query to refetch
+        if (message.payload.conversationId) {
+          queryClient.invalidateQueries({
+            queryKey: ["/api/conversations", message.payload.conversationId, "meetings"],
+          });
+        }
+        break;
+
+      case "rsvp_updated":
+        // Invalidate meeting participants query to refetch
+        if (message.payload.conversationId && message.payload.meetingId) {
+          queryClient.invalidateQueries({
+            queryKey: ["/api/conversations", message.payload.conversationId, "meeting-participants"],
+          });
+          // Also invalidate meetings to update participant counts
+          queryClient.invalidateQueries({
+            queryKey: ["/api/conversations", message.payload.conversationId, "meetings"],
+          });
+        }
+        break;
     }
   }, [queryClient, selectedConversationId, typingTimeoutRef]);
 

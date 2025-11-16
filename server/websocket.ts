@@ -290,6 +290,33 @@ class WebSocketManager {
     });
   }
 
+  // Public method to broadcast new meetings
+  async broadcastNewMeeting(conversationId: string, meeting: any) {
+    await this.broadcastToConversation(conversationId, null, {
+      type: "meeting_created",
+      payload: { conversationId, meeting },
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  // Public method to broadcast meeting updates
+  async broadcastMeetingUpdate(conversationId: string, meeting: any) {
+    await this.broadcastToConversation(conversationId, null, {
+      type: "meeting_updated",
+      payload: { conversationId, meeting },
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  // Public method to broadcast RSVP updates
+  async broadcastRsvpUpdate(conversationId: string, meetingId: string, participant: any) {
+    await this.broadcastToConversation(conversationId, null, {
+      type: "rsvp_updated",
+      payload: { conversationId, meetingId, participant },
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   private async broadcastToConversation(
     conversationId: string,
     excludeUserId: string | null,
