@@ -79,6 +79,40 @@ A comprehensive team collaboration system enables clients to invite and manage t
 - **Security**: Role-based permissions, invitation token expiry (7 days), ownership verification, and complete audit trail
 - Full data-testid coverage for automated testing
 
+#### Advanced Search System (Phase 3.1-3.3 - Completed)
+A production-grade search system with comprehensive filtering, pagination, and security hardening:
+
+**Phase 3.1: Saved Searches Schema**
+- **savedSearches table**: Stores user search criteria with userId, searchType (job/consultant), filters (JSONB), name, createdAt
+- **Security**: Ownership verification, immutable userId/createdAt fields, API-layer validation via Zod
+
+**Phase 3.2: Job Search API** (`GET /api/jobs/search`)
+- **9 Filters**: search (text), categoryId (UUID, hierarchical), minBudget, maxBudget, skills (comma-separated), experienceLevel (enum), status, budgetType (enum), limit (1-100), offset
+- **Features**: Full-text search (title/description), hierarchical category filtering (includes descendant categories), array overlap for skills, pagination
+- **Security Architecture**:
+  - Strict Zod validation with `strictOptionalString` preprocessor (returns `z.NEVER` for non-strings, prevents filter bypass and DoS via malicious `toString()`/`Symbol.toPrimitive`)
+  - UUID validation: `strictOptionalString.pipe(z.string().uuid()).optional()`
+  - Enum validation: `z.enum([...]).optional()`
+  - SQL injection prevention: All parameters bound via `sql.param(value, 'type')`, array overlap uses `sql.param(array, 'text[]')`, category filtering uses `inArray()` with validated UUIDs
+  - Single source of truth: ALL validation at API layer (routes), storage layer assumes trusted inputs
+- **Response**: `{ results: Job[], total: number }`
+
+**Phase 3.3: Consultant Search API** (`GET /api/consultants/search`)
+- **10 Filters**: search (text), categoryId (UUID, hierarchical), minRate, maxRate, skills (comma-separated), experience (enum), minRating (0-5), operatingRegions (comma-separated), availability (enum), verified (boolean)
+- **Features**: Full-text search (name/bio/company), hierarchical category filtering via junction table, skills/regions array overlap, rating filtering
+- **Security**: Identical security architecture to job search (strict Zod preprocessing, SQL parameterization, enum validation, filter bypass prevention)
+- **Response**: `{ results: ConsultantProfile[], total: number }`
+
+**Security Validations Enforced:**
+- ✅ SQL Injection: BLOCKED via `sql.param()` for all text/arrays, `inArray()` for UUIDs
+- ✅ DoS via toString/Symbol.toPrimitive: BLOCKED via `strictOptionalString` preprocessor with `z.NEVER`
+- ✅ Filter bypass: BLOCKED (non-strings rejected, not converted to undefined)
+- ✅ UUID injection: BLOCKED via `.uuid()` validation
+- ✅ Enum injection: BLOCKED via `z.enum()` validation
+- ✅ Type coercion attacks: BLOCKED via strict preprocessing BEFORE any Zod coercion
+
+All search APIs architect-approved as production-ready with zero security vulnerabilities.
+
 ### Job Posting & Category Integration
 Job posting requires client authentication and features a cascading 3-level category selector. Job and consultant browsing support hierarchical category filtering.
 

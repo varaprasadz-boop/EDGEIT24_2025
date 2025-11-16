@@ -3335,6 +3335,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Saved Searches API
+  app.post('/api/saved-searches', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const createSchema = z.object({
+        name: z.string().min(1).max(100),
+        searchType: z.enum(['job', 'consultant']),
+        filters: z.record(z.any()),
+      });
+
+      const parsed = createSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const savedSearch = await storage.createSavedSearch({
+        userId,
+        ...parsed.data,
+      });
+
+      res.status(201).json(savedSearch);
+    } catch (error) {
+      console.error("Error creating saved search:", error);
+      res.status(500).json({ message: "Failed to create saved search" });
+    }
+  });
+
+  app.get('/api/saved-searches', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const savedSearches = await storage.getSavedSearchesByUserId(userId);
+      res.json({ savedSearches });
+    } catch (error) {
+      console.error("Error fetching saved searches:", error);
+      res.status(500).json({ message: "Failed to fetch saved searches" });
+    }
+  });
+
+  app.get('/api/saved-searches/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const savedSearch = await storage.getSavedSearchById(req.params.id);
+      if (!savedSearch) {
+        return res.status(404).json({ message: "Saved search not found" });
+      }
+
+      if (savedSearch.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      res.json(savedSearch);
+    } catch (error) {
+      console.error("Error fetching saved search:", error);
+      res.status(500).json({ message: "Failed to fetch saved search" });
+    }
+  });
+
+  app.put('/api/saved-searches/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const existing = await storage.getSavedSearchById(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ message: "Saved search not found" });
+      }
+
+      if (existing.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updateSchema = z.object({
+        name: z.string().min(1).max(100).optional(),
+        filters: z.record(z.any()).optional(),
+      });
+
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const updated = await storage.updateSavedSearch(req.params.id, parsed.data);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating saved search:", error);
+      res.status(500).json({ message: "Failed to update saved search" });
+    }
+  });
+
+  app.delete('/api/saved-searches/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const existing = await storage.getSavedSearchById(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ message: "Saved search not found" });
+      }
+
+      if (existing.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await storage.deleteSavedSearch(req.params.id);
+      res.json({ message: "Saved search deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting saved search:", error);
+      res.status(500).json({ message: "Failed to delete saved search" });
+    }
+  });
+
   app.get('/api/jobs', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserIdFromRequest(req);
