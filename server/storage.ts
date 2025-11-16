@@ -19,6 +19,20 @@ import {
   userSubscriptions,
   paymentSessions,
   subscriptionPlans,
+  conversations,
+  conversationParticipants,
+  messages,
+  messageReceipts,
+  messageTemplates,
+  messageFiles,
+  meetingLinks,
+  meetingParticipants,
+  meetingReminders,
+  conversationLabels,
+  messageModeration,
+  conversationPreferences,
+  conversationPins,
+  fileVersions,
   type User,
   type InsertUser,
   type UpsertUser,
@@ -48,6 +62,34 @@ import {
   type UserSubscription,
   type PaymentSession,
   type SubscriptionPlan,
+  type Conversation,
+  type InsertConversation,
+  type ConversationParticipant,
+  type InsertConversationParticipant,
+  type Message,
+  type InsertMessage,
+  type MessageReceipt,
+  type InsertMessageReceipt,
+  type MessageTemplate,
+  type InsertMessageTemplate,
+  type MessageFile,
+  type InsertMessageFile,
+  type MeetingLink,
+  type InsertMeetingLink,
+  type MeetingParticipant,
+  type InsertMeetingParticipant,
+  type MeetingReminder,
+  type InsertMeetingReminder,
+  type ConversationLabel,
+  type InsertConversationLabel,
+  type MessageModeration,
+  type InsertMessageModeration,
+  type ConversationPreference,
+  type InsertConversationPreference,
+  type ConversationPin,
+  type InsertConversationPin,
+  type FileVersion,
+  type InsertFileVersion,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, sql, desc, inArray } from "drizzle-orm";
@@ -173,6 +215,89 @@ export interface IStorage {
   // Subscription Plan operations
   getSubscriptionPlanById(planId: string): Promise<SubscriptionPlan | undefined>;
   getSubscriptionPlanByName(name: string): Promise<SubscriptionPlan | undefined>;
+  
+  // =============================================================================
+  // MESSAGING & COLLABORATION OPERATIONS
+  // =============================================================================
+  
+  // Conversation operations
+  createConversation(conversation: InsertConversation): Promise<Conversation>;
+  getConversation(id: string): Promise<Conversation | undefined>;
+  getUserConversations(userId: string, options?: { archived?: boolean; limit?: number }): Promise<Conversation[]>;
+  updateConversation(id: string, data: Partial<InsertConversation>): Promise<Conversation>;
+  archiveConversation(id: string, userId: string): Promise<Conversation>;
+  
+  // Conversation Participant operations
+  addParticipant(participant: InsertConversationParticipant): Promise<ConversationParticipant>;
+  getConversationParticipants(conversationId: string): Promise<ConversationParticipant[]>;
+  updateParticipant(id: string, data: Partial<InsertConversationParticipant>): Promise<ConversationParticipant>;
+  removeParticipant(conversationId: string, userId: string): Promise<void>;
+  updateLastReadAt(conversationId: string, userId: string): Promise<void>;
+  
+  // Message operations
+  createMessage(message: InsertMessage): Promise<Message>;
+  getMessage(id: string): Promise<Message | undefined>;
+  getConversationMessages(conversationId: string, options?: { limit?: number; offset?: number; beforeMessageId?: string }): Promise<Message[]>;
+  updateMessage(id: string, data: Partial<InsertMessage>): Promise<Message>;
+  deleteMessage(id: string, userId: string): Promise<void>; // Soft delete
+  searchMessages(userId: string, query: string, options?: { conversationId?: string; limit?: number }): Promise<Message[]>;
+  
+  // Message Receipt operations
+  createMessageReceipt(receipt: InsertMessageReceipt): Promise<MessageReceipt>;
+  markMessageDelivered(messageId: string, userId: string): Promise<void>;
+  markMessageRead(messageId: string, userId: string): Promise<void>;
+  getUnreadCount(conversationId: string, userId: string): Promise<number>;
+  
+  // Message Template operations
+  createMessageTemplate(template: InsertMessageTemplate): Promise<MessageTemplate>;
+  getUserMessageTemplates(userId: string): Promise<MessageTemplate[]>;
+  updateMessageTemplate(id: string, data: Partial<InsertMessageTemplate>): Promise<MessageTemplate>;
+  deleteMessageTemplate(id: string): Promise<void>;
+  incrementTemplateUsage(id: string): Promise<void>;
+  
+  // Message File operations
+  createMessageFile(file: InsertMessageFile): Promise<MessageFile>;
+  getMessageFiles(messageId: string): Promise<MessageFile[]>;
+  getConversationFiles(conversationId: string, options?: { limit?: number }): Promise<MessageFile[]>;
+  updateMessageFile(id: string, data: Partial<InsertMessageFile>): Promise<MessageFile>;
+  
+  // File Version operations
+  createFileVersion(version: InsertFileVersion): Promise<FileVersion>;
+  getFileVersions(originalFileId: string): Promise<FileVersion[]>;
+  
+  // Meeting operations
+  createMeeting(meeting: InsertMeetingLink): Promise<MeetingLink>;
+  getMeeting(id: string): Promise<MeetingLink | undefined>;
+  getConversationMeetings(conversationId: string, options?: { upcoming?: boolean }): Promise<MeetingLink[]>;
+  updateMeeting(id: string, data: Partial<InsertMeetingLink>): Promise<MeetingLink>;
+  
+  // Meeting Participant operations
+  addMeetingParticipant(participant: InsertMeetingParticipant): Promise<MeetingParticipant>;
+  getMeetingParticipants(meetingId: string): Promise<MeetingParticipant[]>;
+  updateMeetingParticipant(id: string, data: Partial<InsertMeetingParticipant>): Promise<MeetingParticipant>;
+  
+  // Meeting Reminder operations
+  createMeetingReminder(reminder: InsertMeetingReminder): Promise<MeetingReminder>;
+  getPendingReminders(): Promise<MeetingReminder[]>;
+  markReminderSent(id: string): Promise<void>;
+  
+  // Conversation Label operations
+  addConversationLabel(label: InsertConversationLabel): Promise<ConversationLabel>;
+  getConversationLabels(conversationId: string, userId: string): Promise<ConversationLabel[]>;
+  removeConversationLabel(id: string): Promise<void>;
+  
+  // Message Moderation operations
+  createModerationAction(action: InsertMessageModeration): Promise<MessageModeration>;
+  getMessageModerationHistory(messageId: string): Promise<MessageModeration[]>;
+  
+  // Conversation Preferences operations
+  getConversationPreferences(userId: string, conversationId: string): Promise<ConversationPreference | undefined>;
+  upsertConversationPreferences(preferences: InsertConversationPreference): Promise<ConversationPreference>;
+  
+  // Conversation Pin operations
+  pinConversation(userId: string, conversationId: string, displayOrder?: number): Promise<ConversationPin>;
+  unpinConversation(userId: string, conversationId: string): Promise<void>;
+  getUserPinnedConversations(userId: string): Promise<ConversationPin[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1142,6 +1267,541 @@ export class DatabaseStorage implements IStorage {
     const [plan] = await db.select().from(subscriptionPlans)
       .where(eq(subscriptionPlans.name, name));
     return plan;
+  }
+  
+  // =============================================================================
+  // MESSAGING & COLLABORATION IMPLEMENTATIONS
+  // =============================================================================
+  
+  // Conversation operations
+  async createConversation(conversation: InsertConversation): Promise<Conversation> {
+    const [created] = await db.insert(conversations).values(conversation).returning();
+    return created;
+  }
+
+  async getConversation(id: string): Promise<Conversation | undefined> {
+    const [conversation] = await db.select().from(conversations).where(eq(conversations.id, id));
+    return conversation;
+  }
+
+  async getUserConversations(userId: string, options?: { archived?: boolean; limit?: number }): Promise<Conversation[]> {
+    const limit = options?.limit || 50;
+    
+    // Step 1: Get all conversation IDs for this user (no limit yet)
+    const participantRecords = await db
+      .select({ conversationId: conversationParticipants.conversationId })
+      .from(conversationParticipants)
+      .where(eq(conversationParticipants.userId, userId));
+    
+    if (participantRecords.length === 0) {
+      return [];
+    }
+    
+    const conversationIds = participantRecords.map(p => p.conversationId);
+    
+    // Step 2: Fetch conversations with filtering, ordering, and limit applied correctly
+    const conditions = [inArray(conversations.id, conversationIds)];
+    if (options?.archived !== undefined) {
+      conditions.push(eq(conversations.archived, options.archived));
+    }
+    
+    return await db
+      .select()
+      .from(conversations)
+      .where(and(...conditions))
+      .orderBy(desc(conversations.lastMessageAt))
+      .limit(limit);
+  }
+
+  async updateConversation(id: string, data: Partial<InsertConversation>): Promise<Conversation> {
+    const [updated] = await db.update(conversations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(conversations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async archiveConversation(id: string, userId: string): Promise<Conversation> {
+    const [updated] = await db.update(conversations)
+      .set({ 
+        archived: true,
+        archivedBy: userId,
+        archivedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(conversations.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Conversation Participant operations
+  async addParticipant(participant: InsertConversationParticipant): Promise<ConversationParticipant> {
+    const [created] = await db.insert(conversationParticipants).values(participant).returning();
+    return created;
+  }
+
+  async getConversationParticipants(conversationId: string): Promise<ConversationParticipant[]> {
+    return await db.select().from(conversationParticipants)
+      .where(eq(conversationParticipants.conversationId, conversationId));
+  }
+
+  async updateParticipant(id: string, data: Partial<InsertConversationParticipant>): Promise<ConversationParticipant> {
+    const [updated] = await db.update(conversationParticipants)
+      .set(data)
+      .where(eq(conversationParticipants.id, id))
+      .returning();
+    return updated;
+  }
+
+  async removeParticipant(conversationId: string, userId: string): Promise<void> {
+    await db.delete(conversationParticipants)
+      .where(and(
+        eq(conversationParticipants.conversationId, conversationId),
+        eq(conversationParticipants.userId, userId)
+      ));
+  }
+
+  async updateLastReadAt(conversationId: string, userId: string): Promise<void> {
+    await db.update(conversationParticipants)
+      .set({ lastReadAt: new Date(), unreadCount: 0 })
+      .where(and(
+        eq(conversationParticipants.conversationId, conversationId),
+        eq(conversationParticipants.userId, userId)
+      ));
+  }
+
+  // Message operations
+  async createMessage(message: InsertMessage): Promise<Message> {
+    const [created] = await db.insert(messages).values(message).returning();
+    
+    // Update conversation lastMessageAt
+    await db.update(conversations)
+      .set({ lastMessageAt: new Date(), updatedAt: new Date() })
+      .where(eq(conversations.id, created.conversationId));
+    
+    // Increment unread count for other participants
+    await db.update(conversationParticipants)
+      .set({ unreadCount: sql`${conversationParticipants.unreadCount} + 1` })
+      .where(and(
+        eq(conversationParticipants.conversationId, created.conversationId),
+        ne(conversationParticipants.userId, created.senderId)
+      ));
+    
+    return created;
+  }
+
+  async getMessage(id: string): Promise<Message | undefined> {
+    const [message] = await db.select().from(messages).where(eq(messages.id, id));
+    return message;
+  }
+
+  async getConversationMessages(conversationId: string, options?: { limit?: number; offset?: number; beforeMessageId?: string }): Promise<Message[]> {
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+    
+    const conditions = [
+      eq(messages.conversationId, conversationId),
+      eq(messages.deleted, false)
+    ];
+
+    if (options?.beforeMessageId) {
+      const [beforeMessage] = await db.select().from(messages)
+        .where(eq(messages.id, options.beforeMessageId));
+      if (beforeMessage) {
+        conditions.push(sql`${messages.createdAt} < ${beforeMessage.createdAt}`);
+      }
+    }
+
+    return await db.select().from(messages)
+      .where(and(...conditions))
+      .orderBy(desc(messages.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async updateMessage(id: string, data: Partial<InsertMessage>): Promise<Message> {
+    const [updated] = await db.update(messages)
+      .set({ 
+        ...data, 
+        edited: true,
+        editedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(messages.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteMessage(id: string, userId: string): Promise<void> {
+    await db.update(messages)
+      .set({ 
+        deleted: true,
+        deletedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(messages.id, id),
+        eq(messages.senderId, userId)
+      ));
+  }
+
+  async searchMessages(userId: string, query: string, options?: { conversationId?: string; limit?: number }): Promise<Message[]> {
+    const limit = options?.limit || 50;
+    
+    // Get user's conversation IDs
+    const userConversations = await db.select({ id: conversationParticipants.conversationId })
+      .from(conversationParticipants)
+      .where(eq(conversationParticipants.userId, userId));
+    
+    const conversationIds = userConversations.map(c => c.id);
+    if (conversationIds.length === 0) {
+      return [];
+    }
+    
+    const conditions = [
+      inArray(messages.conversationId, conversationIds),
+      eq(messages.deleted, false),
+      sql`to_tsvector('english', ${messages.content}) @@ plainto_tsquery('english', ${query})`
+    ];
+
+    if (options?.conversationId) {
+      conditions.push(eq(messages.conversationId, options.conversationId));
+    }
+
+    return await db.select().from(messages)
+      .where(and(...conditions))
+      .orderBy(desc(messages.createdAt))
+      .limit(limit);
+  }
+
+  // Message Receipt operations
+  async createMessageReceipt(receipt: InsertMessageReceipt): Promise<MessageReceipt> {
+    const [created] = await db.insert(messageReceipts).values(receipt).returning();
+    return created;
+  }
+
+  async markMessageDelivered(messageId: string, userId: string): Promise<void> {
+    await db.update(messageReceipts)
+      .set({ deliveredAt: new Date() })
+      .where(and(
+        eq(messageReceipts.messageId, messageId),
+        eq(messageReceipts.userId, userId)
+      ));
+  }
+
+  async markMessageRead(messageId: string, userId: string): Promise<void> {
+    await db.update(messageReceipts)
+      .set({ readAt: new Date() })
+      .where(and(
+        eq(messageReceipts.messageId, messageId),
+        eq(messageReceipts.userId, userId)
+      ));
+  }
+
+  async getUnreadCount(conversationId: string, userId: string): Promise<number> {
+    const [result] = await db.select({ count: sql<number>`count(*)` })
+      .from(messageReceipts)
+      .innerJoin(messages, eq(messageReceipts.messageId, messages.id))
+      .where(and(
+        eq(messages.conversationId, conversationId),
+        eq(messageReceipts.userId, userId),
+        sql`${messageReceipts.readAt} IS NULL`
+      ));
+    
+    return Number(result?.count || 0);
+  }
+
+  // Message Template operations
+  async createMessageTemplate(template: InsertMessageTemplate): Promise<MessageTemplate> {
+    const [created] = await db.insert(messageTemplates).values(template).returning();
+    return created;
+  }
+
+  async getUserMessageTemplates(userId: string): Promise<MessageTemplate[]> {
+    return await db.select().from(messageTemplates)
+      .where(eq(messageTemplates.userId, userId))
+      .orderBy(desc(messageTemplates.usageCount));
+  }
+
+  async updateMessageTemplate(id: string, data: Partial<InsertMessageTemplate>): Promise<MessageTemplate> {
+    const [updated] = await db.update(messageTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(messageTemplates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteMessageTemplate(id: string): Promise<void> {
+    await db.delete(messageTemplates).where(eq(messageTemplates.id, id));
+  }
+
+  async incrementTemplateUsage(id: string): Promise<void> {
+    await db.update(messageTemplates)
+      .set({ usageCount: sql`${messageTemplates.usageCount} + 1` })
+      .where(eq(messageTemplates.id, id));
+  }
+
+  // Message File operations
+  async createMessageFile(file: InsertMessageFile): Promise<MessageFile> {
+    const [created] = await db.insert(messageFiles).values(file).returning();
+    return created;
+  }
+
+  async getMessageFiles(messageId: string): Promise<MessageFile[]> {
+    return await db.select().from(messageFiles)
+      .where(eq(messageFiles.messageId, messageId))
+      .orderBy(desc(messageFiles.createdAt));
+  }
+
+  async getConversationFiles(conversationId: string, options?: { limit?: number }): Promise<MessageFile[]> {
+    const limit = options?.limit || 50;
+    
+    // Step 1: Get all message IDs from the conversation (no limit)
+    const conversationMessages = await db
+      .select({ id: messages.id })
+      .from(messages)
+      .where(eq(messages.conversationId, conversationId));
+    
+    if (conversationMessages.length === 0) {
+      return [];
+    }
+    
+    const messageIds = conversationMessages.map(m => m.id);
+    
+    // Step 2: Fetch files with ordering and limit applied correctly
+    return await db
+      .select()
+      .from(messageFiles)
+      .where(inArray(messageFiles.messageId, messageIds))
+      .orderBy(desc(messageFiles.createdAt))
+      .limit(limit);
+  }
+
+  async updateMessageFile(id: string, data: Partial<InsertMessageFile>): Promise<MessageFile> {
+    const [updated] = await db.update(messageFiles)
+      .set(data)
+      .where(eq(messageFiles.id, id))
+      .returning();
+    return updated;
+  }
+
+  // File Version operations
+  async createFileVersion(version: InsertFileVersion): Promise<FileVersion> {
+    // Validate that the original file exists
+    const [originalFile] = await db.select().from(messageFiles)
+      .where(eq(messageFiles.id, version.originalFileId));
+    
+    if (!originalFile) {
+      throw new Error(`Original file ${version.originalFileId} not found`);
+    }
+    
+    // Get the current highest version number for this file
+    const existingVersions = await db.select().from(fileVersions)
+      .where(eq(fileVersions.originalFileId, version.originalFileId))
+      .orderBy(desc(fileVersions.versionNumber))
+      .limit(1);
+    
+    // Calculate next version number
+    const nextVersionNumber = existingVersions.length > 0 
+      ? (existingVersions[0].versionNumber || 0) + 1 
+      : 1;
+    
+    // Insert with correct version number
+    const [created] = await db.insert(fileVersions)
+      .values({ 
+        ...version, 
+        versionNumber: nextVersionNumber 
+      })
+      .returning();
+    
+    return created;
+  }
+
+  async getFileVersions(originalFileId: string): Promise<FileVersion[]> {
+    return await db.select().from(fileVersions)
+      .where(eq(fileVersions.originalFileId, originalFileId))
+      .orderBy(desc(fileVersions.versionNumber));
+  }
+
+  // Meeting operations
+  async createMeeting(meeting: InsertMeetingLink): Promise<MeetingLink> {
+    const meetingData = {
+      ...meeting,
+      scheduledAt: typeof meeting.scheduledAt === 'string' ? new Date(meeting.scheduledAt) : meeting.scheduledAt,
+    };
+    const [created] = await db.insert(meetingLinks).values(meetingData).returning();
+    return created;
+  }
+
+  async getMeeting(id: string): Promise<MeetingLink | undefined> {
+    const [meeting] = await db.select().from(meetingLinks).where(eq(meetingLinks.id, id));
+    return meeting;
+  }
+
+  async getConversationMeetings(conversationId: string, options?: { upcoming?: boolean }): Promise<MeetingLink[]> {
+    const conditions = [eq(meetingLinks.conversationId, conversationId)];
+
+    if (options?.upcoming) {
+      conditions.push(sql`${meetingLinks.scheduledAt} > NOW()`);
+      conditions.push(eq(meetingLinks.status, 'scheduled'));
+    }
+
+    return await db.select().from(meetingLinks)
+      .where(and(...conditions))
+      .orderBy(desc(meetingLinks.scheduledAt));
+  }
+
+  async updateMeeting(id: string, data: Partial<InsertMeetingLink>): Promise<MeetingLink> {
+    const updateData: any = { ...data, updatedAt: new Date() };
+    if (data.scheduledAt) {
+      updateData.scheduledAt = typeof data.scheduledAt === 'string' 
+        ? new Date(data.scheduledAt) 
+        : data.scheduledAt;
+    }
+    const [updated] = await db.update(meetingLinks)
+      .set(updateData)
+      .where(eq(meetingLinks.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Meeting Participant operations
+  async addMeetingParticipant(participant: InsertMeetingParticipant): Promise<MeetingParticipant> {
+    const [created] = await db.insert(meetingParticipants).values(participant).returning();
+    return created;
+  }
+
+  async getMeetingParticipants(meetingId: string): Promise<MeetingParticipant[]> {
+    return await db.select().from(meetingParticipants)
+      .where(eq(meetingParticipants.meetingId, meetingId));
+  }
+
+  async updateMeetingParticipant(id: string, data: Partial<InsertMeetingParticipant>): Promise<MeetingParticipant> {
+    const [updated] = await db.update(meetingParticipants)
+      .set(data)
+      .where(eq(meetingParticipants.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Meeting Reminder operations
+  async createMeetingReminder(reminder: InsertMeetingReminder): Promise<MeetingReminder> {
+    const reminderData = {
+      ...reminder,
+      reminderTime: typeof reminder.reminderTime === 'string' ? new Date(reminder.reminderTime) : reminder.reminderTime,
+    };
+    const [created] = await db.insert(meetingReminders).values(reminderData).returning();
+    return created;
+  }
+
+  async getPendingReminders(): Promise<MeetingReminder[]> {
+    return await db.select().from(meetingReminders)
+      .where(and(
+        eq(meetingReminders.sent, false),
+        sql`${meetingReminders.reminderTime} <= NOW()`
+      ))
+      .orderBy(meetingReminders.reminderTime);
+  }
+
+  async markReminderSent(id: string): Promise<void> {
+    await db.update(meetingReminders)
+      .set({ sent: true, sentAt: new Date() })
+      .where(eq(meetingReminders.id, id));
+  }
+
+  // Conversation Label operations
+  async addConversationLabel(label: InsertConversationLabel): Promise<ConversationLabel> {
+    const [created] = await db.insert(conversationLabels).values(label).returning();
+    return created;
+  }
+
+  async getConversationLabels(conversationId: string, userId: string): Promise<ConversationLabel[]> {
+    return await db.select().from(conversationLabels)
+      .where(and(
+        eq(conversationLabels.conversationId, conversationId),
+        eq(conversationLabels.userId, userId)
+      ));
+  }
+
+  async removeConversationLabel(id: string): Promise<void> {
+    await db.delete(conversationLabels).where(eq(conversationLabels.id, id));
+  }
+
+  // Message Moderation operations
+  async createModerationAction(action: InsertMessageModeration): Promise<MessageModeration> {
+    const [created] = await db.insert(messageModeration).values(action).returning();
+    return created;
+  }
+
+  async getMessageModerationHistory(messageId: string): Promise<MessageModeration[]> {
+    return await db.select().from(messageModeration)
+      .where(eq(messageModeration.messageId, messageId))
+      .orderBy(desc(messageModeration.createdAt));
+  }
+
+  // Conversation Preferences operations
+  async getConversationPreferences(userId: string, conversationId: string): Promise<ConversationPreference | undefined> {
+    const [prefs] = await db.select().from(conversationPreferences)
+      .where(and(
+        eq(conversationPreferences.userId, userId),
+        eq(conversationPreferences.conversationId, conversationId)
+      ));
+    return prefs;
+  }
+
+  async upsertConversationPreferences(preferences: InsertConversationPreference): Promise<ConversationPreference> {
+    const existing = await this.getConversationPreferences(preferences.userId, preferences.conversationId);
+    
+    if (existing) {
+      const [updated] = await db.update(conversationPreferences)
+        .set({ ...preferences, updatedAt: new Date() })
+        .where(eq(conversationPreferences.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(conversationPreferences)
+        .values(preferences)
+        .returning();
+      return created;
+    }
+  }
+
+  // Conversation Pin operations
+  async pinConversation(userId: string, conversationId: string, displayOrder?: number): Promise<ConversationPin> {
+    const [created] = await db.insert(conversationPins)
+      .values({
+        userId,
+        conversationId,
+        displayOrder: displayOrder || 0,
+      })
+      .returning();
+    return created;
+  }
+
+  async unpinConversation(userId: string, conversationId: string): Promise<void> {
+    await db.delete(conversationPins)
+      .where(and(
+        eq(conversationPins.userId, userId),
+        eq(conversationPins.conversationId, conversationId)
+      ));
+  }
+
+  async getUserPinnedConversations(userId: string): Promise<ConversationPin[]> {
+    return await db.select().from(conversationPins)
+      .where(eq(conversationPins.userId, userId))
+      .orderBy(conversationPins.displayOrder);
+  }
+
+  // File Version operations
+  async createFileVersion(version: InsertFileVersion): Promise<FileVersion> {
+    const [created] = await db.insert(fileVersions).values(version).returning();
+    return created;
+  }
+
+  async getFileVersions(originalFileId: string): Promise<FileVersion[]> {
+    return await db.select().from(fileVersions)
+      .where(eq(fileVersions.originalFileId, originalFileId))
+      .orderBy(desc(fileVersions.createdAt));
   }
 }
 

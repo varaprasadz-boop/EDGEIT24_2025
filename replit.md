@@ -48,34 +48,38 @@ Profile update endpoints strip protected fields to prevent privilege escalation.
 Job posting requires client authentication and features a cascading 3-level category selector. Job and consultant browsing support hierarchical category filtering, including all descendant categories.
 
 ### Messaging & Collaboration System
-A comprehensive real-time messaging system with 11 core tables supporting one-on-one conversations, file attachments with version tracking, meeting scheduling, and admin moderation. The system uses WebSocket for real-time delivery and includes read receipts, message threading, and full-text search capabilities.
+A comprehensive real-time messaging system with 14 database tables supporting one-on-one conversations, file attachments with version tracking, meeting scheduling, and admin moderation. The system uses WebSocket for real-time delivery and includes read receipts, message threading, and full-text search capabilities.
 
-#### Schema Design
+#### Schema Design (14 Tables)
+
+**Core Messaging (11 tables):**
 - **conversations**: Container for all conversations with archived status tracking
-- **conversation_participants**: Manages participant membership, consolidates user preferences (muted/pinned), and enforces RBAC with role/status fields
+- **conversation_participants**: Manages participant membership and enforces RBAC with role/status fields
 - **messages**: Individual messages with RESTRICT cascade for audit retention, supports threading via replyToId self-reference
 - **message_receipts**: Tracks delivered/read status with composite index (message_id, user_id, read_at) for unread queries
 - **message_templates**: Quick reply templates with usage tracking
-- **message_files**: File attachments with version history via parentFileId self-reference and SET NULL cascade
+- **message_files**: File attachments with version tracking
 - **meeting_links**: Scheduled meetings within conversations
 - **meeting_participants**: RSVP tracking for meetings
 - **meeting_reminders**: Automated reminder system
 - **conversation_labels**: Custom labels for organizing conversations
 - **message_moderation**: Admin moderation actions with audit trail
-- **notifications** (enhanced): Added relatedConversationId and relatedMessageId FK fields for messaging analytics
 
-#### Design Consolidation
-Per database normalization best practices, several concepts were consolidated to avoid unnecessary table proliferation:
-- conversation_preferences → Merged into conversation_participants (muted, pinned fields)
-- conversation_pins → Merged into conversation_participants.pinned field
-- file_versions → Implemented in message_files (parentFileId + versionNumber)
+**User Preferences & Organization (3 tables):**
+- **conversation_preferences**: Per-user conversation settings (notificationsEnabled, soundEnabled, previewEnabled)
+- **conversation_pins**: Dedicated pin tracking with custom displayOrder
+- **file_versions**: Complete file version history ledger tracking originalFileId and versionFileId relationships
+
+**Enhanced Integrations:**
+- **notifications** (enhanced): Added relatedConversationId and relatedMessageId FK fields for messaging analytics
 
 #### Audit & Security Features
 - Messages use RESTRICT cascade on conversation deletion to preserve audit trail
-- File version history preserved via SET NULL cascade on parentFileId
+- File version history preserved via SET NULL cascade
 - Role-based access control via conversation_participants.role and status fields
 - Soft delete support for messages (deleted/deletedAt fields)
 - Admin moderation tracking with full audit trail
+- Composite indexes for unread queries: (message_id, user_id, read_at)
 
 ## External Dependencies
 

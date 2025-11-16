@@ -1540,3 +1540,40 @@ export const insertMessageModerationSchema = createInsertSchema(messageModeratio
 
 export type InsertMessageModeration = z.infer<typeof insertMessageModerationSchema>;
 export type MessageModeration = typeof messageModeration.$inferSelect;
+
+// Conversation Preferences
+export const insertConversationPreferenceSchema = createInsertSchema(conversationPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  notificationsEnabled: z.boolean().optional(),
+  soundEnabled: z.boolean().optional(),
+  previewEnabled: z.boolean().optional(),
+});
+
+export type InsertConversationPreference = z.infer<typeof insertConversationPreferenceSchema>;
+export type ConversationPreference = typeof conversationPreferences.$inferSelect;
+
+// Conversation Pins
+export const insertConversationPinSchema = createInsertSchema(conversationPins).omit({
+  id: true,
+  pinnedAt: true,
+}).extend({
+  displayOrder: z.number().int().optional(),
+});
+
+export type InsertConversationPin = z.infer<typeof insertConversationPinSchema>;
+export type ConversationPin = typeof conversationPins.$inferSelect;
+
+// File Versions
+export const insertFileVersionSchema = createInsertSchema(fileVersions).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  versionNumber: z.number().int().positive("Version number must be positive"),
+  changeDescription: z.string().optional(),
+});
+
+export type InsertFileVersion = z.infer<typeof insertFileVersionSchema>;
+export type FileVersion = typeof fileVersions.$inferSelect;
