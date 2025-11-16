@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { ReviewForm } from "@/components/ReviewForm";
 
 interface DashboardStats {
   activeJobs: number;
@@ -87,6 +88,8 @@ export default function Dashboard() {
   const [selectedQuote, setSelectedQuote] = useState<QuoteRequest | null>(null);
   const [responseMessage, setResponseMessage] = useState("");
   const [quotedAmount, setQuotedAmount] = useState("");
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [reviewProject, setReviewProject] = useState<any>(null);
 
   // All hooks at top level (React hooks rules)
   // Profile status queries - only fetch for selected role
@@ -511,7 +514,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </div>
-                    <div className="text-right ml-4">
+                    <div className="flex flex-col items-end gap-2 ml-4">
                       <div className="text-xs text-muted-foreground" data-testid={`project-date-${index}`}>
                         {project.completedAt 
                           ? `Completed ${new Date(project.completedAt).toLocaleDateString()}`
@@ -520,6 +523,20 @@ export default function Dashboard() {
                           : `Created ${new Date(project.createdAt).toLocaleDateString()}`
                         }
                       </div>
+                      {project.status === 'completed' && project.consultantId && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setReviewProject(project);
+                            setReviewDialogOpen(true);
+                          }}
+                          data-testid={`button-leave-review-${index}`}
+                        >
+                          <Star className="h-3 w-3 mr-1" />
+                          Leave Review
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1055,6 +1072,24 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Review Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          {reviewProject && reviewProject.consultantId && (
+            <ReviewForm
+              projectId={reviewProject.id}
+              consultantId={reviewProject.consultantId}
+              consultantName={reviewProject.consultantName || "Consultant"}
+              onSuccess={() => {
+                setReviewDialogOpen(false);
+                setReviewProject(null);
+                queryClient.invalidateQueries({ queryKey: ['/api/projects/client'] });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </UserLayout>
   );
 }
