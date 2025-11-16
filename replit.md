@@ -63,6 +63,22 @@ A comprehensive review submission system enables clients to rate consultants aft
 - **Backend Integration**: Connects to existing `/api/reviews` POST endpoint with proper authentication and validation
 - Full data-testid coverage for automated testing
 
+#### Team Members Management (Phase 2.4 - Completed)
+A comprehensive team collaboration system enables clients to invite and manage team members with role-based access control:
+- **Database Schema**: teamMembers table with fullName, email, roles (owner, admin, member, viewer), granular permissions (canViewProjects, canEditProjects, canManageTeam, canManageBilling), invitation tokens with expiry, and status tracking (pending, accepted, declined, revoked)
+- **Storage Methods**: Full CRUD operations including invite, get, update, revoke, accept, decline, resend, and token-based retrieval
+- **API Routes**: Complete REST endpoints (GET/POST/PUT/DELETE) with authentication, authorization, and validation
+  - POST /api/team-members - Invite new team member
+  - GET /api/team-members - List all team members
+  - PUT /api/team-members/:id - Update member role/permissions
+  - DELETE /api/team-members/:id - Revoke member access
+  - POST /api/team-members/:id/resend - Resend invitation with new token
+  - POST /api/team-members/accept/:token - Accept invitation (public)
+  - POST /api/team-members/decline/:token - Decline invitation (public)
+- **Client Profile UI**: Rich interface in ClientProfile.tsx with invite dialog, member list with avatars, role/permission badges, actions dropdown (edit, resend, revoke), and proper React Query integration
+- **Security**: Role-based permissions, invitation token expiry (7 days), ownership verification, and complete audit trail
+- Full data-testid coverage for automated testing
+
 ### Job Posting & Category Integration
 Job posting requires client authentication and features a cascading 3-level category selector. Job and consultant browsing support hierarchical category filtering.
 

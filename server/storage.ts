@@ -1593,8 +1593,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSubscriptionPlanByName(name: string): Promise<SubscriptionPlan | undefined> {
+    // Capitalize first letter to match database format (Basic, Professional, Enterprise)
+    const capitalizedName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
     const [plan] = await db.select().from(subscriptionPlans)
-      .where(eq(subscriptionPlans.name, name));
+      .where(eq(subscriptionPlans.name, capitalizedName));
     return plan;
   }
   
