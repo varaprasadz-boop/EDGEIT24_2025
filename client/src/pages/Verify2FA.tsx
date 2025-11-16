@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Shield, KeyRound } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
-import { useAuthContext } from "@/contexts/AuthContext";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface LoginState {
   userId?: string;
@@ -19,7 +18,6 @@ export default function Verify2FA() {
   const [, setLocation] = useLocation();
   const [location] = useLocation();
   const { toast } = useToast();
-  const { checkAuth } = useAuthContext();
   
   const [code, setCode] = useState("");
   const [useBackupCode, setUseBackupCode] = useState(false);
@@ -35,7 +33,7 @@ export default function Verify2FA() {
     },
     onSuccess: async () => {
       sessionStorage.removeItem('pending2FA');
-      await checkAuth();
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
       toast({
         title: "Login Successful",
         description: "Welcome back!",

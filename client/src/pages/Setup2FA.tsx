@@ -24,6 +24,8 @@ interface VerifySetupResponse {
 export default function Setup2FA() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [password, setPassword] = useState("");
+  const [passwordVerified, setPasswordVerified] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [showBackupCodes, setShowBackupCodes] = useState(false);
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
@@ -32,12 +34,13 @@ export default function Setup2FA() {
   const [setupData, setSetupData] = useState<Setup2FAResponse | null>(null);
 
   const setupMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/auth/2fa/setup');
+    mutationFn: async (password: string) => {
+      const res = await apiRequest('POST', '/api/auth/2fa/setup', { password });
       return await res.json() as Setup2FAResponse;
     },
     onSuccess: (data) => {
       setSetupData(data);
+      setPasswordVerified(true);
     },
     onError: (error: Error) => {
       toast({
@@ -45,12 +48,16 @@ export default function Setup2FA() {
         description: error.message || "Failed to initialize 2FA setup",
         variant: "destructive",
       });
+      setPassword("");
     },
   });
 
-  useEffect(() => {
-    setupMutation.mutate();
-  }, []);
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password) {
+      setupMutation.mutate(password);
+    }
+  };
 
   const verifySetupMutation = useMutation({
     mutationFn: async (token: string) => {
@@ -106,18 +113,6 @@ export default function Setup2FA() {
     setLocation('/security');
   };
 
-  if (setupMutation.isPending || setupMutation.isIdle) {
-    return (
-      <div className="container mx-auto p-6 max-w-2xl">
-        <Card>
-          <CardContent className="p-8 text-center">
-            <div className="text-muted-foreground">Loading...</div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto p-6 max-w-2xl">
       <div className="mb-6">
@@ -130,7 +125,49 @@ export default function Setup2FA() {
         </p>
       </div>
 
-      {!showBackupCodes ? (
+      {!passwordVerified ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Verify Your Password</CardTitle>
+            <CardDescription>
+              For security, please enter your password to continue with 2FA setup
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  data-testid="input-password"
+                  disabled={setupMutation.isPending}
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  type="submit"
+                  disabled={!password || setupMutation.isPending}
+                  data-testid="button-verify-password"
+                >
+                  {setupMutation.isPending ? "Verifying..." : "Continue"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setLocation('/security')}
+                  data-testid="button-cancel"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : !showBackupCodes ? (
         <Card>
           <CardHeader>
             <CardTitle>Step 1: Scan QR Code</CardTitle>

@@ -30,6 +30,14 @@ A custom Email/Password authentication system leverages passport-local and bcryp
   - Activity Log: Detailed log of all user actions and API requests with search and filters
 - Security Infrastructure: loginHistory, activeSessions, and user_activity_log tables with indexed queries for performance
 - API Security: Request validation with pagination limits (100 max for users, 500 for admins), date range restrictions (90 days for users, 365 for admins), and input sanitization
+- Two-Factor Authentication (2FA): TOTP-based authenticator app support with QR code setup, crypto-secure backup recovery codes, and complete login verification flow
+  - Setup Flow: Users access /setup-2fa or /security/setup-2fa to enable 2FA with QR code scanning or manual secret entry
+  - TOTP Verification: Time-based one-time passwords validated using speakeasy library
+  - Backup Codes: 10 single-use recovery codes generated with crypto.randomBytes, displayed once during setup
+  - Login Flow: After password verification, 2FA-enabled users redirect to /verify-2fa with sessionStorage persistence
+  - UI Components: Setup2FA page (QR display, verification input, backup codes), Verify2FA page (TOTP/backup code toggle)
+  - Database Fields: twoFactorSecret, twoFactorEnabled, backupCodes array in users table
+  - Security: Password verification required for 2FA setup, session state management, backup code consumption tracking
 
 **Admin Security Monitoring (November 2025):**
 - Admin Security Dashboard Backend: Comprehensive security analytics API at /admin/security

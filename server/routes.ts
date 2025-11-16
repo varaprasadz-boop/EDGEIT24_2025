@@ -455,13 +455,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Authentication required" });
       }
 
+      const { password } = req.body;
+      if (!password) {
+        return res.status(400).json({ message: "Password is required to setup 2FA" });
+      }
+
       const user = await storage.getUser(userId);
-      if (!user) {
+      if (!user || !user.password) {
         return res.status(404).json({ message: "User not found" });
       }
 
       if (user.twoFactorEnabled) {
         return res.status(400).json({ message: "2FA is already enabled. Please disable it first to reset." });
+      }
+
+      const bcrypt = await import('bcrypt');
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid password" });
       }
 
       const secret = speakeasy.generateSecret({
@@ -515,6 +526,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const backupCodes = await storage.generateBackupCodes(userId);
       await storage.enable2FA(userId, backupCodes);
+
+      // Invalidate all existing sessions except the current one for security
+      const activeSessions = await storage.getActiveSessions(userId);
+      const currentSessionId = req.session?.id;
+      for (const session of activeSessions) {
+        if (session.id !== currentSessionId) {
+          await storage.terminateSession(session.id);
+        }
+      }
 
       res.json({
         message: "2FA enabled successfully",
