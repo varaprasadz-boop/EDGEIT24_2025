@@ -30,7 +30,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LineChart, Line, CartesianGrid } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LineChart, Line, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
 
 interface SecurityStats {
   totalUsers: number;
@@ -144,6 +144,44 @@ export default function AdminSecurityDashboard() {
     count,
   }));
 
+  // Activity breakdown by action type
+  const activityByAction = filteredLogs.reduce((acc, log) => {
+    if (!acc[log.action]) acc[log.action] = 0;
+    acc[log.action]++;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const actionChartData = Object.entries(activityByAction).map(([action, count]) => ({
+    action,
+    count,
+  }));
+
+  // Resource distribution
+  const activityByResource = filteredLogs.reduce((acc, log) => {
+    if (!acc[log.resource]) acc[log.resource] = 0;
+    acc[log.resource]++;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const resourceChartData = Object.entries(activityByResource).map(([resource, count]) => ({
+    resource,
+    count,
+  }));
+
+  // Colors for pie chart
+  const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+
+  // Calculate additional metrics (handle zero values correctly)
+  const loginSuccessRate = 
+    stats?.totalLogins !== undefined && stats?.failedLogins !== undefined
+      ? ((stats.totalLogins / (stats.totalLogins + stats.failedLogins || 1)) * 100).toFixed(1) + '%'
+      : 'N/A';
+  
+  const avgSessionsPerUser = 
+    stats?.totalUsers !== undefined && stats?.activeSessions !== undefined && stats.totalUsers > 0
+      ? (stats.activeSessions / stats.totalUsers).toFixed(2)
+      : stats?.totalUsers === 0 ? '0.00' : 'N/A';
+
   // Stats card data
   const statsCards = [
     {
@@ -242,27 +280,119 @@ export default function AdminSecurityDashboard() {
         ))}
       </div>
 
-      {/* Activity Trends Chart */}
+      {/* Additional Metrics */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Login Success Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="login-success-rate">
+              {loginSuccessRate}
+            </div>
+            <p className="text-xs text-muted-foreground">Last 30 days</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg Sessions Per User</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="avg-sessions-per-user">
+              {avgSessionsPerUser}
+            </div>
+            <p className="text-xs text-muted-foreground">Active sessions divided by users</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Grid */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Activity Trends Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Activity Trends (Last {dateRange} Days)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {trendChartData.length > 0 ? (
+              <ChartContainer config={chartConfig} className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="day" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line type="monotone" dataKey="count" stroke="hsl(var(--chart-1))" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No activity data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Activity by Action Type */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Activity by Action Type</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {actionChartData.length > 0 ? (
+              <ChartContainer config={chartConfig} className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={actionChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="action" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="count" fill="hsl(var(--chart-2))" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No action data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Resource Distribution Pie Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Activity Trends (Last {dateRange} Days)</CardTitle>
+          <CardTitle>Resource Access Distribution</CardTitle>
         </CardHeader>
         <CardContent>
-          {trendChartData.length > 0 ? (
+          {resourceChartData.length > 0 ? (
             <ChartContainer config={chartConfig} className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" />
-                  <YAxis />
+                <PieChart>
+                  <Pie
+                    data={resourceChartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ resource, percent }) => `${resource} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="count"
+                  >
+                    {resourceChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Line type="monotone" dataKey="count" stroke="hsl(var(--chart-1))" strokeWidth={2} />
-                </LineChart>
+                  <Legend />
+                </PieChart>
               </ResponsiveContainer>
             </ChartContainer>
           ) : (
             <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-              No activity data available for the selected period
+              No resource data available
             </div>
           )}
         </CardContent>
