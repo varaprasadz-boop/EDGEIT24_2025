@@ -35,6 +35,26 @@ A 3-level category hierarchy (Primary, Subcategories, Super-subcategories) with 
 ### Dashboard & Profile Management
 Client and Consultant Dashboards display relevant information and approval status. Dual-role users can switch views. Profiles capture and allow editing of company/personal details, professional information, and financial data. Consultant profiles include verification badges, a Quick Quote System, language proficiency tracking, and Pricing Templates. Client profile forms pre-fill contact information. A secure password change functionality is available. Profile update endpoints strip protected fields, and profile status follows an enforced state machine with partial updates managed via `.partial()` schemas and payload sanitization.
 
+#### Enhanced Profile Fields (Phase 1 - Completed)
+**Client Profiles** now include:
+- Business Type dropdown (Individual, Company, Enterprise)
+- Industry selection (15 industries: Technology, Finance, Healthcare, etc.)
+- Region selection (13 Saudi regions: Riyadh, Jeddah, Makkah, etc.)
+- Enhanced Company Size options (1-10, 11-50, 51-200, 201-500, 501+)
+
+**Consultant Profiles** now include Business Information section with:
+- Year Established (with validation)
+- Employee Count (1-10, 11-50, 51-200, 201+ employees)
+- Business Registration Number (for CR numbers)
+- Operating Regions (comma-separated, displayed as badges)
+
+**Service Packages** enhanced with:
+- Add-ons (comma-separated list, displayed as badges)
+- Revisions Included (number)
+- Support Duration (e.g., "30 days", "90 days")
+
+All fields are functional in both edit and view modes with proper data-testid attributes for testing.
+
 ### Job Posting & Category Integration
 Job posting requires client authentication and features a cascading 3-level category selector. Job and consultant browsing support hierarchical category filtering.
 
