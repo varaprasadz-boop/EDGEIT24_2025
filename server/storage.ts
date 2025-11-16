@@ -148,6 +148,14 @@ export interface IStorage {
   resetPassword(userId: string, newPasswordHash: string): Promise<void>;
   invalidatePasswordResetToken(userId: string): Promise<void>;
   
+  // Two-Factor Authentication operations
+  setup2FA(userId: string, secret: string): Promise<User>;
+  enable2FA(userId: string, backupCodes: string[]): Promise<User>;
+  disable2FA(userId: string): Promise<User>;
+  verify2FAToken(userId: string, token: string): Promise<boolean>;
+  verifyBackupCode(userId: string, code: string): Promise<boolean>;
+  generateBackupCodes(userId: string): Promise<string[]>;
+  
   // Client Profile operations
   getClientProfile(userId: string): Promise<ClientProfile | undefined>;
   createClientProfile(profile: InsertClientProfile): Promise<ClientProfile>;
@@ -660,6 +668,101 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));
+  }
+
+  // Two-Factor Authentication operations
+  async setup2FA(userId: string, secret: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        twoFactorSecret: secret,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async enable2FA(userId: string, backupCodes: string[]): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        twoFactorEnabled: true,
+        backupCodes,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async disable2FA(userId: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+        backupCodes: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async verify2FAToken(userId: string, token: string): Promise<boolean> {
+    const user = await this.getUser(userId);
+    if (!user || !user.twoFactorSecret) {
+      return false;
+    }
+
+    const speakeasy = require('speakeasy');
+    return speakeasy.totp.verify({
+      secret: user.twoFactorSecret,
+      encoding: 'base32',
+      token,
+      window: 1,
+    });
+  }
+
+  async verifyBackupCode(userId: string, code: string): Promise<boolean> {
+    const user = await this.getUser(userId);
+    if (!user || !user.backupCodes || user.backupCodes.length === 0) {
+      return false;
+    }
+
+    const codeIndex = user.backupCodes.indexOf(code);
+    if (codeIndex === -1) {
+      return false;
+    }
+
+    const remainingCodes = user.backupCodes.filter((c) => c !== code);
+    await db
+      .update(users)
+      .set({
+        backupCodes: remainingCodes,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+
+    return true;
+  }
+
+  async generateBackupCodes(userId: string): Promise<string[]> {
+    const crypto = require('crypto');
+    const backupCodes = Array.from({ length: 10 }, () =>
+      crypto.randomBytes(4).toString('hex').toUpperCase()
+    );
+
+    await db
+      .update(users)
+      .set({
+        backupCodes,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+
+    return backupCodes;
   }
 
   // KYC Document operations

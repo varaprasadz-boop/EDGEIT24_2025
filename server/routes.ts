@@ -14,6 +14,8 @@ import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
 import { randomBytes } from "crypto";
 import { nanoid } from "nanoid";
+import speakeasy from "speakeasy";
+import qrcode from "qrcode";
 import { UploadPolicy } from './uploadPolicy';
 import { FileScanService } from './fileScanService';
 import { RateLimits, initializeRateLimiter } from './middleware/rateLimiter';
@@ -356,6 +358,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: info?.message || "Invalid email or password" });
       }
       
+      // Check if user has 2FA enabled
+      if (user.twoFactorEnabled) {
+        // Don't log in yet - require 2FA verification first
+        return res.json({
+          requires2FA: true,
+          userId: user.id,
+          message: "2FA verification required"
+        });
+      }
+      
       req.login(user, async (loginErr) => {
         if (loginErr) {
           return res.status(500).json({ message: "Login failed" });
@@ -431,6 +443,294 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ message: "Logged out successfully" });
     });
+  });
+  
+  // Two-Factor Authentication (2FA) routes
+  
+  // Setup 2FA - Generate secret and QR code
+  app.post('/api/auth/2fa/setup', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (user.twoFactorEnabled) {
+        return res.status(400).json({ message: "2FA is already enabled. Please disable it first to reset." });
+      }
+
+      const secret = speakeasy.generateSecret({
+        name: `EDGEIT24 (${user.email})`,
+        length: 32,
+      });
+
+      await storage.setup2FA(userId, secret.base32);
+
+      const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url!);
+
+      res.json({
+        secret: secret.base32,
+        qrCode: qrCodeUrl,
+        manualEntry: secret.base32,
+      });
+    } catch (error) {
+      console.error("Error setting up 2FA:", error);
+      res.status(500).json({ message: "Failed to setup 2FA" });
+    }
+  });
+
+  // Verify setup and enable 2FA
+  app.post('/api/auth/2fa/verify-setup', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { token } = req.body;
+      if (!token) {
+        return res.status(400).json({ message: "Verification token is required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || !user.twoFactorSecret) {
+        return res.status(400).json({ message: "2FA setup not initiated" });
+      }
+
+      const isValid = speakeasy.totp.verify({
+        secret: user.twoFactorSecret,
+        encoding: 'base32',
+        token,
+        window: 1,
+      });
+
+      if (!isValid) {
+        return res.status(400).json({ message: "Invalid verification code" });
+      }
+
+      const backupCodes = await storage.generateBackupCodes(userId);
+      await storage.enable2FA(userId, backupCodes);
+
+      res.json({
+        message: "2FA enabled successfully",
+        backupCodes,
+      });
+    } catch (error) {
+      console.error("Error verifying 2FA setup:", error);
+      res.status(500).json({ message: "Failed to verify 2FA setup" });
+    }
+  });
+
+  // Verify 2FA token (during login or sensitive operations)
+  app.post('/api/auth/2fa/verify', async (req, res) => {
+    try {
+      const { userId, token } = req.body;
+
+      if (!userId || !token) {
+        return res.status(400).json({ message: "User ID and token are required" });
+      }
+
+      const isValid = await storage.verify2FAToken(userId, token);
+      
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid verification code" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error verifying 2FA token:", error);
+      res.status(500).json({ message: "Failed to verify 2FA token" });
+    }
+  });
+
+  // Verify backup code (during login)
+  app.post('/api/auth/2fa/verify-backup-code', async (req, res) => {
+    try {
+      const { userId, code } = req.body;
+
+      if (!userId || !code) {
+        return res.status(400).json({ message: "User ID and backup code are required" });
+      }
+
+      const isValid = await storage.verifyBackupCode(userId, code);
+      
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid backup code" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error verifying backup code:", error);
+      res.status(500).json({ message: "Failed to verify backup code" });
+    }
+  });
+
+  // Disable 2FA
+  app.post('/api/auth/2fa/disable', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { password } = req.body;
+      if (!password) {
+        return res.status(400).json({ message: "Password is required to disable 2FA" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || !user.password) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const bcrypt = await import('bcrypt');
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid password" });
+      }
+
+      await storage.disable2FA(userId);
+
+      res.json({ message: "2FA disabled successfully" });
+    } catch (error) {
+      console.error("Error disabling 2FA:", error);
+      res.status(500).json({ message: "Failed to disable 2FA" });
+    }
+  });
+
+  // Generate new backup codes
+  app.post('/api/auth/2fa/generate-backup-codes', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { password } = req.body;
+      if (!password) {
+        return res.status(400).json({ message: "Password is required to generate new backup codes" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || !user.password) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (!user.twoFactorEnabled) {
+        return res.status(400).json({ message: "2FA is not enabled" });
+      }
+
+      const bcrypt = await import('bcrypt');
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid password" });
+      }
+
+      const backupCodes = await storage.generateBackupCodes(userId);
+
+      res.json({ backupCodes });
+    } catch (error) {
+      console.error("Error generating backup codes:", error);
+      res.status(500).json({ message: "Failed to generate backup codes" });
+    }
+  });
+
+  // Complete login after 2FA verification
+  app.post('/api/auth/2fa/complete-login', async (req, res) => {
+    try {
+      const { userId, token, backupCode, rememberMe } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+
+      if (!token && !backupCode) {
+        return res.status(400).json({ message: "Verification token or backup code is required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (!user.twoFactorEnabled) {
+        return res.status(400).json({ message: "2FA is not enabled for this user" });
+      }
+
+      let isValid = false;
+
+      if (token) {
+        isValid = await storage.verify2FAToken(userId, token);
+      } else if (backupCode) {
+        isValid = await storage.verifyBackupCode(userId, backupCode);
+      }
+
+      if (!isValid) {
+        const ipAddress = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || '').split(',')[0].trim();
+        const userAgent = req.headers['user-agent'] || '';
+        
+        await storage.createLoginHistory({
+          userId,
+          action: 'login',
+          ipAddress,
+          userAgent,
+          deviceInfo: userAgent,
+          success: false,
+          failureReason: "Invalid 2FA code",
+        });
+        
+        return res.status(401).json({ message: "Invalid verification code" });
+      }
+
+      req.login(user, async (loginErr) => {
+        if (loginErr) {
+          return res.status(500).json({ message: "Login failed" });
+        }
+
+        const ipAddress = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || '').split(',')[0].trim();
+        const userAgent = req.headers['user-agent'] || '';
+
+        if (req.session) {
+          req.session.cookie.maxAge = rememberMe 
+            ? 30 * 24 * 60 * 60 * 1000 // 30 days
+            : 24 * 60 * 60 * 1000; // 24 hours
+
+          await storage.createLoginHistory({
+            userId: user.id,
+            action: 'login',
+            ipAddress,
+            userAgent,
+            deviceInfo: userAgent,
+            success: true,
+          });
+
+          await storage.createActiveSession({
+            id: req.session.id,
+            userId: user.id,
+            ipAddress,
+            userAgent,
+            deviceInfo: userAgent,
+            lastActivity: new Date(),
+          });
+        }
+
+        res.json({
+          user: {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+          },
+        });
+      });
+    } catch (error) {
+      console.error("Error completing 2FA login:", error);
+      res.status(500).json({ message: "Failed to complete login" });
+    }
   });
   
   // Change password route

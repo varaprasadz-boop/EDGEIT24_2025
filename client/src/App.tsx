@@ -27,6 +27,8 @@ import Settings from "@/pages/Settings";
 import MyJobs from "@/pages/MyJobs";
 import Messages from "@/pages/Messages";
 import UserSecurityDashboard from "@/pages/UserSecurityDashboard";
+import Setup2FA from "@/pages/Setup2FA";
+import Verify2FA from "@/pages/Verify2FA";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -35,6 +37,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/register" component={Register} />
       <Route path="/login" component={Login} />
+      <Route path="/verify-2fa" component={Verify2FA} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/dashboard" component={Dashboard} />
@@ -48,6 +51,7 @@ function Router() {
       <Route path="/profile" component={Profile} />
       <Route path="/settings" component={Settings} />
       <Route path="/security" component={UserSecurityDashboard} />
+      <Route path="/security/setup-2fa" component={Setup2FA} />
       <Route path="/messages/:conversationId?" component={Messages} />
       <Route path="/services/:slug" component={CategoryLanding} />
       <Route path="/legal/:slug" component={LegalPage} />

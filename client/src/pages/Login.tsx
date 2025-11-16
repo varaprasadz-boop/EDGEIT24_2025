@@ -50,6 +50,18 @@ export default function Login() {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        
+        // Check if 2FA verification is required
+        if (data.requires2FA) {
+          sessionStorage.setItem('pending2FA', JSON.stringify({
+            userId: data.userId,
+            rememberMe
+          }));
+          setLocation('/verify-2fa');
+          return;
+        }
+        
         toast({
           title: "Welcome Back",
           description: "You've been successfully logged in.",
