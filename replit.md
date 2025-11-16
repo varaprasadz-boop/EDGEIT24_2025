@@ -88,6 +88,18 @@ A comprehensive real-time messaging system supports one-on-one conversations, fi
 - Meeting metadata: title, description, scheduledAt, duration, meetingType, meetingUrl, status
 - Participant tracking: Full RSVP status (pending, accepted, declined, tentative) with timestamps
 
+**Admin Moderation & Analytics:**
+- AdminMessages page: Analytics dashboard with stats cards (conversations, messages, files, meetings)
+- Recharts bar chart visualization of messaging activity
+- Conversation list with multi-criteria filtering (title search, type, archived status)
+- JSON export functionality for analytics data
+- AdminConversationViewer: Read-only conversation viewer for admin moderation
+- Message moderation actions: flag, hide, redact, warn, and clear with reason/notes validation
+- Moderation history display showing all admin actions on specific messages
+- Admin authentication using AuthContext with redirect protection
+- Proper RBAC enforcement across all admin endpoints
+- Cache invalidation after moderation mutations
+
 ## External Dependencies
 
 ### Database
