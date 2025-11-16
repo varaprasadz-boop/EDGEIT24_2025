@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertClientProfileSchema, type ClientProfile } from "@shared/schema";
+import { insertClientProfileSchema, insertTeamMemberSchema, type ClientProfile, type TeamMember } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
@@ -15,11 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Globe, MapPin, AlertCircle, Edit, Save, X, Info } from "lucide-react";
+import { Building2, Globe, MapPin, AlertCircle, Edit, Save, X, Info, Users, UserPlus, Mail, Shield, Trash2, MoreVertical } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 import { UserLayout } from "@/components/UserLayout";
 import { Link } from "wouter";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const updateProfileSchema = insertClientProfileSchema.omit({
   userId: true,
@@ -33,6 +36,8 @@ export default function ClientProfile() {
   const [, setLocation] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   
   // Check if coming from onboarding
   const isOnboarding = new URLSearchParams(window.location.search).get('onboarding') === 'true';
@@ -55,6 +60,12 @@ export default function ClientProfile() {
     },
     enabled: !!user,
     retry: false,
+  });
+
+  // Fetch team members
+  const { data: teamMembers = [], isLoading: teamMembersLoading } = useQuery<TeamMember[]>({
+    queryKey: ['/api/team-members'],
+    enabled: !!profile && !isOnboarding,
   });
 
   // Form setup - pre-fill with registration data if creating new profile
@@ -138,6 +149,86 @@ export default function ClientProfile() {
       toast({
         title: "Update failed",
         description: error.message || "Failed to update profile. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Team member invite form
+  const inviteSchema = insertTeamMemberSchema.pick({
+    email: true,
+    fullName: true,
+    role: true,
+  });
+  
+  const inviteForm = useForm({
+    resolver: zodResolver(inviteSchema),
+    defaultValues: {
+      email: "",
+      fullName: "",
+      role: "member" as const,
+    },
+  });
+
+  // Team member mutations
+  const inviteMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof inviteSchema>) => {
+      return await apiRequest('POST', '/api/team-members/invite', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/team-members'] });
+      setInviteDialogOpen(false);
+      inviteForm.reset();
+      toast({
+        title: "Invitation sent",
+        description: "Team member invitation has been sent successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Invitation failed",
+        description: error.message || "Failed to send invitation.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      return await apiRequest('DELETE', `/api/team-members/${memberId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/team-members'] });
+      toast({
+        title: "Member removed",
+        description: "Team member has been removed successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Remove failed",
+        description: error.message || "Failed to remove team member.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMemberMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<TeamMember> }) => {
+      return await apiRequest('PATCH', `/api/team-members/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/team-members'] });
+      setEditingMember(null);
+      toast({
+        title: "Member updated",
+        description: "Team member has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update team member.",
         variant: "destructive",
       });
     },
@@ -655,6 +746,182 @@ export default function ClientProfile() {
               <div className="text-sm whitespace-pre-wrap" data-testid="text-description">
                 {profile?.description || "No description provided"}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Team Members Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  Team Members
+                </CardTitle>
+                <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" data-testid="button-invite-member">
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Invite Member
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Invite Team Member</DialogTitle>
+                      <DialogDescription>
+                        Send an invitation to add a new member to your team.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Form {...inviteForm}>
+                      <form onSubmit={inviteForm.handleSubmit((data) => inviteMutation.mutate(data))} className="space-y-4">
+                        <FormField
+                          control={inviteForm.control}
+                          name="fullName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Full Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="John Doe" data-testid="input-member-name" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={inviteForm.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email</FormLabel>
+                              <FormControl>
+                                <Input type="email" placeholder="john@example.com" data-testid="input-member-email" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={inviteForm.control}
+                          name="role"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Role</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-member-role">
+                                    <SelectValue placeholder="Select role" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                  <SelectItem value="member">Member</SelectItem>
+                                  <SelectItem value="viewer">Viewer</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormDescription>
+                                Admin: Full access. Member: Can manage projects. Viewer: Read-only access.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <DialogFooter>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setInviteDialogOpen(false)}
+                            data-testid="button-cancel-invite"
+                          >
+                            Cancel
+                          </Button>
+                          <Button type="submit" disabled={inviteMutation.isPending} data-testid="button-send-invite">
+                            {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+              <CardDescription>
+                Manage your team members and their permissions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {teamMembersLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : teamMembers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground" data-testid="text-no-members">
+                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No team members yet</p>
+                  <p className="text-sm">Invite team members to collaborate on projects</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {teamMembers.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                      data-testid={`member-${member.id}`}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-sm font-medium text-primary">
+                            {member.fullName?.charAt(0).toUpperCase() || member.email.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium" data-testid={`text-member-name-${member.id}`}>
+                            {member.fullName || "Unnamed"}
+                          </div>
+                          <div className="text-sm text-muted-foreground flex items-center gap-2">
+                            <Mail className="h-3 w-3" />
+                            {member.email}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={member.status === 'accepted' ? 'default' : 'secondary'} data-testid={`badge-status-${member.id}`}>
+                            {member.status}
+                          </Badge>
+                          <Badge variant="outline" data-testid={`badge-role-${member.id}`}>
+                            <Shield className="h-3 w-3 mr-1" />
+                            {member.role}
+                          </Badge>
+                        </div>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" data-testid={`button-member-actions-${member.id}`}>
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => setEditingMember(member)}
+                            data-testid={`button-edit-member-${member.id}`}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Role
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              if (confirm(`Remove ${member.fullName || member.email} from team?`)) {
+                                removeMemberMutation.mutate(member.id);
+                              }
+                            }}
+                            className="text-destructive"
+                            data-testid={`button-remove-member-${member.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Remove
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

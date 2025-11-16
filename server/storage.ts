@@ -174,6 +174,7 @@ export interface IStorage {
   acceptInvitation(token: string, userId: string): Promise<TeamMember>;
   declineInvitation(token: string): Promise<TeamMember>;
   getTeamMemberByToken(token: string): Promise<TeamMember | undefined>;
+  resendInvitation(id: string, invitationToken: string, expiry: Date): Promise<TeamMember>;
   
   // Consultant Profile operations
   getConsultantProfile(userId: string): Promise<ConsultantProfile | undefined>;
@@ -549,6 +550,20 @@ export class DatabaseStorage implements IStorage {
       .from(teamMembers)
       .where(eq(teamMembers.invitationToken, token));
     return member;
+  }
+
+  async resendInvitation(id: string, invitationToken: string, expiry: Date): Promise<TeamMember> {
+    const [updated] = await db
+      .update(teamMembers)
+      .set({
+        invitationToken,
+        invitationSentAt: new Date(),
+        invitationExpiry: expiry,
+        updatedAt: new Date(),
+      })
+      .where(eq(teamMembers.id, id))
+      .returning();
+    return updated;
   }
 
   // Consultant Profile operations
@@ -2105,18 +2120,6 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(conversationPins)
       .where(eq(conversationPins.userId, userId))
       .orderBy(conversationPins.displayOrder);
-  }
-
-  // File Version operations
-  async createFileVersion(version: InsertFileVersion): Promise<FileVersion> {
-    const [created] = await db.insert(fileVersions).values(version).returning();
-    return created;
-  }
-
-  async getFileVersions(originalFileId: string): Promise<FileVersion[]> {
-    return await db.select().from(fileVersions)
-      .where(eq(fileVersions.originalFileId, originalFileId))
-      .orderBy(desc(fileVersions.createdAt));
   }
 
   // Rate Limit operations

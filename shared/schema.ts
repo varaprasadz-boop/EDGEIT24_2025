@@ -98,6 +98,7 @@ export const teamMembers = pgTable("team_members", {
   clientProfileId: varchar("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
   userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }), // null until invitation accepted
   email: text("email").notNull(), // Email for invitation
+  fullName: text("full_name"), // Optional full name for display
   role: text("role").notNull().default('member'), // 'owner', 'admin', 'member', 'viewer'
   status: text("status").notNull().default('pending'), // 'pending', 'accepted', 'declined', 'revoked'
   // Permissions

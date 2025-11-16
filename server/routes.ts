@@ -1884,6 +1884,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Resend invitation
+  app.post('/api/team-members/:id/resend', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Get team member
+      const member = await storage.getTeamMember(req.params.id);
+      if (!member) {
+        return res.status(404).json({ message: "Team member not found" });
+      }
+
+      // Verify requester is from same organization
+      const clientProfile = await storage.getClientProfile(userId);
+      if (!clientProfile || clientProfile.id !== member.clientProfileId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Only pending invitations can be resent
+      if (member.status !== 'pending') {
+        return res.status(400).json({ message: `Cannot resend invitation with status: ${member.status}` });
+      }
+
+      // Generate new token and expiry (7 days)
+      const invitationToken = nanoid(32);
+      const expiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      // Resend invitation
+      const updated = await storage.resendInvitation(req.params.id, invitationToken, expiry);
+
+      // TODO: Send invitation email with new token
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error resending invitation:", error);
+      res.status(500).json({ message: "Failed to resend invitation" });
+    }
+  });
+
   // Consultant Profile endpoints
   app.get('/api/profile/consultant', isAuthenticated, async (req: any, res) => {
     try {
