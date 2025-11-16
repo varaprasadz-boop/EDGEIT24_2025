@@ -1577,3 +1577,99 @@ export const insertFileVersionSchema = createInsertSchema(fileVersions).omit({
 
 export type InsertFileVersion = z.infer<typeof insertFileVersionSchema>;
 export type FileVersion = typeof fileVersions.$inferSelect;
+
+// ============================================================================
+// WebSocket Events & Real-time Communication
+// ============================================================================
+
+// WebSocket Event Types
+export const wsEventTypeEnum = z.enum([
+  // Client -> Server events
+  'typing_start',
+  'typing_stop',
+  'mark_read',
+  'join_conversation',
+  'leave_conversation',
+  
+  // Server -> Client events
+  'message_sent',
+  'message_updated',
+  'message_deleted',
+  'user_typing',
+  'user_stopped_typing',
+  'user_online',
+  'user_offline',
+  'conversation_updated',
+  'read_receipt',
+  
+  // Connection events
+  'connected',
+  'disconnected',
+  'error',
+]);
+
+export type WsEventType = z.infer<typeof wsEventTypeEnum>;
+
+// Base WebSocket message schema
+export const wsMessageSchema = z.object({
+  type: wsEventTypeEnum,
+  payload: z.any(),
+  timestamp: z.string().optional(),
+});
+
+export type WsMessage = z.infer<typeof wsMessageSchema>;
+
+// Typing indicator payload
+export const typingIndicatorSchema = z.object({
+  conversationId: z.string(),
+  userId: z.string(),
+  userName: z.string(),
+  isTyping: z.boolean(),
+});
+
+export type TypingIndicator = z.infer<typeof typingIndicatorSchema>;
+
+// Message sent payload (server -> client)
+export const messageSentPayloadSchema = z.object({
+  conversationId: z.string(),
+  message: z.object({
+    id: z.string(),
+    conversationId: z.string(),
+    senderId: z.string(),
+    content: z.string(),
+    messageType: z.string().optional(),
+    metadata: z.any().optional(),
+    isEdited: z.boolean().optional(),
+    deletedAt: z.string().nullable().optional(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  }),
+});
+
+export type MessageSentPayload = z.infer<typeof messageSentPayloadSchema>;
+
+// User presence payload
+export const userPresenceSchema = z.object({
+  userId: z.string(),
+  status: z.enum(['online', 'offline', 'away']),
+  lastSeen: z.string().optional(),
+});
+
+export type UserPresence = z.infer<typeof userPresenceSchema>;
+
+// Read receipt payload
+export const readReceiptSchema = z.object({
+  conversationId: z.string(),
+  messageId: z.string(),
+  userId: z.string(),
+  readAt: z.string(),
+});
+
+export type ReadReceipt = z.infer<typeof readReceiptSchema>;
+
+// Join/Leave conversation payload
+export const conversationActionSchema = z.object({
+  conversationId: z.string(),
+});
+
+export type ConversationAction = z.infer<typeof conversationActionSchema>;

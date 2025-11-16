@@ -1,4 +1,5 @@
 import {
+  sessions,
   users,
   clientProfiles,
   consultantProfiles,
@@ -124,6 +125,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(userId: string, data: Partial<InsertUser>): Promise<User>;
+  getSession(sessionId: string): Promise<any>;
   
   // Email verification operations
   setEmailVerificationToken(userId: string, token: string, expiry: Date): Promise<void>;
@@ -230,6 +232,7 @@ export interface IStorage {
   // Conversation Participant operations
   addParticipant(participant: InsertConversationParticipant): Promise<ConversationParticipant>;
   getConversationParticipants(conversationId: string): Promise<ConversationParticipant[]>;
+  isConversationParticipant(conversationId: string, userId: string): Promise<boolean>;
   updateParticipant(id: string, data: Partial<InsertConversationParticipant>): Promise<ConversationParticipant>;
   removeParticipant(conversationId: string, userId: string): Promise<void>;
   updateLastReadAt(conversationId: string, userId: string): Promise<void>;
@@ -344,6 +347,14 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  async getSession(sessionId: string): Promise<any> {
+    const [session] = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.sid, sessionId));
+    return session?.sess;
   }
 
   // Client Profile operations
@@ -1343,6 +1354,16 @@ export class DatabaseStorage implements IStorage {
   async getConversationParticipants(conversationId: string): Promise<ConversationParticipant[]> {
     return await db.select().from(conversationParticipants)
       .where(eq(conversationParticipants.conversationId, conversationId));
+  }
+
+  async isConversationParticipant(conversationId: string, userId: string): Promise<boolean> {
+    const [participant] = await db.select().from(conversationParticipants)
+      .where(and(
+        eq(conversationParticipants.conversationId, conversationId),
+        eq(conversationParticipants.userId, userId)
+      ))
+      .limit(1);
+    return !!participant;
   }
 
   async updateParticipant(id: string, data: Partial<InsertConversationParticipant>): Promise<ConversationParticipant> {

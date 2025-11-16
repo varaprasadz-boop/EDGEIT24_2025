@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
+import { wsManager } from "./websocket";
 import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema } from "@shared/schema";
 import { db } from "./db";
@@ -4573,6 +4574,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const message = await storage.createMessage(validatedData);
+      
+      // Broadcast new message via WebSocket
+      await wsManager.broadcastNewMessage(req.params.conversationId, message);
+      
       res.status(201).json(message);
     } catch (error: any) {
       console.error("Error creating message:", error);
@@ -5537,6 +5542,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+
+  // Initialize WebSocket server
+  wsManager.initialize(httpServer);
 
   return httpServer;
 }
