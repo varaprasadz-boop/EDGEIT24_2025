@@ -65,6 +65,16 @@ A comprehensive real-time messaging system supports one-on-one conversations, fi
 - user_online/user_offline: Presence tracking
 - read_receipt: Message read status updates
 
+**File Attachments System:**
+- FileUpload component with drag-and-drop support and validation (25MB max size)
+- Dialog-based file attachment interface in messaging UI
+- Efficient file fetching via conversation-level endpoint
+- Files displayed in message bubbles with download links
+- Version tracking support in backend schema (parentFileId, versionNumber)
+- Real-time file updates via WebSocket integration
+- File metadata: fileName, fileSize, mimeType, fileUrl, thumbnailUrl
+- Security: File scan status tracking (pending/clean/infected)
+
 ## External Dependencies
 
 ### Database
