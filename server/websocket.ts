@@ -16,9 +16,18 @@ class WebSocketManager {
   private wss: WebSocketServer | null = null;
   private clients = new Map<string, ConnectedClient>(); // userId -> client
   private typingTimers = new Map<string, NodeJS.Timeout>(); // userId-conversationId -> timer
+  
+  // OPTIMIZATION: Cache conversation participants to avoid DB query on every broadcast
+  // Cache stores conversationId -> Set<userId> for fast lookups
+  private participantCache = new Map<string, Set<string>>();
+  private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+  private cacheTimestamps = new Map<string, number>();
 
   initialize(server: Server) {
     this.wss = new WebSocketServer({ server, path: "/ws" });
+
+    // Start periodic cache cleanup
+    this.startCacheCleanup();
 
     this.wss.on("connection", async (ws: WebSocket, req) => {
       try {
@@ -322,18 +331,72 @@ class WebSocketManager {
     excludeUserId: string | null,
     message: WsMessage
   ) {
-    // Get all participants
-    const participants = await storage.getConversationParticipants(conversationId);
+    // OPTIMIZED: Use cached participants to avoid DB query on every broadcast
+    const participantIds = await this.getConversationParticipantIds(conversationId);
     
-    for (const participant of participants) {
+    // Convert Set to Array for iteration
+    Array.from(participantIds).forEach(userId => {
       // Skip excluded user (e.g., sender)
-      if (excludeUserId && participant.userId === excludeUserId) {
-        continue;
+      if (excludeUserId && userId === excludeUserId) {
+        return;
       }
 
-      // Send to online users
-      this.sendToClient(participant.userId, message);
+      // Send to online users only
+      this.sendToClient(userId, message);
+    });
+  }
+
+  // Get conversation participant IDs with caching
+  private async getConversationParticipantIds(conversationId: string): Promise<Set<string>> {
+    const now = Date.now();
+    const cachedTimestamp = this.cacheTimestamps.get(conversationId);
+    
+    // Check if cache is valid (exists and not expired)
+    if (cachedTimestamp && (now - cachedTimestamp < this.CACHE_TTL_MS)) {
+      const cached = this.participantCache.get(conversationId);
+      if (cached) {
+        return cached;
+      }
     }
+    
+    // Cache miss or expired - fetch from DB
+    const participants = await storage.getConversationParticipants(conversationId);
+    const participantIds = new Set(participants.map(p => p.userId));
+    
+    // Update cache
+    this.participantCache.set(conversationId, participantIds);
+    this.cacheTimestamps.set(conversationId, now);
+    
+    return participantIds;
+  }
+
+  // Public method to invalidate participant cache when membership changes
+  invalidateParticipantCache(conversationId: string) {
+    this.participantCache.delete(conversationId);
+    this.cacheTimestamps.delete(conversationId);
+  }
+
+  // Periodic cleanup of expired cache entries
+  private startCacheCleanup() {
+    setInterval(() => {
+      const now = Date.now();
+      const expiredKeys: string[] = [];
+      
+      this.cacheTimestamps.forEach((timestamp, conversationId) => {
+        if (now - timestamp >= this.CACHE_TTL_MS) {
+          expiredKeys.push(conversationId);
+        }
+      });
+      
+      expiredKeys.forEach(key => {
+        this.participantCache.delete(key);
+        this.cacheTimestamps.delete(key);
+      });
+      
+      if (expiredKeys.length > 0) {
+        console.log(`[WebSocket] Cleaned up ${expiredKeys.length} expired participant cache entries`);
+      }
+    }, this.CACHE_TTL_MS);
   }
 
   private broadcastPresence(userId: string, status: "online" | "offline") {

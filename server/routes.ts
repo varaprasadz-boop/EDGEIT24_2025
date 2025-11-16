@@ -4484,6 +4484,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const participant = await storage.addParticipant(validatedData);
+      
+      // Invalidate WebSocket participant cache for this conversation
+      wsManager.invalidateParticipantCache(req.params.conversationId);
+      
       res.status(201).json(participant);
     } catch (error: any) {
       console.error("Error adding participant:", error);
@@ -4561,6 +4565,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await storage.removeParticipant(req.params.conversationId, targetParticipant.userId);
+      
+      // Invalidate WebSocket participant cache for this conversation
+      wsManager.invalidateParticipantCache(req.params.conversationId);
+      
       res.json({ message: "Participant removed successfully" });
     } catch (error) {
       console.error("Error removing participant:", error);
