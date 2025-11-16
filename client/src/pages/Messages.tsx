@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
+import { NewConversationDialog } from "@/components/NewConversationDialog";
 
 type Conversation = {
   id: string;
@@ -127,13 +128,7 @@ export default function Messages() {
           <div className="p-4 border-b space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Messages</h2>
-              <Button
-                size="icon"
-                variant="ghost"
-                data-testid="button-new-conversation"
-              >
-                <MessageSquarePlus className="h-5 w-5" />
-              </Button>
+              <NewConversationDialog />
             </div>
 
             <div className="relative">
@@ -196,10 +191,14 @@ export default function Messages() {
             ) : (
               <div className="p-8 text-center">
                 <p className="text-muted-foreground mb-4">No conversations yet</p>
-                <Button variant="outline" data-testid="button-start-conversation">
-                  <MessageSquarePlus className="h-4 w-4 mr-2" />
-                  Start a conversation
-                </Button>
+                <NewConversationDialog
+                  trigger={
+                    <Button variant="outline" data-testid="button-start-conversation">
+                      <MessageSquarePlus className="h-4 w-4 mr-2" />
+                      Start a conversation
+                    </Button>
+                  }
+                />
               </div>
             )}
           </ScrollArea>
