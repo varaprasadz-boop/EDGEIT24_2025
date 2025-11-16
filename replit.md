@@ -55,6 +55,14 @@ Client and Consultant Dashboards display relevant information and approval statu
 
 All fields are functional in both edit and view modes with proper data-testid attributes for testing.
 
+#### Review System (Phase 2.1-2.2 - Completed)
+A comprehensive review submission system enables clients to rate consultants after project completion:
+- **ReviewForm Component**: Reusable form with 1-5 star ratings, optional text comments, and category ratings (communication, quality, timeliness)
+- **Dashboard Integration**: "Leave Review" button appears on completed projects with consultants, opens dialog with pre-filled form
+- **Dynamic Project Selection**: Component accepts projects prop for standalone use or pre-filled projectId for dashboard integration
+- **Backend Integration**: Connects to existing `/api/reviews` POST endpoint with proper authentication and validation
+- Full data-testid coverage for automated testing
+
 ### Job Posting & Category Integration
 Job posting requires client authentication and features a cascading 3-level category selector. Job and consultant browsing support hierarchical category filtering.
 
