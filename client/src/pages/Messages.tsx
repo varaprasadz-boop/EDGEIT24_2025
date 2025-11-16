@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useLocation, useRoute } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Helmet } from "react-helmet-async";
 import { useToast } from "@/hooks/use-toast";
@@ -123,10 +123,47 @@ export default function Messages() {
     enabled: !!selectedConversationId,
   });
 
-  const { data: messages, isLoading: messagesLoading } = useQuery<Message[]>({
+  const { 
+    data: messagesData, 
+    isLoading: messagesLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ["/api/conversations", selectedConversationId, "messages"],
+    queryFn: async ({ pageParam }) => {
+      const url = new URL(`/api/conversations/${selectedConversationId}/messages`, window.location.origin);
+      url.searchParams.set("limit", "50");
+      if (pageParam) {
+        url.searchParams.set("beforeMessageId", pageParam);
+      }
+      
+      const response = await fetch(url.toString(), {
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch messages");
+      }
+      
+      const data = await response.json();
+      return data.messages || [];
+    },
+    getNextPageParam: (lastPage) => {
+      if (!lastPage || lastPage.length === 0) return undefined;
+      // Last page is newest messages, so the oldest (last item) is our cursor for next page
+      return lastPage[lastPage.length - 1].id;
+    },
+    initialPageParam: undefined,
     enabled: !!selectedConversationId,
   });
+
+  // Reverse pages and flatten to get oldest-to-newest chronological order
+  // Server returns newest-first (DESC), but UI needs oldest-first for chat
+  // Process pages from last to first, reversing each page to get chronological order
+  const messages = messagesData?.pages
+    .reduceRight((acc, page) => acc.concat([...page].reverse()), [] as typeof messagesData.pages[0])
+    || [];
 
   const { data: unreadCount } = useQuery<{ unreadCount: number }>({
     queryKey: ["/api/conversations", selectedConversationId, "unread-count"],
@@ -220,6 +257,7 @@ export default function Messages() {
       case "message_sent":
         // Invalidate queries to refetch new message
         if (message.payload.conversationId) {
+          // For infinite queries, we just invalidate and let it refetch the first page
           queryClient.invalidateQueries({
             queryKey: ["/api/conversations", message.payload.conversationId, "messages"],
           });
@@ -707,6 +745,21 @@ export default function Messages() {
                   </div>
                 ) : messages && messages.length > 0 ? (
                   <div className="space-y-4">
+                    {/* Load More Button */}
+                    {hasNextPage && (
+                      <div className="text-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fetchNextPage()}
+                          disabled={isFetchingNextPage}
+                          data-testid="button-load-more-messages"
+                        >
+                          {isFetchingNextPage ? "Loading..." : "Load older messages"}
+                        </Button>
+                      </div>
+                    )}
+                    
                     {messages.map((message) => {
                       const isOwnMessage = message.senderId === user?.id;
                       return (
