@@ -9,6 +9,7 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -56,11 +57,14 @@ export default function ClientProfile() {
     retry: false,
   });
 
-  // Form setup
+  // Form setup - pre-fill with registration data if creating new profile
   const form = useForm<UpdateProfile>({
     resolver: zodResolver(updateProfileSchema),
     defaultValues: {
-      companyName: profile?.companyName ?? undefined,
+      companyName: profile?.companyName ?? user?.companyName ?? undefined,
+      contactEmail: profile?.contactEmail ?? user?.email ?? undefined,
+      contactPhone: profile?.contactPhone ?? user?.phone ?? undefined,
+      phoneCountryCode: profile?.phoneCountryCode ?? user?.phoneCountryCode ?? undefined,
       industry: profile?.industry ?? undefined,
       companySize: profile?.companySize ?? undefined,
       website: profile?.website ?? undefined,
@@ -70,18 +74,22 @@ export default function ClientProfile() {
     },
   });
 
-  // Auto-open edit mode if onboarding
+  // Auto-open edit mode if onboarding or creating new profile
   useEffect(() => {
-    if (isOnboarding && !isEditing && !isLoading) {
+    if ((isOnboarding || !profile) && !isEditing && !isLoading) {
       setIsEditing(true);
     }
-  }, [isOnboarding, isEditing, isLoading]);
+  }, [isOnboarding, profile, isEditing, isLoading]);
 
-  // Reset form when profile data loads
+  // Reset form when profile data loads or when creating new profile from user data
   useEffect(() => {
     if (profile && !isEditing) {
+      // Existing profile - use profile data
       form.reset({
         companyName: profile.companyName ?? undefined,
+        contactEmail: profile.contactEmail ?? undefined,
+        contactPhone: profile.contactPhone ?? undefined,
+        phoneCountryCode: profile.phoneCountryCode ?? undefined,
         industry: profile.industry ?? undefined,
         companySize: profile.companySize ?? undefined,
         website: profile.website ?? undefined,
@@ -89,8 +97,22 @@ export default function ClientProfile() {
         location: profile.location ?? undefined,
         avatar: profile.avatar ?? undefined,
       });
+    } else if (!profile && user && isEditing) {
+      // New profile - pre-fill with registration data
+      form.reset({
+        companyName: user.companyName ?? undefined,
+        contactEmail: user.email ?? undefined,
+        contactPhone: user.phone ?? undefined,
+        phoneCountryCode: user.phoneCountryCode ?? undefined,
+        industry: undefined,
+        companySize: undefined,
+        website: undefined,
+        description: undefined,
+        location: undefined,
+        avatar: undefined,
+      });
     }
-  }, [profile, isEditing, form]);
+  }, [profile, user, isEditing, form]);
 
   // Update mutation
   const updateMutation = useMutation({
@@ -243,6 +265,7 @@ export default function ClientProfile() {
                 </AlertDescription>
               </Alert>
             )}
+
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
@@ -258,6 +281,69 @@ export default function ClientProfile() {
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={form.control}
+                  name="contactEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact Email</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="email" 
+                          placeholder="contact@company.com" 
+                          {...field} 
+                          value={field.value ?? ""} 
+                          data-testid="input-contact-email" 
+                        />
+                      </FormControl>
+                      <FormDescription>Business contact email</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="phoneCountryCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Country Code</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="+966" 
+                            {...field} 
+                            value={field.value ?? ""} 
+                            data-testid="input-phone-country-code" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="contactPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Contact Phone Number</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="tel" 
+                            placeholder="501234567" 
+                            {...field} 
+                            value={field.value ?? ""} 
+                            data-testid="input-contact-phone" 
+                          />
+                        </FormControl>
+                        <FormDescription>Business contact number</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={form.control}

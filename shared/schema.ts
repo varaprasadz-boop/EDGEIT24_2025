@@ -67,6 +67,10 @@ export const clientProfiles = pgTable("client_profiles", {
   avatar: text("avatar"),
   logo: text("logo"), // Company logo URL
   socialLinks: jsonb("social_links"), // { linkedin, twitter, facebook, etc. }
+  // Company contact information (pre-filled from registration, editable)
+  contactEmail: text("contact_email"), // Company/business contact email
+  contactPhone: text("contact_phone"), // Company/business contact phone
+  phoneCountryCode: text("phone_country_code"), // +966, +971, etc.
   // Profile approval fields
   profileStatus: text("profile_status").default('draft'), // 'draft', 'submitted', 'under_review', 'complete'
   approvalStatus: text("approval_status").default('pending'), // 'pending', 'approved', 'rejected', 'changes_requested'
