@@ -100,6 +100,15 @@ A comprehensive real-time messaging system supports one-on-one conversations, fi
 - Proper RBAC enforcement across all admin endpoints
 - Cache invalidation after moderation mutations
 
+**Performance Optimizations:**
+- Message pagination: Cursor-based infinite scroll with 50 messages per page, using composite index on (conversationId, createdAt)
+- Database query optimization: Single-query patterns for getUserConversations (JOIN) and getConversationFiles (direct conversationId lookup), eliminating N+1 queries
+- WebSocket participant caching: In-memory cache with 5-minute TTL reduces broadcast DB queries by 99% (100 messages: 100 queries → 1-2 queries)
+- Cache invalidation: Automatic invalidation when participants are added/removed, with periodic cleanup every 5 minutes
+- Rate limiting: Database-backed rate limiter for message sending (60/min), conversation creation (10/hr), file uploads (20/hr), meeting creation (20/hr)
+- File upload security: Server-side validation (25MB max, MIME allowlist), async virus scanning with FileScanService
+- Comprehensive performance documentation in PERFORMANCE_OPTIMIZATIONS.md with scalability recommendations
+
 ## External Dependencies
 
 ### Database
