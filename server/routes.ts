@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { Router } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
@@ -39,6 +40,13 @@ const queryLimitSchema = z.object({
 // Helper to get userId from authenticated request (for local auth)
 function getUserIdFromRequest(req: any): string | null {
   return req.user?.id || null;
+}
+
+// Helper to parse and validate dates
+function parseDate(value: any): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
 }
 
 // Middleware guards for profile requirements
@@ -161,8 +169,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
   await setupAuth(app);
   
-  // Setup activity logging middleware (tracks user actions)
-  app.use(activityLogger);
+  // Apply activity logging to all authenticated API routes (except sensitive auth routes)
+  app.use('/api', (req: any, res: any, next: any) => {
+    // Skip sensitive auth routes to avoid logging passwords
+    if (req.path.startsWith('/auth/login') || req.path.startsWith('/auth/signup') || req.path.startsWith('/auth/reset-password')) {
+      return next();
+    }
+    // Apply activity logger only to authenticated requests
+    if (req.isAuthenticated && req.isAuthenticated()) {
+      return activityLogger(req, res, next);
+    }
+    next();
+  });
 
   // Auth routes
   
@@ -688,19 +706,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Authentication required" });
       }
 
-      // Validate and limit pagination - protect against NaN and empty strings
-      const parsedLimit = parseInt(req.query.limit as string);
-      const parsedOffset = parseInt(req.query.offset as string);
+      // Normalize pagination params
+      let limit = 50; // Default
+      let offset = 0; // Default
       
-      if (req.query.limit !== undefined && (req.query.limit === '' || isNaN(parsedLimit) || parsedLimit <= 0)) {
-        return res.status(400).json({ message: "Invalid limit parameter" });
-      }
-      if (req.query.offset !== undefined && (req.query.offset === '' || isNaN(parsedOffset) || parsedOffset < 0)) {
-        return res.status(400).json({ message: "Invalid offset parameter" });
+      if (req.query.limit !== undefined) {
+        const parsed = Number(req.query.limit);
+        if (isNaN(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
+          return res.status(400).json({ message: "Invalid limit parameter" });
+        }
+        limit = parsed;
       }
       
-      const limit = Math.min(parsedLimit || 50, 100); // Max 100 records
-      const offset = Math.max(parsedOffset || 0, 0); // Non-negative
+      if (req.query.offset !== undefined) {
+        const parsed = Number(req.query.offset);
+        if (isNaN(parsed) || parsed < 0 || !Number.isInteger(parsed)) {
+          return res.status(400).json({ message: "Invalid offset parameter" });
+        }
+        offset = parsed;
+      }
+      
+      // Bound limit to 100 for users
+      limit = Math.min(limit, 100);
+      // Bound offset to prevent excessive scans (max 10,000 records)
+      offset = Math.min(offset, 10000);
       
       // Validate action and resource against known values
       const validActions = ['page_view', 'api_call', 'create', 'update', 'delete', 'view', 'download', 'upload'];
@@ -716,46 +745,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid resource parameter" });
       }
       
-      // Validate date range (max 90 days) - with safe defaults to prevent unbounded queries
-      let startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
-      let endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      // Parse and validate dates using helper
+      const startParam = parseDate(req.query.startDate);
+      const endParam = parseDate(req.query.endDate);
       
-      // Validate dates are valid
-      if (startDate && isNaN(startDate.getTime())) {
-        return res.status(400).json({ message: "Invalid start date" });
+      // Reject invalid date strings explicitly
+      if (req.query.startDate && !startParam) {
+        return res.status(400).json({ message: "Invalid startDate format" });
       }
-      if (endDate && isNaN(endDate.getTime())) {
-        return res.status(400).json({ message: "Invalid end date" });
+      if (req.query.endDate && !endParam) {
+        return res.status(400).json({ message: "Invalid endDate format" });
       }
       
-      // Apply safe defaults and clamping to prevent unbounded queries
+      // Canonicalize date range (max 90 days for users)
       const now = new Date();
       const maxDaysBack = 90;
       const maxDaysBackMs = maxDaysBack * 24 * 60 * 60 * 1000;
+      const minAllowedDate = new Date(now.getTime() - maxDaysBackMs);
       
-      if (startDate && !endDate) {
-        // Only startDate provided: clamp endDate to min(now, startDate + window)
-        endDate = new Date(Math.min(now.getTime(), startDate.getTime() + maxDaysBackMs));
-      } else if (!startDate && endDate) {
-        // Only endDate provided: clamp startDate to endDate - window
-        startDate = new Date(endDate.getTime() - maxDaysBackMs);
+      let startDate: Date;
+      let endDate: Date;
+      
+      // Default empty ranges to [now - 90d, now]
+      if (!startParam && !endParam) {
+        startDate = minAllowedDate;
+        endDate = now;
+      } else {
+        startDate = startParam || minAllowedDate;
+        endDate = endParam || now;
       }
       
-      // Ensure startDate <= endDate and within allowed range (after clamping)
-      if (startDate && endDate) {
-        // Clamp to ensure valid range
-        if (startDate > endDate) {
-          // Swap and clamp if needed
-          const temp = startDate;
-          startDate = endDate;
-          endDate = new Date(Math.min(now.getTime(), startDate.getTime() + maxDaysBackMs));
-        }
-        
-        const daysDiff = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-        if (daysDiff > maxDaysBack) {
-          // Clamp to max window
-          endDate = new Date(startDate.getTime() + maxDaysBackMs);
-        }
+      // Swap if needed
+      if (startDate > endDate) {
+        [startDate, endDate] = [endDate, startDate];
+      }
+      
+      // Clamp both ends to [now - 90d, now]
+      startDate = new Date(Math.max(startDate.getTime(), minAllowedDate.getTime()));
+      endDate = new Date(Math.min(endDate.getTime(), now.getTime()));
+      
+      // Enforce end-start ≤ 90 days
+      const actualDiff = endDate.getTime() - startDate.getTime();
+      if (actualDiff > maxDaysBackMs) {
+        // Clamp endDate to startDate + 90 days
+        endDate = new Date(startDate.getTime() + maxDaysBackMs);
       }
 
       const logs = await storage.getUserActivityLogs(userId, {
@@ -787,19 +820,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      // Validate and limit pagination - protect against NaN (admins get higher limits)
-      const parsedLimit = parseInt(req.query.limit as string);
-      const parsedOffset = parseInt(req.query.offset as string);
+      // Normalize pagination params (admins get higher limits)
+      let limit = 100; // Default
+      let offset = 0; // Default
       
-      if (req.query.limit && isNaN(parsedLimit)) {
-        return res.status(400).json({ message: "Invalid limit parameter" });
-      }
-      if (req.query.offset && isNaN(parsedOffset)) {
-        return res.status(400).json({ message: "Invalid offset parameter" });
+      if (req.query.limit !== undefined) {
+        const parsed = Number(req.query.limit);
+        if (isNaN(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
+          return res.status(400).json({ message: "Invalid limit parameter" });
+        }
+        limit = parsed;
       }
       
-      const limit = Math.min(parsedLimit || 100, 500); // Max 500 records for admins
-      const offset = Math.max(parsedOffset || 0, 0); // Non-negative
+      if (req.query.offset !== undefined) {
+        const parsed = Number(req.query.offset);
+        if (isNaN(parsed) || parsed < 0 || !Number.isInteger(parsed)) {
+          return res.status(400).json({ message: "Invalid offset parameter" });
+        }
+        offset = parsed;
+      }
+      
+      // Bound limit to 500 for admins
+      limit = Math.min(limit, 500);
+      // Bound offset to prevent excessive scans (max 50,000 records for admins)
+      offset = Math.min(offset, 50000);
       
       // Validate action and resource against known values
       const validActions = ['page_view', 'api_call', 'create', 'update', 'delete', 'view', 'download', 'upload'];
@@ -815,39 +859,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid resource parameter" });
       }
       
-      // Validate date range (max 365 days for admins) - with safe defaults to prevent unbounded queries
-      let startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
-      let endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      // Parse and validate dates using helper
+      const startParam = parseDate(req.query.startDate);
+      const endParam = parseDate(req.query.endDate);
       
-      // Validate dates are valid
-      if (startDate && isNaN(startDate.getTime())) {
-        return res.status(400).json({ message: "Invalid start date" });
+      // Reject invalid date strings explicitly
+      if (req.query.startDate && !startParam) {
+        return res.status(400).json({ message: "Invalid startDate format" });
       }
-      if (endDate && isNaN(endDate.getTime())) {
-        return res.status(400).json({ message: "Invalid end date" });
+      if (req.query.endDate && !endParam) {
+        return res.status(400).json({ message: "Invalid endDate format" });
       }
       
-      // Apply safe defaults to prevent unbounded queries
+      // Canonicalize date range (max 365 days for admins)
       const now = new Date();
-      const maxDaysBack = 365; // Admins get longer window
+      const maxDaysBack = 365;
+      const maxDaysBackMs = maxDaysBack * 24 * 60 * 60 * 1000;
+      const minAllowedDate = new Date(now.getTime() - maxDaysBackMs);
       
-      if (startDate && !endDate) {
-        // Only startDate provided: set endDate to now
+      let startDate: Date;
+      let endDate: Date;
+      
+      // Default empty ranges to [now - 365d, now]
+      if (!startParam && !endParam) {
+        startDate = minAllowedDate;
         endDate = now;
-      } else if (!startDate && endDate) {
-        // Only endDate provided: set startDate to maxDaysBack before endDate
-        startDate = new Date(endDate.getTime() - maxDaysBack * 24 * 60 * 60 * 1000);
+      } else {
+        startDate = startParam || minAllowedDate;
+        endDate = endParam || now;
       }
       
-      // Ensure startDate <= endDate and within allowed range
-      if (startDate && endDate) {
-        if (startDate > endDate) {
-          return res.status(400).json({ message: "Start date must be before end date" });
-        }
-        const daysDiff = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 1000);
-        if (daysDiff > maxDaysBack) {
-          return res.status(400).json({ message: `Date range cannot exceed ${maxDaysBack} days` });
-        }
+      // Swap if needed
+      if (startDate > endDate) {
+        [startDate, endDate] = [endDate, startDate];
+      }
+      
+      // Clamp both ends to [now - 365d, now]
+      startDate = new Date(Math.max(startDate.getTime(), minAllowedDate.getTime()));
+      endDate = new Date(Math.min(endDate.getTime(), now.getTime()));
+      
+      // Enforce end-start ≤ 365 days
+      const actualDiff = endDate.getTime() - startDate.getTime();
+      if (actualDiff > maxDaysBackMs) {
+        // Clamp endDate to startDate + 365 days
+        endDate = new Date(startDate.getTime() + maxDaysBackMs);
       }
 
       const logs = await storage.getAllActivityLogs({
@@ -865,7 +920,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch activity logs" });
     }
   });
-
+  
   // Get login history for current user
   app.get('/api/auth/login-history', isAuthenticated, async (req: any, res) => {
     try {

@@ -2039,8 +2039,9 @@ export class DatabaseStorage implements IStorage {
     endDate?: Date;
   }): Promise<UserActivityLog[]> {
     const { userActivityLog } = await import("@shared/schema");
-    const limit = options?.limit || 50;
-    const offset = options?.offset || 0;
+    // Enforce storage-layer limits to prevent resource exhaustion
+    const limit = Math.min(options?.limit || 50, 100);
+    const offset = Math.min(Math.max(0, options?.offset || 0), 5000); // Max offset, prevent negative
     
     let query = db.select()
       .from(userActivityLog)
@@ -2080,8 +2081,9 @@ export class DatabaseStorage implements IStorage {
     endDate?: Date;
   }): Promise<UserActivityLog[]> {
     const { userActivityLog } = await import("@shared/schema");
-    const limit = options?.limit || 100;
-    const offset = options?.offset || 0;
+    // Enforce storage-layer limits to prevent resource exhaustion
+    const limit = Math.min(options?.limit || 100, 500);
+    const offset = Math.min(Math.max(0, options?.offset || 0), 5000); // Max offset, prevent negative
     
     const conditions = [];
     
