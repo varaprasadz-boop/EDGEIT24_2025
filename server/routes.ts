@@ -6072,6 +6072,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get security statistics (admin only)
+  app.get('/api/admin/security/stats', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { loginHistory, activeSessions } = await import("@shared/schema");
+      
+      // Get total users
+      const [userCount] = await db.select({ count: count() }).from(users);
+      
+      // Get total logins in last 30 days
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const [loginCount] = await db.select({ count: count() })
+        .from(loginHistory)
+        .where(
+          and(
+            eq(loginHistory.action, 'login'),
+            eq(loginHistory.success, true),
+            sql`${loginHistory.timestamp} >= ${thirtyDaysAgo}`
+          )
+        );
+      
+      // Get failed logins in last 30 days
+      const [failedLoginCount] = await db.select({ count: count() })
+        .from(loginHistory)
+        .where(
+          and(
+            eq(loginHistory.action, 'login'),
+            eq(loginHistory.success, false),
+            sql`${loginHistory.timestamp} >= ${thirtyDaysAgo}`
+          )
+        );
+      
+      // Get active sessions
+      const [sessionCount] = await db.select({ count: count() }).from(activeSessions);
+
+      res.json({
+        totalUsers: userCount.count,
+        totalLogins: loginCount.count,
+        failedLogins: failedLoginCount.count,
+        activeSessions: sessionCount.count
+      });
+    } catch (error) {
+      console.error("Error fetching security stats:", error);
+      res.status(500).json({ message: "Failed to fetch security statistics" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // Initialize WebSocket server

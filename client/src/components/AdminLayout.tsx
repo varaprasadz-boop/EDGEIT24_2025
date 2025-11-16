@@ -210,6 +210,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           testId: 'nav-disputes',
         },
         {
+          title: 'Security Dashboard',
+          url: '/admin/security',
+          icon: Shield,
+          testId: 'nav-security',
+        },
+        {
           title: t('sidebar.activityLogs'),
           url: '/admin/activity-logs',
           icon: Activity,
