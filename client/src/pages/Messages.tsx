@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useLocation, useRoute } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Helmet } from "react-helmet-async";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { NewConversationDialog } from "@/components/NewConversationDialog";
+import type { WsMessage } from "@shared/schema";
 
 type Conversation = {
   id: string;
@@ -84,11 +86,124 @@ export default function Messages() {
     enabled: !!selectedConversationId,
   });
 
+  // WebSocket state
+  const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  const typingTimeoutRef = useState<Map<string, NodeJS.Timeout>>(new Map())[0];
+
   useEffect(() => {
     if (!user) {
       setLocation("/login");
     }
   }, [user, setLocation]);
+
+  // WebSocket message handler
+  const handleWebSocketMessage = useCallback((message: WsMessage) => {
+    switch (message.type) {
+      case "message_sent":
+        // Invalidate queries to refetch new message
+        if (message.payload.conversationId) {
+          queryClient.invalidateQueries({
+            queryKey: ["/api/conversations", message.payload.conversationId, "messages"],
+          });
+          queryClient.invalidateQueries({
+            queryKey: ["/api/conversations"],
+          });
+        }
+        break;
+
+      case "user_typing":
+        if (message.payload.conversationId === selectedConversationId) {
+          setTypingUsers((prev) => {
+            const next = new Map(prev);
+            next.set(message.payload.userId, message.payload.userName);
+            return next;
+          });
+
+          // Clear existing timeout
+          const existingTimeout = typingTimeoutRef.get(message.payload.userId);
+          if (existingTimeout) {
+            clearTimeout(existingTimeout);
+          }
+
+          // Auto-clear after 3 seconds
+          const timeout = setTimeout(() => {
+            setTypingUsers((prev) => {
+              const next = new Map(prev);
+              next.delete(message.payload.userId);
+              return next;
+            });
+            typingTimeoutRef.delete(message.payload.userId);
+          }, 3000);
+          typingTimeoutRef.set(message.payload.userId, timeout);
+        }
+        break;
+
+      case "user_stopped_typing":
+        if (message.payload.conversationId === selectedConversationId) {
+          setTypingUsers((prev) => {
+            const next = new Map(prev);
+            next.delete(message.payload.userId);
+            return next;
+          });
+          const timeout = typingTimeoutRef.get(message.payload.userId);
+          if (timeout) {
+            clearTimeout(timeout);
+            typingTimeoutRef.delete(message.payload.userId);
+          }
+        }
+        break;
+
+      case "user_online":
+        setOnlineUsers((prev) => new Set(prev).add(message.payload.userId));
+        break;
+
+      case "user_offline":
+        setOnlineUsers((prev) => {
+          const next = new Set(prev);
+          next.delete(message.payload.userId);
+          return next;
+        });
+        break;
+
+      case "read_receipt":
+        // Invalidate unread count
+        if (message.payload.conversationId) {
+          queryClient.invalidateQueries({
+            queryKey: ["/api/conversations", message.payload.conversationId, "unread-count"],
+          });
+        }
+        break;
+    }
+  }, [queryClient, selectedConversationId, typingTimeoutRef]);
+
+  // Initialize WebSocket
+  const { isConnected, joinConversation, leaveConversation, startTyping, stopTyping } = useWebSocket({
+    onMessage: handleWebSocketMessage,
+    onConnected: () => {
+      console.log("WebSocket connected");
+    },
+    onDisconnected: () => {
+      console.log("WebSocket disconnected");
+    },
+  });
+
+  // Join/leave conversation when selection changes
+  useEffect(() => {
+    if (selectedConversationId && isConnected) {
+      joinConversation(selectedConversationId);
+      return () => {
+        leaveConversation(selectedConversationId);
+      };
+    }
+  }, [selectedConversationId, isConnected, joinConversation, leaveConversation]);
+
+  // Handle typing indicators
+  const handleTyping = useCallback(() => {
+    if (selectedConversationId && isConnected) {
+      startTyping(selectedConversationId);
+    }
+  }, [selectedConversationId, isConnected, startTyping]);
 
   const sendMessageMutation = useMutation({
     mutationFn: async (variables: { content: string; conversationId: string }) => {
@@ -320,6 +435,13 @@ export default function Messages() {
                 )}
               </ScrollArea>
 
+              {/* Typing Indicator */}
+              {typingUsers.size > 0 && (
+                <div className="px-4 py-2 text-sm text-muted-foreground">
+                  {Array.from(typingUsers.values()).join(", ")} {typingUsers.size === 1 ? "is" : "are"} typing...
+                </div>
+              )}
+
               {/* Message Input */}
               <div className="p-4 border-t">
                 <div className="flex items-end gap-2">
@@ -334,7 +456,10 @@ export default function Messages() {
                   <Textarea
                     placeholder={selectedConversationId ? "Type a message..." : "Select a conversation to send messages"}
                     value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
+                    onChange={(e) => {
+                      setMessageInput(e.target.value);
+                      handleTyping();
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey && selectedConversationId) {
                         e.preventDefault();
