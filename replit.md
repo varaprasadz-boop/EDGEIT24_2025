@@ -33,7 +33,13 @@ A full bilingual CMS allows admins to manage legal pages, footer links, and home
 The platform utilizes a 3-level category hierarchy (Primary, Subcategories, Super-subcategories) with bilingual content. This system is crucial for job postings, consultant services, and marketplace navigation, enforced by server-side validation.
 
 ### Dashboard & Profile Management
-Both Client and Consultant Dashboards display relevant information (active jobs/earnings, bids, messages) and approval status banners with profile completion progress and unique IDs. Dual-role users can switch between views. Client profiles capture company details, while Consultant profiles include comprehensive personal, professional, and financial information. Verification badges (email, phone, identity, business registration) provide trust indicators. A Quick Quote System allows clients to request quotes from consultant profiles, with security enforced by role validation. Language proficiency tracking and Pricing Templates are also supported for consultants.
+Both Client and Consultant Dashboards display relevant information (active jobs/earnings, bids, messages) and approval status banners with profile completion progress and unique IDs. Dual-role users can switch between views. Client profiles capture company details including contactEmail, contactPhone, and phoneCountryCode fields that are pre-filled from registration data and fully editable. Consultant profiles include comprehensive personal, professional, and financial information. Verification badges (email, phone, identity, business registration) provide trust indicators. A Quick Quote System allows clients to request quotes from consultant profiles, with security enforced by role validation. Language proficiency tracking and Pricing Templates are also supported for consultants.
+
+#### Client Profile Pre-fill
+On first visit to `/profile/client`, the profile form automatically enters edit mode and pre-fills company name, contact email, contact phone, and phone country code from the user's registration data. All fields remain editable, allowing users to update contact information separate from their authentication credentials. Contact fields use react-hook-form with proper FormField registration to ensure data persistence.
+
+#### Settings Page
+Users can change their password via `/settings` which uses a secure flow requiring current password verification before accepting a new password. The form implements react-hook-form, shadcn Form components, and Zod validation with bcrypt hashing on the backend.
 
 ### Security & State Machine
 Profile update endpoints strip protected fields to prevent privilege escalation. Profile status follows an enforced state machine from registration to admin approval, with partial updates managed via `.partial()` schemas and payload sanitization.
