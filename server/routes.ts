@@ -6,7 +6,7 @@ import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema } from "@shared/schema";
 import { db } from "./db";
-import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, contentPages, footerLinks, homePageSections, messageFiles, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema } from "@shared/schema";
+import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, contentPages, footerLinks, homePageSections, messageFiles, conversations, messages, meetingLinks, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
@@ -5142,6 +5142,397 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid reminder data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to create meeting reminder" });
+    }
+  });
+
+  // ========================================
+  // MESSAGE SEARCH ENDPOINTS
+  // ========================================
+
+  // Search user's messages
+  app.get('/api/messages/search', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const query = req.query.q as string;
+      if (!query || query.trim() === '') {
+        return res.status(400).json({ message: "Search query is required" });
+      }
+
+      const conversationId = req.query.conversationId as string | undefined;
+      const { limit } = queryLimitSchema.parse(req.query);
+
+      const messages = await storage.searchMessages(userId, query, { conversationId, limit });
+      res.json(messages);
+    } catch (error) {
+      console.error("Error searching messages:", error);
+      res.status(500).json({ message: "Failed to search messages" });
+    }
+  });
+
+  // ========================================
+  // MESSAGE TEMPLATE ENDPOINTS
+  // ========================================
+
+  // Create message template
+  app.post('/api/message-templates', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const validatedData = insertMessageTemplateSchema.parse({
+        ...req.body,
+        userId
+      });
+
+      const template = await storage.createMessageTemplate(validatedData);
+      res.status(201).json(template);
+    } catch (error: any) {
+      console.error("Error creating template:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid template data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create template" });
+    }
+  });
+
+  // Get user's message templates
+  app.get('/api/message-templates', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const templates = await storage.getUserMessageTemplates(userId);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+      res.status(500).json({ message: "Failed to fetch templates" });
+    }
+  });
+
+  // Update message template
+  app.patch('/api/message-templates/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const template = await storage.updateMessageTemplate(req.params.id, req.body);
+      res.json(template);
+    } catch (error) {
+      console.error("Error updating template:", error);
+      res.status(500).json({ message: "Failed to update template" });
+    }
+  });
+
+  // Delete message template
+  app.delete('/api/message-templates/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      await storage.deleteMessageTemplate(req.params.id);
+      res.json({ message: "Template deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      res.status(500).json({ message: "Failed to delete template" });
+    }
+  });
+
+  // ========================================
+  // CONVERSATION LABEL ENDPOINTS
+  // ========================================
+
+  // Add label to conversation
+  app.post('/api/conversations/:conversationId/labels', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Verify user is a participant
+      const participants = await storage.getConversationParticipants(req.params.conversationId);
+      const isParticipant = participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const validatedData = insertConversationLabelSchema.parse({
+        ...req.body,
+        conversationId: req.params.conversationId,
+        userId
+      });
+
+      const label = await storage.addConversationLabel(validatedData);
+      res.status(201).json(label);
+    } catch (error: any) {
+      console.error("Error adding label:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid label data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to add label" });
+    }
+  });
+
+  // Get conversation labels
+  app.get('/api/conversations/:conversationId/labels', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Verify user is a participant
+      const participants = await storage.getConversationParticipants(req.params.conversationId);
+      const isParticipant = participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const labels = await storage.getConversationLabels(req.params.conversationId, userId);
+      res.json(labels);
+    } catch (error) {
+      console.error("Error fetching labels:", error);
+      res.status(500).json({ message: "Failed to fetch labels" });
+    }
+  });
+
+  // Remove label
+  app.delete('/api/conversation-labels/:labelId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      await storage.removeConversationLabel(req.params.labelId);
+      res.json({ message: "Label removed successfully" });
+    } catch (error) {
+      console.error("Error removing label:", error);
+      res.status(500).json({ message: "Failed to remove label" });
+    }
+  });
+
+  // ========================================
+  // CONVERSATION PREFERENCE ENDPOINTS
+  // ========================================
+
+  // Get conversation preferences
+  app.get('/api/conversation-preferences/:conversationId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Verify user is a participant
+      const participants = await storage.getConversationParticipants(req.params.conversationId);
+      const isParticipant = participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const preferences = await storage.getConversationPreferences(userId, req.params.conversationId);
+      res.json(preferences || {});
+    } catch (error) {
+      console.error("Error fetching preferences:", error);
+      res.status(500).json({ message: "Failed to fetch preferences" });
+    }
+  });
+
+  // Update conversation preferences
+  app.put('/api/conversation-preferences/:conversationId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Verify user is a participant
+      const participants = await storage.getConversationParticipants(req.params.conversationId);
+      const isParticipant = participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const preferences = await storage.upsertConversationPreferences({
+        userId,
+        conversationId: req.params.conversationId,
+        ...req.body
+      });
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error updating preferences:", error);
+      res.status(500).json({ message: "Failed to update preferences" });
+    }
+  });
+
+  // ========================================
+  // CONVERSATION PIN ENDPOINTS
+  // ========================================
+
+  // Pin conversation
+  app.post('/api/conversations/:conversationId/pin', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Verify user is a participant
+      const participants = await storage.getConversationParticipants(req.params.conversationId);
+      const isParticipant = participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const pin = await storage.pinConversation(userId, req.params.conversationId, req.body.displayOrder);
+      res.status(201).json(pin);
+    } catch (error) {
+      console.error("Error pinning conversation:", error);
+      res.status(500).json({ message: "Failed to pin conversation" });
+    }
+  });
+
+  // Unpin conversation
+  app.delete('/api/conversations/:conversationId/pin', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      await storage.unpinConversation(userId, req.params.conversationId);
+      res.json({ message: "Conversation unpinned successfully" });
+    } catch (error) {
+      console.error("Error unpinning conversation:", error);
+      res.status(500).json({ message: "Failed to unpin conversation" });
+    }
+  });
+
+  // Get pinned conversations
+  app.get('/api/conversations/pinned', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const pins = await storage.getUserPinnedConversations(userId);
+      res.json(pins);
+    } catch (error) {
+      console.error("Error fetching pinned conversations:", error);
+      res.status(500).json({ message: "Failed to fetch pinned conversations" });
+    }
+  });
+
+  // ========================================
+  // ADMIN MESSAGING ENDPOINTS
+  // ========================================
+
+  // List all conversations (admin only)
+  app.get('/api/admin/messaging/conversations', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { limit } = queryLimitSchema.parse(req.query);
+      
+      // Get all conversations from database
+      const allConversations = await db.select().from(conversations).limit(limit);
+      res.json(allConversations);
+    } catch (error) {
+      console.error("Error fetching all conversations:", error);
+      res.status(500).json({ message: "Failed to fetch conversations" });
+    }
+  });
+
+  // View any conversation (admin only)
+  app.get('/api/admin/messaging/conversations/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const conversation = await storage.getConversation(req.params.id);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+
+      const participants = await storage.getConversationParticipants(req.params.id);
+      const messages = await storage.getConversationMessages(req.params.id, { limit: 100 });
+
+      res.json({
+        conversation,
+        participants,
+        messages
+      });
+    } catch (error) {
+      console.error("Error fetching conversation details:", error);
+      res.status(500).json({ message: "Failed to fetch conversation details" });
+    }
+  });
+
+  // Moderate message (admin only)
+  app.post('/api/admin/messaging/messages/:messageId/moderate', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const message = await storage.getMessage(req.params.messageId);
+      if (!message) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+
+      const action = await storage.createModerationAction({
+        messageId: req.params.messageId,
+        moderatedBy: userId,
+        action: req.body.action,
+        reason: req.body.reason
+      });
+
+      res.status(201).json(action);
+    } catch (error) {
+      console.error("Error moderating message:", error);
+      res.status(500).json({ message: "Failed to moderate message" });
+    }
+  });
+
+  // Get moderation history (admin only)
+  app.get('/api/admin/messaging/messages/:messageId/moderation-history', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const history = await storage.getMessageModerationHistory(req.params.messageId);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching moderation history:", error);
+      res.status(500).json({ message: "Failed to fetch moderation history" });
+    }
+  });
+
+  // Get messaging statistics (admin only)
+  app.get('/api/admin/messaging/stats', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      // Get basic stats from database
+      const [conversationCount] = await db.select({ count: count() }).from(conversations);
+      const [messageCount] = await db.select({ count: count() }).from(messages);
+      const [fileCount] = await db.select({ count: count() }).from(messageFiles);
+      const [meetingCount] = await db.select({ count: count() }).from(meetingLinks);
+
+      res.json({
+        totalConversations: conversationCount.count,
+        totalMessages: messageCount.count,
+        totalFiles: fileCount.count,
+        totalMeetings: meetingCount.count
+      });
+    } catch (error) {
+      console.error("Error fetching messaging stats:", error);
+      res.status(500).json({ message: "Failed to fetch messaging statistics" });
     }
   });
 
