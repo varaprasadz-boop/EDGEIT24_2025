@@ -3213,6 +3213,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Advanced job search (must come before /api/jobs to avoid route conflict)
+  app.get('/api/jobs/search', isAuthenticated, async (req: any, res) => {
+    try {
+      // Parse query parameters
+      const search = req.query.search as string | undefined;
+      const categoryId = req.query.categoryId as string | undefined;
+      const minBudget = req.query.minBudget ? parseFloat(req.query.minBudget) : undefined;
+      const maxBudget = req.query.maxBudget ? parseFloat(req.query.maxBudget) : undefined;
+      const skills = req.query.skills ? (req.query.skills as string).split(',') : undefined;
+      const experienceLevel = req.query.experienceLevel as string | undefined;
+      const status = req.query.status as string | undefined;
+      const budgetType = req.query.budgetType as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit) : 50;
+      const offset = req.query.offset ? parseInt(req.query.offset) : 0;
+
+      const { jobs, total } = await storage.searchJobs({
+        search,
+        categoryId,
+        minBudget,
+        maxBudget,
+        skills,
+        experienceLevel,
+        status,
+        budgetType,
+        limit,
+        offset,
+      });
+
+      res.json({ jobs, total });
+    } catch (error) {
+      console.error("Error searching jobs:", error);
+      res.status(500).json({ message: "Failed to search jobs" });
+    }
+  });
+
   app.get('/api/jobs', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserIdFromRequest(req);

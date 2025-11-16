@@ -239,6 +239,18 @@ export interface IStorage {
   // Job operations
   createJob(job: InsertJob): Promise<Job>;
   listJobs(options?: { ownerClientId?: string; categoryId?: string; excludeClientId?: string; limit?: number }): Promise<(Job & { categoryPathLabel: string })[]>;
+  searchJobs(options?: {
+    search?: string;
+    categoryId?: string;
+    minBudget?: number;
+    maxBudget?: number;
+    skills?: string[];
+    experienceLevel?: string;
+    status?: string;
+    budgetType?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ jobs: (Job & { categoryPathLabel: string })[]; total: number }>;
   
   // Quote Request operations
   createQuoteRequest(quoteRequest: InsertQuoteRequest): Promise<QuoteRequest>;
@@ -1512,6 +1524,149 @@ export class DatabaseStorage implements IStorage {
       ...job,
       categoryPathLabel: buildCategoryPath(job.categoryId),
     }));
+  }
+
+  async searchJobs(options?: {
+    search?: string;
+    categoryId?: string;
+    minBudget?: number;
+    maxBudget?: number;
+    skills?: string[];
+    experienceLevel?: string;
+    status?: string;
+    budgetType?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ jobs: (Job & { categoryPathLabel: string })[]; total: number }> {
+    const {
+      search,
+      categoryId,
+      minBudget,
+      maxBudget,
+      skills,
+      experienceLevel,
+      status,
+      budgetType,
+      limit = 50,
+      offset = 0,
+    } = options || {};
+
+    // Fetch all categories upfront for hierarchical filtering and path computation
+    const allCategories = await db.select().from(categories);
+
+    // Helper to get all descendant category IDs
+    const getDescendantCategoryIds = (categoryId: string): string[] => {
+      const childrenMap = new Map<string, string[]>();
+      for (const cat of allCategories) {
+        if (cat.parentId) {
+          if (!childrenMap.has(cat.parentId)) {
+            childrenMap.set(cat.parentId, []);
+          }
+          childrenMap.get(cat.parentId)!.push(cat.id);
+        }
+      }
+      
+      const descendants: string[] = [categoryId];
+      const addDescendants = (parentId: string) => {
+        const children = childrenMap.get(parentId) || [];
+        for (const childId of children) {
+          descendants.push(childId);
+          addDescendants(childId);
+        }
+      };
+      
+      addDescendants(categoryId);
+      return descendants;
+    };
+
+    // Build where clause with AND conditions
+    const conditions = [];
+
+    // Text search in title and description
+    if (search && search.trim()) {
+      conditions.push(
+        sql`(${jobs.title} ILIKE ${`%${search}%`} OR ${jobs.description} ILIKE ${`%${search}%`})`
+      );
+    }
+
+    // Category filtering (hierarchical)
+    if (categoryId) {
+      const categoryIds = getDescendantCategoryIds(categoryId);
+      conditions.push(inArray(jobs.categoryId, categoryIds));
+    }
+
+    // Budget filtering
+    if (minBudget !== undefined) {
+      conditions.push(sql`CAST(${jobs.budget} AS NUMERIC) >= ${minBudget}`);
+    }
+    if (maxBudget !== undefined) {
+      conditions.push(sql`CAST(${jobs.budget} AS NUMERIC) <= ${maxBudget}`);
+    }
+
+    // Budget type filtering
+    if (budgetType) {
+      conditions.push(eq(jobs.budgetType, budgetType));
+    }
+
+    // Skills filtering (check if job skills array contains any of the searched skills)
+    if (skills && skills.length > 0) {
+      // PostgreSQL array overlap operator: job.skills && search_skills
+      conditions.push(sql`${jobs.skills} && ${skills}`);
+    }
+
+    // Experience level filtering
+    if (experienceLevel) {
+      conditions.push(eq(jobs.experienceLevel, experienceLevel));
+    }
+
+    // Status filtering (default to 'open' if not specified)
+    if (status) {
+      conditions.push(eq(jobs.status, status));
+    } else {
+      // By default, only show open jobs in search
+      conditions.push(eq(jobs.status, 'open'));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Get total count with same filters (no limit/offset)
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(jobs)
+      .where(whereClause);
+
+    // Fetch jobs with filters and pagination
+    const jobList = await db
+      .select()
+      .from(jobs)
+      .where(whereClause)
+      .orderBy(desc(jobs.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    // Helper to build category path
+    const buildCategoryPath = (categoryId: string | null): string => {
+      if (!categoryId) return "Uncategorized";
+      
+      const categoryMap = new Map(allCategories.map(c => [c.id, c]));
+      const path: string[] = [];
+      let current = categoryMap.get(categoryId);
+      
+      while (current) {
+        path.unshift(current.name);
+        current = current.parentId ? categoryMap.get(current.parentId) : undefined;
+      }
+      
+      return path.length > 0 ? path.join(" / ") : "Uncategorized";
+    };
+
+    // Enrich jobs with category path
+    const jobsWithPaths = jobList.map(job => ({
+      ...job,
+      categoryPathLabel: buildCategoryPath(job.categoryId),
+    }));
+
+    return { jobs: jobsWithPaths, total: count };
   }
   
   // Quote Request operations
