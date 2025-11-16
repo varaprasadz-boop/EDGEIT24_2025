@@ -16,6 +16,7 @@ import { nanoid } from "nanoid";
 import { UploadPolicy } from './uploadPolicy';
 import { FileScanService } from './fileScanService';
 import { RateLimits, initializeRateLimiter } from './middleware/rateLimiter';
+import { activityLogger } from './middleware/activityLogger';
 
 // Initialize rate limiter with storage
 initializeRateLimiter(storage);
@@ -159,6 +160,9 @@ const requireProfileApproved = (role: 'client' | 'consultant') => {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
   await setupAuth(app);
+  
+  // Setup activity logging middleware (tracks user actions)
+  app.use(activityLogger);
 
   // Auth routes
   
@@ -672,6 +676,267 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Activity Log routes
+  // Get user's own activity logs
+  app.get('/api/activity-logs', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Validate and limit pagination - protect against NaN and empty strings
+      const parsedLimit = parseInt(req.query.limit as string);
+      const parsedOffset = parseInt(req.query.offset as string);
+      
+      if (req.query.limit !== undefined && (req.query.limit === '' || isNaN(parsedLimit) || parsedLimit <= 0)) {
+        return res.status(400).json({ message: "Invalid limit parameter" });
+      }
+      if (req.query.offset !== undefined && (req.query.offset === '' || isNaN(parsedOffset) || parsedOffset < 0)) {
+        return res.status(400).json({ message: "Invalid offset parameter" });
+      }
+      
+      const limit = Math.min(parsedLimit || 50, 100); // Max 100 records
+      const offset = Math.max(parsedOffset || 0, 0); // Non-negative
+      
+      // Validate action and resource against known values
+      const validActions = ['page_view', 'api_call', 'create', 'update', 'delete', 'view', 'download', 'upload'];
+      const validResources = ['job', 'bid', 'profile', 'message', 'conversation', 'file', 'user', 'review', 'payment', 'category', 'page'];
+      
+      const action = req.query.action as string | undefined;
+      const resource = req.query.resource as string | undefined;
+      
+      if (action && !validActions.includes(action)) {
+        return res.status(400).json({ message: "Invalid action parameter" });
+      }
+      if (resource && !validResources.includes(resource)) {
+        return res.status(400).json({ message: "Invalid resource parameter" });
+      }
+      
+      // Validate date range (max 90 days) - with safe defaults to prevent unbounded queries
+      let startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      let endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      
+      // Validate dates are valid
+      if (startDate && isNaN(startDate.getTime())) {
+        return res.status(400).json({ message: "Invalid start date" });
+      }
+      if (endDate && isNaN(endDate.getTime())) {
+        return res.status(400).json({ message: "Invalid end date" });
+      }
+      
+      // Apply safe defaults and clamping to prevent unbounded queries
+      const now = new Date();
+      const maxDaysBack = 90;
+      const maxDaysBackMs = maxDaysBack * 24 * 60 * 60 * 1000;
+      
+      if (startDate && !endDate) {
+        // Only startDate provided: clamp endDate to min(now, startDate + window)
+        endDate = new Date(Math.min(now.getTime(), startDate.getTime() + maxDaysBackMs));
+      } else if (!startDate && endDate) {
+        // Only endDate provided: clamp startDate to endDate - window
+        startDate = new Date(endDate.getTime() - maxDaysBackMs);
+      }
+      
+      // Ensure startDate <= endDate and within allowed range (after clamping)
+      if (startDate && endDate) {
+        // Clamp to ensure valid range
+        if (startDate > endDate) {
+          // Swap and clamp if needed
+          const temp = startDate;
+          startDate = endDate;
+          endDate = new Date(Math.min(now.getTime(), startDate.getTime() + maxDaysBackMs));
+        }
+        
+        const daysDiff = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysDiff > maxDaysBack) {
+          // Clamp to max window
+          endDate = new Date(startDate.getTime() + maxDaysBackMs);
+        }
+      }
+
+      const logs = await storage.getUserActivityLogs(userId, {
+        limit,
+        offset,
+        action,
+        resource,
+        startDate,
+        endDate,
+      });
+
+      res.json({ logs, count: logs.length });
+    } catch (error) {
+      console.error("Error fetching activity logs:", error);
+      res.status(500).json({ message: "Failed to fetch activity logs" });
+    }
+  });
+
+  // Get all activity logs (admin only)
+  app.get('/api/admin/activity-logs', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // Validate and limit pagination - protect against NaN (admins get higher limits)
+      const parsedLimit = parseInt(req.query.limit as string);
+      const parsedOffset = parseInt(req.query.offset as string);
+      
+      if (req.query.limit && isNaN(parsedLimit)) {
+        return res.status(400).json({ message: "Invalid limit parameter" });
+      }
+      if (req.query.offset && isNaN(parsedOffset)) {
+        return res.status(400).json({ message: "Invalid offset parameter" });
+      }
+      
+      const limit = Math.min(parsedLimit || 100, 500); // Max 500 records for admins
+      const offset = Math.max(parsedOffset || 0, 0); // Non-negative
+      
+      // Validate action and resource against known values
+      const validActions = ['page_view', 'api_call', 'create', 'update', 'delete', 'view', 'download', 'upload'];
+      const validResources = ['job', 'bid', 'profile', 'message', 'conversation', 'file', 'user', 'review', 'payment', 'category', 'page'];
+      
+      const action = req.query.action as string | undefined;
+      const resource = req.query.resource as string | undefined;
+      
+      if (action && !validActions.includes(action)) {
+        return res.status(400).json({ message: "Invalid action parameter" });
+      }
+      if (resource && !validResources.includes(resource)) {
+        return res.status(400).json({ message: "Invalid resource parameter" });
+      }
+      
+      // Validate date range (max 365 days for admins) - with safe defaults to prevent unbounded queries
+      let startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      let endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      
+      // Validate dates are valid
+      if (startDate && isNaN(startDate.getTime())) {
+        return res.status(400).json({ message: "Invalid start date" });
+      }
+      if (endDate && isNaN(endDate.getTime())) {
+        return res.status(400).json({ message: "Invalid end date" });
+      }
+      
+      // Apply safe defaults to prevent unbounded queries
+      const now = new Date();
+      const maxDaysBack = 365; // Admins get longer window
+      
+      if (startDate && !endDate) {
+        // Only startDate provided: set endDate to now
+        endDate = now;
+      } else if (!startDate && endDate) {
+        // Only endDate provided: set startDate to maxDaysBack before endDate
+        startDate = new Date(endDate.getTime() - maxDaysBack * 24 * 60 * 60 * 1000);
+      }
+      
+      // Ensure startDate <= endDate and within allowed range
+      if (startDate && endDate) {
+        if (startDate > endDate) {
+          return res.status(400).json({ message: "Start date must be before end date" });
+        }
+        const daysDiff = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 1000);
+        if (daysDiff > maxDaysBack) {
+          return res.status(400).json({ message: `Date range cannot exceed ${maxDaysBack} days` });
+        }
+      }
+
+      const logs = await storage.getAllActivityLogs({
+        limit,
+        offset,
+        action,
+        resource,
+        startDate,
+        endDate,
+      });
+
+      res.json({ logs, count: logs.length });
+    } catch (error) {
+      console.error("Error fetching all activity logs:", error);
+      res.status(500).json({ message: "Failed to fetch activity logs" });
+    }
+  });
+
+  // Get login history for current user
+  app.get('/api/auth/login-history', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const history = await storage.getLoginHistory(userId, { limit, offset });
+      res.json({ history, count: history.length });
+    } catch (error) {
+      console.error("Error fetching login history:", error);
+      res.status(500).json({ message: "Failed to fetch login history" });
+    }
+  });
+
+  // Get active sessions for current user
+  app.get('/api/auth/sessions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const sessions = await storage.getActiveSessions(userId);
+      res.json({ sessions });
+    } catch (error) {
+      console.error("Error fetching active sessions:", error);
+      res.status(500).json({ message: "Failed to fetch active sessions" });
+    }
+  });
+
+  // Terminate a specific session
+  app.delete('/api/auth/sessions/:sessionId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { sessionId } = req.params;
+      const currentSessionId = req.session?.id;
+
+      // Verify the session belongs to the user (prevent cross-user session termination)
+      const sessions = await storage.getActiveSessions(userId);
+      const targetSession = sessions.find(s => s.id === sessionId);
+
+      if (!targetSession) {
+        return res.status(404).json({ message: "Session not found or access denied" });
+      }
+
+      // Terminate the session in database
+      await storage.terminateSession(sessionId);
+      
+      // If terminating current session, also destroy it and logout
+      if (sessionId === currentSessionId) {
+        req.logout((err: any) => {
+          if (err) {
+            console.error("Error logging out during session termination:", err);
+          }
+        });
+        res.json({ message: "Current session terminated successfully", currentSession: true });
+      } else {
+        res.json({ message: "Session terminated successfully", currentSession: false });
+      }
+    } catch (error) {
+      console.error("Error terminating session:", error);
+      res.status(500).json({ message: "Failed to terminate session" });
     }
   });
 

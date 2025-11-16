@@ -98,6 +98,8 @@ import {
   type InsertLoginHistory,
   type ActiveSession,
   type InsertActiveSession,
+  type UserActivityLog,
+  type InsertUserActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, sql, desc, inArray } from "drizzle-orm";
@@ -331,6 +333,25 @@ export interface IStorage {
   updateSessionActivity(sessionId: string): Promise<void>;
   terminateSession(sessionId: string): Promise<void>;
   cleanupInactiveSessions(maxInactiveMinutes?: number): Promise<void>;
+  
+  // User Activity Log operations
+  createActivityLog(activityLog: InsertUserActivityLog): Promise<UserActivityLog>;
+  getUserActivityLogs(userId: string, options?: { 
+    limit?: number; 
+    offset?: number; 
+    action?: string; 
+    resource?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<UserActivityLog[]>;
+  getAllActivityLogs(options?: {
+    limit?: number;
+    offset?: number;
+    action?: string;
+    resource?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<UserActivityLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1998,6 +2019,102 @@ export class DatabaseStorage implements IStorage {
     const cutoffTime = new Date(Date.now() - maxInactiveMinutes * 60 * 1000);
     await db.delete(activeSessions)
       .where(sql`${activeSessions.lastActivity} < ${cutoffTime}`);
+  }
+
+  // User Activity Log operations
+  async createActivityLog(activityLog: InsertUserActivityLog): Promise<UserActivityLog> {
+    const { userActivityLog } = await import("@shared/schema");
+    const [created] = await db.insert(userActivityLog)
+      .values(activityLog)
+      .returning();
+    return created;
+  }
+
+  async getUserActivityLogs(userId: string, options?: {
+    limit?: number;
+    offset?: number;
+    action?: string;
+    resource?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<UserActivityLog[]> {
+    const { userActivityLog } = await import("@shared/schema");
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+    
+    let query = db.select()
+      .from(userActivityLog)
+      .where(eq(userActivityLog.userId, userId));
+    
+    const conditions = [eq(userActivityLog.userId, userId)];
+    
+    if (options?.action) {
+      conditions.push(eq(userActivityLog.action, options.action));
+    }
+    if (options?.resource) {
+      conditions.push(eq(userActivityLog.resource, options.resource));
+    }
+    if (options?.startDate) {
+      conditions.push(sql`${userActivityLog.timestamp} >= ${options.startDate}`);
+    }
+    if (options?.endDate) {
+      conditions.push(sql`${userActivityLog.timestamp} <= ${options.endDate}`);
+    }
+    
+    const logs = await db.select()
+      .from(userActivityLog)
+      .where(and(...conditions))
+      .orderBy(desc(userActivityLog.timestamp))
+      .limit(limit)
+      .offset(offset);
+    
+    return logs;
+  }
+
+  async getAllActivityLogs(options?: {
+    limit?: number;
+    offset?: number;
+    action?: string;
+    resource?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<UserActivityLog[]> {
+    const { userActivityLog } = await import("@shared/schema");
+    const limit = options?.limit || 100;
+    const offset = options?.offset || 0;
+    
+    const conditions = [];
+    
+    if (options?.action) {
+      conditions.push(eq(userActivityLog.action, options.action));
+    }
+    if (options?.resource) {
+      conditions.push(eq(userActivityLog.resource, options.resource));
+    }
+    if (options?.startDate) {
+      conditions.push(sql`${userActivityLog.timestamp} >= ${options.startDate}`);
+    }
+    if (options?.endDate) {
+      conditions.push(sql`${userActivityLog.timestamp} <= ${options.endDate}`);
+    }
+    
+    let query = db.select()
+      .from(userActivityLog)
+      .orderBy(desc(userActivityLog.timestamp))
+      .limit(limit)
+      .offset(offset);
+    
+    if (conditions.length > 0) {
+      const logs = await db.select()
+        .from(userActivityLog)
+        .where(and(...conditions))
+        .orderBy(desc(userActivityLog.timestamp))
+        .limit(limit)
+        .offset(offset);
+      return logs;
+    }
+    
+    return await query;
   }
 }
 

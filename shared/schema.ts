@@ -1752,3 +1752,32 @@ export const insertActiveSessionSchema = createInsertSchema(activeSessions).omit
 });
 export type InsertActiveSession = z.infer<typeof insertActiveSessionSchema>;
 export type ActiveSession = typeof activeSessions.$inferSelect;
+
+// User Activity Log table - Track user actions and behavior
+export const userActivityLog = pgTable("user_activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  action: text("action").notNull(), // 'page_view', 'api_call', 'create', 'update', 'delete', 'view', 'download', 'upload'
+  resource: text("resource"), // e.g., 'job', 'bid', 'profile', 'message', 'file'
+  resourceId: varchar("resource_id"), // ID of the resource being acted upon
+  method: varchar("method"), // HTTP method for API calls: GET, POST, PUT, DELETE, PATCH
+  endpoint: text("endpoint"), // API endpoint path
+  statusCode: integer("status_code"), // HTTP status code
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  metadata: jsonb("metadata"), // Additional context: { page, query, duration, etc. }
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("user_activity_log_user_id_idx").on(table.userId),
+  actionIdx: index("user_activity_log_action_idx").on(table.action),
+  resourceIdx: index("user_activity_log_resource_idx").on(table.resource),
+  timestampIdx: index("user_activity_log_timestamp_idx").on(table.timestamp),
+  compositeIdx: index("user_activity_log_composite_idx").on(table.userId, table.timestamp),
+}));
+
+export const insertUserActivityLogSchema = createInsertSchema(userActivityLog).omit({
+  id: true,
+  timestamp: true,
+});
+export type InsertUserActivityLog = z.infer<typeof insertUserActivityLogSchema>;
+export type UserActivityLog = typeof userActivityLog.$inferSelect;

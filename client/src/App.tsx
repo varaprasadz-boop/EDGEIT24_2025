@@ -26,6 +26,7 @@ import LegalPage from "@/pages/LegalPage";
 import Settings from "@/pages/Settings";
 import MyJobs from "@/pages/MyJobs";
 import Messages from "@/pages/Messages";
+import UserSecurityDashboard from "@/pages/UserSecurityDashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/profile/consultant" component={ConsultantProfile} />
       <Route path="/profile" component={Profile} />
       <Route path="/settings" component={Settings} />
+      <Route path="/security" component={UserSecurityDashboard} />
       <Route path="/messages/:conversationId?" component={Messages} />
       <Route path="/services/:slug" component={CategoryLanding} />
       <Route path="/legal/:slug" component={LegalPage} />

@@ -23,7 +23,13 @@ A custom Email/Password authentication system leverages passport-local and bcryp
 - Remember Me Functionality: Configurable session duration (24 hours default, 30 days with Remember Me checkbox)
 - Login History Tracking: Complete audit trail of all login/logout events with IP address, user agent, device info, success/failure tracking, and failure reason logging
 - Active Sessions Management: Real-time tracking of all active user sessions with device info, last activity timestamps, and session termination capability
-- Security Infrastructure: loginHistory and activeSessions tables with indexed queries for performance
+- User Activity Logging: Comprehensive activity tracking system that logs all user actions (API calls, page views, resource access) with action type, resource, method, endpoint, status code, and metadata
+- Security Dashboard UI: Full-featured user security dashboard at /security with three tabs:
+  - Login History: View all login/logout events with timestamps, locations, devices, and success/failure status
+  - Active Sessions: Manage all active sessions with device info and session termination capability
+  - Activity Log: Detailed log of all user actions and API requests
+- Security Infrastructure: loginHistory, activeSessions, and userActivityLog tables with indexed queries for performance
+- API Security: Request validation with pagination limits (100 max for users, 500 for admins), date range restrictions (90 days for users, 365 for admins), and input sanitization
 
 ### Engagement Model Registration & Payment System
 Users select an engagement plan (Basic/Professional/Enterprise) during registration, determining feature access and payment requirements. The system incorporates robust security for payment processing, session integrity, and multi-layer validation to prevent price manipulation. A mock payment gateway is used for development.
