@@ -13,6 +13,8 @@ import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
 import { randomBytes } from "crypto";
 import { nanoid } from "nanoid";
+import { UploadPolicy } from './uploadPolicy';
+import { FileScanService } from './fileScanService';
 
 const queryLimitSchema = z.object({
   limit: z.string().optional().transform(val => val ? parseInt(val) : 10)
@@ -4718,6 +4720,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // MESSAGE FILE ENDPOINTS
   // ========================================
 
+  // Initialize file scan service
+  const fileScanService = new FileScanService(storage);
+
   // Create message file attachment
   app.post('/api/conversations/:conversationId/messages/:messageId/files', isAuthenticated, async (req: any, res) => {
     try {
@@ -4739,13 +4744,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Message not found" });
       }
 
+      // Server-side validation of file size and MIME type
+      const validationResult = UploadPolicy.validate(req.body.fileSize, req.body.mimeType);
+      if (!validationResult.valid) {
+        return res.status(400).json({ message: validationResult.error });
+      }
+
       const validatedData = insertMessageFileSchema.parse({
         ...req.body,
         messageId: req.params.messageId,
-        uploadedById: userId
+        uploadedById: userId,
+        conversationId: req.params.conversationId,
       });
 
       const file = await storage.createMessageFile(validatedData);
+      
+      // Queue virus scan
+      await fileScanService.queueScan(file.id);
+      
       res.status(201).json(file);
     } catch (error: any) {
       console.error("Error creating message file:", error);
