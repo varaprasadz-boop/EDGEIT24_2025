@@ -42,7 +42,28 @@ Profile update endpoints strip protected fields to prevent privilege escalation.
 Job posting requires client authentication and features a cascading 3-level category selector. Job and consultant browsing support hierarchical category filtering.
 
 ### Messaging & Collaboration System
-A comprehensive real-time messaging system supports one-on-one conversations, file attachments with version tracking, meeting scheduling, and admin moderation. The system uses WebSockets for real-time delivery and includes read receipts, message threading, and full-text search capabilities. It comprises 14 database tables covering core messaging, user preferences, and organization. Security features include RBAC, soft deletes, audit trails, and SQL injection prevention. The backend REST API layer for messaging is complete, offering 51 storage abstraction methods and 47 distinct endpoints across core messaging, file/meeting management, user features, and administration. The frontend React UI for messaging is also complete, providing a full-featured, real-time interface with TanStack Query for server state management and robust error handling.
+A comprehensive real-time messaging system supports one-on-one conversations, file attachments with version tracking, meeting scheduling, and admin moderation. The system uses WebSockets for real-time delivery and includes read receipts, message threading, and full-text search capabilities. It comprises 14 database tables covering core messaging, user preferences, and organization. Security features include RBAC, soft deletes, audit trails, and SQL injection prevention.
+
+**Backend Implementation:**
+- REST API layer: 51 storage abstraction methods and 47 distinct endpoints across core messaging, file/meeting management, user features, and administration
+- WebSocket server at /ws endpoint using ws library with session-based authentication
+- Connection manager tracking active users and their joined conversations
+- Event broadcasting system for real-time message delivery, typing indicators, and presence tracking
+- Session authentication via express-session cookies with participant verification
+
+**Frontend Implementation:**
+- Full-featured React UI with TanStack Query for server state management
+- useWebSocket hook with auto-reconnection (exponential backoff, max 5 attempts)
+- Real-time message updates via WebSocket with query cache invalidation
+- Typing indicator UI with 3-second auto-clear debounce
+- Online presence tracking for conversation participants
+- Comprehensive error handling and connection state management
+
+**WebSocket Events:**
+- message_sent: Real-time message delivery to conversation participants
+- user_typing/user_stopped_typing: Live typing indicators
+- user_online/user_offline: Presence tracking
+- read_receipt: Message read status updates
 
 ## External Dependencies
 
