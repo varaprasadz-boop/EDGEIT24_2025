@@ -30,7 +30,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LineChart, Line, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, LineChart, Line, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
 
 interface SecurityStats {
   totalUsers: number;
@@ -122,20 +122,27 @@ export default function AdminSecurityDashboard() {
     return null;
   }
 
-  // Filter activity logs
+  // Filter activity logs with null-safe checks
   const filteredLogs = activityLogs?.filter(log => {
+    if (!searchQuery) return true;
+    const searchLower = searchQuery.toLowerCase();
     const matchesSearch = 
-      log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.resource.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.endpoint.toLowerCase().includes(searchQuery.toLowerCase());
+      (log.action || '').toLowerCase().includes(searchLower) ||
+      (log.resource || '').toLowerCase().includes(searchLower) ||
+      (log.endpoint || '').toLowerCase().includes(searchLower);
     return matchesSearch;
   }) || [];
 
-  // Prepare chart data for activity trends
+  // Prepare chart data for activity trends (with null-safe date handling)
   const activityByDay = filteredLogs.reduce((acc, log) => {
-    const day = format(new Date(log.timestamp), 'MMM dd');
-    if (!acc[day]) acc[day] = 0;
-    acc[day]++;
+    try {
+      if (!log.timestamp) return acc;
+      const day = format(new Date(log.timestamp), 'MMM dd');
+      if (!acc[day]) acc[day] = 0;
+      acc[day]++;
+    } catch (e) {
+      // Skip invalid timestamps
+    }
     return acc;
   }, {} as Record<string, number>);
 
@@ -144,10 +151,11 @@ export default function AdminSecurityDashboard() {
     count,
   }));
 
-  // Activity breakdown by action type
+  // Activity breakdown by action type (null-safe)
   const activityByAction = filteredLogs.reduce((acc, log) => {
-    if (!acc[log.action]) acc[log.action] = 0;
-    acc[log.action]++;
+    const action = log.action || 'unknown';
+    if (!acc[action]) acc[action] = 0;
+    acc[action]++;
     return acc;
   }, {} as Record<string, number>);
 
@@ -156,10 +164,11 @@ export default function AdminSecurityDashboard() {
     count,
   }));
 
-  // Resource distribution
+  // Resource distribution (null-safe)
   const activityByResource = filteredLogs.reduce((acc, log) => {
-    if (!acc[log.resource]) acc[log.resource] = 0;
-    acc[log.resource]++;
+    const resource = log.resource || 'unknown';
+    if (!acc[resource]) acc[resource] = 0;
+    acc[resource]++;
     return acc;
   }, {} as Record<string, number>);
 
@@ -316,15 +325,13 @@ export default function AdminSecurityDashboard() {
           <CardContent>
             {trendChartData.length > 0 ? (
               <ChartContainer config={chartConfig} className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={trendChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
-                    <YAxis />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line type="monotone" dataKey="count" stroke="hsl(var(--chart-1))" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <LineChart data={trendChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Line type="monotone" dataKey="count" stroke="hsl(var(--chart-1))" strokeWidth={2} />
+                </LineChart>
               </ChartContainer>
             ) : (
               <div className="h-[300px] flex items-center justify-center text-muted-foreground">
@@ -342,15 +349,13 @@ export default function AdminSecurityDashboard() {
           <CardContent>
             {actionChartData.length > 0 ? (
               <ChartContainer config={chartConfig} className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={actionChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="action" />
-                    <YAxis />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="count" fill="hsl(var(--chart-2))" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <BarChart data={actionChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="action" />
+                  <YAxis />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="count" fill="hsl(var(--chart-2))" />
+                </BarChart>
               </ChartContainer>
             ) : (
               <div className="h-[300px] flex items-center justify-center text-muted-foreground">
@@ -369,26 +374,28 @@ export default function AdminSecurityDashboard() {
         <CardContent>
           {resourceChartData.length > 0 ? (
             <ChartContainer config={chartConfig} className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={resourceChartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ resource, percent }) => `${resource} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="count"
-                  >
-                    {resourceChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+              <PieChart>
+                <Pie
+                  data={resourceChartData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={(entry) => {
+                    const data = resourceChartData[entry.index];
+                    return `${data.resource} ${(entry.percent * 100).toFixed(0)}%`;
+                  }}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="count"
+                  nameKey="resource"
+                >
+                  {resourceChartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Legend />
+              </PieChart>
             </ChartContainer>
           ) : (
             <div className="h-[300px] flex items-center justify-center text-muted-foreground">

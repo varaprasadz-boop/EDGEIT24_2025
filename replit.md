@@ -27,9 +27,19 @@ A custom Email/Password authentication system leverages passport-local and bcryp
 - Security Dashboard UI: Full-featured user security dashboard at /security with three tabs:
   - Login History: View all login/logout events with timestamps, locations, devices, and success/failure status
   - Active Sessions: Manage all active sessions with device info and session termination capability
-  - Activity Log: Detailed log of all user actions and API requests
-- Security Infrastructure: loginHistory, activeSessions, and userActivityLog tables with indexed queries for performance
+  - Activity Log: Detailed log of all user actions and API requests with search and filters
+- Security Infrastructure: loginHistory, activeSessions, and user_activity_log tables with indexed queries for performance
 - API Security: Request validation with pagination limits (100 max for users, 500 for admins), date range restrictions (90 days for users, 365 for admins), and input sanitization
+
+**Admin Security Monitoring (November 2025):**
+- Admin Security Dashboard Backend: Comprehensive security analytics API at /admin/security
+  - Security Statistics Endpoint (`GET /api/admin/security/stats`): Aggregate metrics including total users, login success rate, average sessions per user, recent activity counts
+  - Activity Logs Endpoint (`GET /api/admin/activity-logs`): Complete user activity feed with filtering by action type, resource type, user, date range, and search
+  - Export Functionality: JSON export of filtered activity data for compliance auditing
+- Activity Middleware: Automatic logging of all authenticated API requests with whitelisted actions (page_view, api_call, resource_access, create, update, delete, authenticate) and resources (job, bid, profile, message, session, user, admin)
+- Security Validations: Multi-layer security including action/resource whitelisting, pagination limits, date range clamping, negative offset prevention
+- Database Indexes: Optimized queries with composite indexes on (userId, timestamp) and (action, timestamp) for fast filtering
+- Known Issues: Admin Security Dashboard UI (/admin/security) has React rendering error (backend fully functional)
 
 ### Engagement Model Registration & Payment System
 Users select an engagement plan (Basic/Professional/Enterprise) during registration, determining feature access and payment requirements. The system incorporates robust security for payment processing, session integrity, and multi-layer validation to prevent price manipulation. A mock payment gateway is used for development.
