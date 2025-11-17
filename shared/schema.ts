@@ -551,32 +551,138 @@ export const paymentTypeEnum = z.enum(['deposit', 'release', 'refund', 'withdraw
 export const PAYMENT_TYPES = paymentTypeEnum.options;
 export type PaymentType = z.infer<typeof paymentTypeEnum>;
 
-// Project status enum
-export const projectStatusEnum = z.enum(['not_started', 'in_progress', 'paused', 'completed', 'cancelled', 'disputed']);
+// Project status enum - expanded for comprehensive project lifecycle management
+export const projectStatusEnum = z.enum([
+  'not_started', 
+  'in_progress', 
+  'awaiting_review', 
+  'revision_requested', 
+  'completed', 
+  'cancelled', 
+  'on_hold', 
+  'delayed'
+]);
 export const PROJECT_STATUSES = projectStatusEnum.options;
 export type ProjectStatus = z.infer<typeof projectStatusEnum>;
 
-// Projects - Active work between client and consultant
+// Projects - Active work between client and consultant (Contracts)
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   jobId: varchar("job_id").notNull().references(() => jobs.id),
   bidId: varchar("bid_id").notNull().references(() => bids.id),
   clientId: varchar("client_id").notNull().references(() => users.id),
   consultantId: varchar("consultant_id").notNull().references(() => users.id),
+  
+  // Basic project info
   title: text("title").notNull(),
   description: text("description"),
+  scope: text("scope"), // Detailed scope of work
   budget: decimal("budget", { precision: 10, scale: 2 }).notNull(),
-  status: text("status").notNull().default('not_started'), // 'not_started', 'in_progress', 'paused', 'completed', 'cancelled', 'disputed'
-  milestones: jsonb("milestones"), // Array with title, amount, status, dueDate
+  currency: text("currency").notNull().default('SAR'),
+  
+  // Status and timeline
+  status: text("status").notNull().default('not_started'),
+  milestones: jsonb("milestones"), // Array with title, amount, status, dueDate, progress
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
   completedAt: timestamp("completed_at"),
+  
+  // Contract terms
+  paymentTerms: text("payment_terms"), // Payment schedule and conditions
+  warrantyTerms: text("warranty_terms"), // Warranty and guarantees
+  supportTerms: text("support_terms"), // Post-delivery support details
+  cancellationPolicy: text("cancellation_policy"),
+  ndaRequired: boolean("nda_required").default(false),
+  ndaDocument: text("nda_document"), // Mock NDA document URL
+  
+  // Contract metadata
+  contractVersion: integer("contract_version").default(1),
+  digitalSignatureClient: text("digital_signature_client"), // Mock signature
+  digitalSignatureConsultant: text("digital_signature_consultant"), // Mock signature
+  signedAt: timestamp("signed_at"),
+  
+  // Progress tracking
+  overallProgress: integer("overall_progress").default(0), // 0-100
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   clientIdIdx: index("projects_client_id_idx").on(table.clientId),
   consultantIdIdx: index("projects_consultant_id_idx").on(table.consultantId),
   statusIdx: index("projects_status_idx").on(table.status),
+}));
+
+// Milestone Comments - Discussion threads for project milestones
+export const milestoneComments = pgTable("milestone_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  milestoneIndex: integer("milestone_index").notNull(), // Index of milestone in the milestones array
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  comment: text("comment").notNull(),
+  attachments: text("attachments").array(), // Array of file URLs (mocked)
+  mentions: text("mentions").array(), // Array of mentioned user IDs
+  resolved: boolean("resolved").default(false),
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  projectIdIdx: index("milestone_comments_project_id_idx").on(table.projectId),
+  userIdIdx: index("milestone_comments_user_id_idx").on(table.userId),
+}));
+
+// Project Deliverables - Consultant submissions for milestone completion
+export const projectDeliverables = pgTable("project_deliverables", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  milestoneIndex: integer("milestone_index").notNull(), // Index of milestone in the milestones array
+  title: text("title").notNull(),
+  description: text("description"),
+  fileUrl: text("file_url"), // Mock file upload URL
+  uploadedBy: varchar("uploaded_by").notNull().references(() => users.id),
+  status: text("status").notNull().default('pending'), // 'pending', 'approved', 'revision_requested', 'rejected'
+  reviewNotes: text("review_notes"), // Client's review feedback
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  projectIdIdx: index("project_deliverables_project_id_idx").on(table.projectId),
+  uploadedByIdx: index("project_deliverables_uploaded_by_idx").on(table.uploadedBy),
+  statusIdx: index("project_deliverables_status_idx").on(table.status),
+}));
+
+// Project Team Members - Collaborative team assignments
+export const projectTeamMembers = pgTable("project_team_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: text("role").notNull(), // 'lead', 'developer', 'designer', 'qa', 'pm', 'client_stakeholder'
+  assignedMilestones: integer("assigned_milestones").array(), // Array of milestone indices
+  permissions: jsonb("permissions"), // { canComment: true, canUpload: true, canApprove: false }
+  addedBy: varchar("added_by").notNull().references(() => users.id),
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  projectIdIdx: index("project_team_members_project_id_idx").on(table.projectId),
+  userIdIdx: index("project_team_members_user_id_idx").on(table.userId),
+  uniqueProjectUser: uniqueIndex("unique_project_team_member").on(table.projectId, table.userId),
+}));
+
+// Project Activity Log - Comprehensive audit trail
+export const projectActivityLog = pgTable("project_activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id), // Nullable for system actions
+  action: text("action").notNull(), // 'status_change', 'comment_added', 'deliverable_submitted', 'payment_released', etc.
+  details: jsonb("details"), // Additional contextual information
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => ({
+  projectIdIdx: index("project_activity_log_project_id_idx").on(table.projectId),
+  actionIdx: index("project_activity_log_action_idx").on(table.action),
+  timestampIdx: index("project_activity_log_timestamp_idx").on(table.timestamp),
 }));
 
 // Quote Requests - Client requests for quotes from consultants' service packages
@@ -1537,6 +1643,50 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
 
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Project = typeof projects.$inferSelect;
+
+// Milestone Comments
+export const insertMilestoneCommentSchema = createInsertSchema(milestoneComments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMilestoneComment = z.infer<typeof insertMilestoneCommentSchema>;
+export type MilestoneComment = typeof milestoneComments.$inferSelect;
+
+// Project Deliverables
+export const deliverableStatusEnum = z.enum(['pending', 'approved', 'revision_requested', 'rejected']);
+export const DELIVERABLE_STATUSES = deliverableStatusEnum.options;
+export type DeliverableStatus = z.infer<typeof deliverableStatusEnum>;
+
+export const insertProjectDeliverableSchema = createInsertSchema(projectDeliverables).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  submittedAt: true,
+});
+
+export type InsertProjectDeliverable = z.infer<typeof insertProjectDeliverableSchema>;
+export type ProjectDeliverable = typeof projectDeliverables.$inferSelect;
+
+// Project Team Members
+export const insertProjectTeamMemberSchema = createInsertSchema(projectTeamMembers).omit({
+  id: true,
+  createdAt: true,
+  addedAt: true,
+});
+
+export type InsertProjectTeamMember = z.infer<typeof insertProjectTeamMemberSchema>;
+export type ProjectTeamMember = typeof projectTeamMembers.$inferSelect;
+
+// Project Activity Log
+export const insertProjectActivityLogSchema = createInsertSchema(projectActivityLog).omit({
+  id: true,
+  timestamp: true,
+});
+
+export type InsertProjectActivityLog = z.infer<typeof insertProjectActivityLogSchema>;
+export type ProjectActivityLog = typeof projectActivityLog.$inferSelect;
 
 // Payments
 export const insertPaymentSchema = createInsertSchema(payments).omit({
