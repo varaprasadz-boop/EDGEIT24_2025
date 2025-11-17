@@ -27,6 +27,15 @@ import {
   softwareLicenses,
   softwareSubscriptions,
   softwareActivations,
+  escrowAccounts,
+  escrowTransactions,
+  paymentMilestones,
+  invoices,
+  walletAccounts,
+  walletTransactions,
+  refundRequests,
+  taxProfiles,
+  paymentPreferences,
   payments,
   reviews,
   kycDocuments,
@@ -105,6 +114,24 @@ import {
   type InsertSoftwareSubscription,
   type SoftwareActivation,
   type InsertSoftwareActivation,
+  type EscrowAccount,
+  type InsertEscrowAccount,
+  type EscrowTransaction,
+  type InsertEscrowTransaction,
+  type PaymentMilestone,
+  type InsertPaymentMilestone,
+  type Invoice,
+  type InsertInvoice,
+  type WalletAccount,
+  type InsertWalletAccount,
+  type WalletTransaction,
+  type InsertWalletTransaction,
+  type RefundRequest,
+  type InsertRefundRequest,
+  type TaxProfile,
+  type InsertTaxProfile,
+  type PaymentPreferences,
+  type InsertPaymentPreferences,
   type Category,
   type VendorCategoryRequest,
   type InsertVendorCategoryRequest,
@@ -662,10 +689,188 @@ export interface IStorage {
   deactivateDevice(activationId: string, deactivatedBy: string, reason?: string): Promise<SoftwareActivation>;
   updateActivationUsage(activationId: string): Promise<SoftwareActivation>;
   getActiveDevices(licenseId: string): Promise<SoftwareActivation[]>;
+
+  // ============================================================================
+  // 8. PAYMENT & ESCROW SYSTEM
+  // ============================================================================
+
+  // 8.1 Escrow Management operations (12 methods)
+  createEscrowAccount(account: InsertEscrowAccount): Promise<EscrowAccount>;
+  getEscrowAccount(id: string): Promise<EscrowAccount | undefined>;
+  getEscrowAccountByProject(projectId: string): Promise<EscrowAccount | undefined>;
+  depositToEscrow(accountId: string, amount: string, createdBy: string, description?: string): Promise<EscrowAccount>;
+  releaseFromEscrow(accountId: string, amount: string, createdBy: string, description?: string): Promise<EscrowAccount>;
+  partialReleaseFromEscrow(accountId: string, amount: string, milestoneIndex: number | null, createdBy: string, description?: string): Promise<EscrowAccount>;
+  holdEscrowFunds(accountId: string, amount: string, createdBy: string, description?: string): Promise<EscrowAccount>;
+  refundFromEscrow(accountId: string, amount: string, createdBy: string, description?: string): Promise<EscrowAccount>;
+  getEscrowTransactions(accountId: string): Promise<EscrowTransaction[]>;
+  getEscrowBalance(accountId: string): Promise<{ totalAmount: string; availableBalance: string; onHoldAmount: string; releasedAmount: string; refundedAmount: string }>;
+  updateEscrowStatus(accountId: string, status: string): Promise<EscrowAccount>;
+  getEscrowAnalytics(): Promise<{ totalEscrow: string; activeProjects: number; pendingReleases: number }>;
+
+  // 8.2 Payment Milestone operations (8 methods)
+  createPaymentMilestone(milestone: InsertPaymentMilestone): Promise<PaymentMilestone>;
+  getPaymentMilestones(projectId: string): Promise<PaymentMilestone[]>;
+  updateMilestonePaymentStatus(milestoneId: string, status: string, releasedBy?: string): Promise<PaymentMilestone>;
+  releaseMilestonePayment(milestoneId: string, releasedBy: string): Promise<PaymentMilestone>;
+  linkMilestoneToPayment(projectId: string, milestoneIndex: number, amount: string): Promise<PaymentMilestone>;
+  getPendingMilestonePayments(projectId: string): Promise<PaymentMilestone[]>;
+  getCompletedMilestonePayments(projectId: string): Promise<PaymentMilestone[]>;
+  getMilestonePaymentHistory(projectId: string): Promise<PaymentMilestone[]>;
+
+  // 8.3 Invoice Management operations (10 methods)
+  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
+  getInvoiceById(id: string): Promise<Invoice | undefined>;
+  getAllInvoices(filters?: { status?: string; projectId?: string; userId?: string }): Promise<Invoice[]>;
+  updateInvoiceStatus(id: string, status: string): Promise<Invoice>;
+  generateInvoiceNumber(): Promise<string>;
+  getInvoicesByProject(projectId: string): Promise<Invoice[]>;
+  getInvoicesByUser(userId: string, role: 'client' | 'consultant'): Promise<Invoice[]>;
+  markInvoiceAsPaid(id: string): Promise<Invoice>;
+  cancelInvoice(id: string): Promise<Invoice>;
+  getOverdueInvoices(): Promise<Invoice[]>;
+
+  // 8.4 Wallet System operations (9 methods)
+  createWalletAccount(account: InsertWalletAccount): Promise<WalletAccount>;
+  getWalletAccount(userId: string): Promise<WalletAccount | undefined>;
+  addFundsToWallet(userId: string, amount: string, description?: string): Promise<WalletAccount>;
+  deductFromWallet(userId: string, amount: string, projectId?: string, description?: string): Promise<WalletAccount>;
+  getWalletBalance(userId: string): Promise<string>;
+  getWalletTransactions(userId: string): Promise<WalletTransaction[]>;
+  withdrawFromWallet(userId: string, amount: string, description?: string): Promise<WalletAccount>;
+  getWalletHistory(userId: string, limit?: number): Promise<WalletTransaction[]>;
+  updateWalletPreferences(userId: string, preferences: Partial<InsertPaymentPreferences>): Promise<PaymentPreferences>;
+
+  // 8.5 Refund & Tax operations (11 methods)
+  createRefundRequest(request: InsertRefundRequest): Promise<RefundRequest>;
+  getRefundRequest(id: string): Promise<RefundRequest | undefined>;
+  getAllRefundRequests(filters?: { status?: string; userId?: string }): Promise<RefundRequest[]>;
+  updateRefundStatus(id: string, status: string, adminId?: string, adminNotes?: string): Promise<RefundRequest>;
+  approveRefundRequest(id: string, adminId: string, notes?: string): Promise<RefundRequest>;
+  rejectRefundRequest(id: string, adminId: string, notes: string): Promise<RefundRequest>;
+  processRefund(id: string): Promise<RefundRequest>;
+  createTaxProfile(profile: InsertTaxProfile): Promise<TaxProfile>;
+  getTaxProfile(userId: string): Promise<TaxProfile | undefined>;
+  updateTaxProfile(userId: string, updates: Partial<InsertTaxProfile>): Promise<TaxProfile>;
+  calculateVAT(amount: number): Promise<{ vatAmount: number; total: number }>;
+
+  // 8.6 Analytics & Transaction History operations (9 methods)
+  getAllTransactions(userId?: string): Promise<any[]>; // Combined escrow + wallet + refund transactions
+  getTransactionsByUser(userId: string, role: 'client' | 'consultant'): Promise<any[]>;
+  getTransactionsByProject(projectId: string): Promise<any[]>;
+  exportTransactions(filters?: any): Promise<string>; // Returns CSV string
+  getVendorEarnings(consultantId: string, period?: { start: Date; end: Date }): Promise<any>;
+  getClientSpending(clientId: string, period?: { start: Date; end: Date }): Promise<any>;
+  getPaymentAnalytics(): Promise<any>; // Platform-wide analytics
+  getEarningsChartData(consultantId: string, period: 'week' | 'month' | 'year'): Promise<any[]>;
+  getSpendingChartData(clientId: string, period: 'week' | 'month' | 'year'): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
-  // User operations
+  // ============================================================================
+  // PAYMENT SYSTEM UTILITIES: Transaction Safety & Ownership Verification
+  // ============================================================================
+
+  /**
+   * Executes payment operations within a database transaction for atomicity.
+   * Auto-rollback on error ensures consistency.
+   */
+  private async withPaymentTransaction<T>(
+    operation: (tx: any) => Promise<T>
+  ): Promise<T> {
+    return await db.transaction(async (tx) => {
+      return await operation(tx);
+    });
+  }
+
+  /**
+   * Verifies that a user owns or participates in a project.
+   * Throws error if unauthorized.
+   */
+  private async assertProjectOwnership(
+    userId: string,
+    projectId: string,
+    allowedRole: 'client' | 'consultant' | 'both',
+    tx?: any
+  ): Promise<void> {
+    const dbInstance = tx || db;
+    const [project] = await dbInstance
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId));
+
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    const isClient = project.clientId === userId;
+    const isConsultant = project.consultantId === userId;
+
+    if (allowedRole === 'client' && !isClient) {
+      throw new Error('Unauthorized: Only project client can perform this action');
+    }
+
+    if (allowedRole === 'consultant' && !isConsultant) {
+      throw new Error('Unauthorized: Only project consultant can perform this action');
+    }
+
+    if (allowedRole === 'both' && !isClient && !isConsultant) {
+      throw new Error('Unauthorized: Only project participants can perform this action');
+    }
+  }
+
+  /**
+   * Verifies that a wallet belongs to the user.
+   * Throws error if unauthorized.
+   */
+  private async assertWalletOwnership(
+    userId: string,
+    walletId: string,
+    tx?: any
+  ): Promise<void> {
+    const dbInstance = tx || db;
+    const [wallet] = await dbInstance
+      .select()
+      .from(walletAccounts)
+      .where(eq(walletAccounts.id, walletId));
+
+    if (!wallet) {
+      throw new Error('Wallet not found');
+    }
+
+    if (wallet.userId !== userId) {
+      throw new Error('Unauthorized: Wallet does not belong to this user');
+    }
+  }
+
+  /**
+   * Verifies that an escrow account is accessible to the user via project ownership.
+   * Throws error if unauthorized.
+   */
+  private async assertEscrowOwnership(
+    userId: string,
+    escrowAccountId: string,
+    allowedRole: 'client' | 'consultant' | 'both',
+    tx?: any
+  ): Promise<void> {
+    const dbInstance = tx || db;
+    const [escrowAccount] = await dbInstance
+      .select()
+      .from(escrowAccounts)
+      .where(eq(escrowAccounts.id, escrowAccountId));
+
+    if (!escrowAccount) {
+      throw new Error('Escrow account not found');
+    }
+
+    // Verify via project ownership
+    await this.assertProjectOwnership(userId, escrowAccount.projectId, allowedRole, tx);
+  }
+
+  // ============================================================================
+  // USER OPERATIONS
+  // ============================================================================
+
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
@@ -4675,6 +4880,964 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(softwareActivations.lastUsedAt));
+  }
+
+  // ============================================================================
+  // 8. PAYMENT & ESCROW SYSTEM IMPLEMENTATIONS
+  // ============================================================================
+
+  // 8.1 ESCROW MANAGEMENT OPERATIONS (12 methods)
+  
+  async createEscrowAccount(account: InsertEscrowAccount): Promise<EscrowAccount> {
+    const [created] = await db.insert(escrowAccounts).values(account).returning();
+    return created;
+  }
+
+  async getEscrowAccount(id: string): Promise<EscrowAccount | undefined> {
+    const [account] = await db.select().from(escrowAccounts).where(eq(escrowAccounts.id, id));
+    return account;
+  }
+
+  async getEscrowAccountByProject(projectId: string): Promise<EscrowAccount | undefined> {
+    const [account] = await db.select().from(escrowAccounts).where(eq(escrowAccounts.projectId, projectId));
+    return account;
+  }
+
+  async depositToEscrow(accountId: string, amount: string, createdBy: string, description?: string): Promise<EscrowAccount> {
+    // Create transaction record
+    await db.insert(escrowTransactions).values({
+      escrowAccountId: accountId,
+      type: 'deposit',
+      amount,
+      status: 'completed',
+      description: description || 'Deposit to escrow',
+      createdBy,
+    });
+
+    // Update escrow account balances
+    const [updated] = await db
+      .update(escrowAccounts)
+      .set({
+        totalAmount: sql`${escrowAccounts.totalAmount} + ${amount}::numeric`,
+        availableBalance: sql`${escrowAccounts.availableBalance} + ${amount}::numeric`,
+        status: 'active',
+        updatedAt: new Date(),
+      })
+      .where(eq(escrowAccounts.id, accountId))
+      .returning();
+
+    return updated;
+  }
+
+  async releaseFromEscrow(accountId: string, amount: string, createdBy: string, description?: string): Promise<EscrowAccount> {
+    return await this.withPaymentTransaction(async (tx) => {
+      // Verify ownership - only client can release escrow funds
+      await this.assertEscrowOwnership(createdBy, accountId, 'client', tx);
+
+      // Validate balance before release
+      const [account] = await tx.select().from(escrowAccounts).where(eq(escrowAccounts.id, accountId));
+      if (!account) {
+        throw new Error('Escrow account not found');
+      }
+
+      const requestedAmount = parseFloat(amount);
+      const available = parseFloat(account.availableBalance);
+
+      if (requestedAmount <= 0) {
+        throw new Error('Release amount must be positive');
+      }
+
+      if (requestedAmount > available) {
+        throw new Error(`Insufficient escrow balance. Available: ${available}, Requested: ${requestedAmount}`);
+      }
+
+      // Create transaction record
+      await tx.insert(escrowTransactions).values({
+        escrowAccountId: accountId,
+        type: 'release',
+        amount,
+        status: 'completed',
+        description: description || 'Release from escrow',
+        createdBy,
+      });
+
+      // Update escrow account balances
+      const [updated] = await tx
+        .update(escrowAccounts)
+        .set({
+          availableBalance: sql`${escrowAccounts.availableBalance} - ${amount}::numeric`,
+          releasedAmount: sql`${escrowAccounts.releasedAmount} + ${amount}::numeric`,
+          updatedAt: new Date(),
+        })
+        .where(eq(escrowAccounts.id, accountId))
+        .returning();
+
+      return updated;
+    });
+  }
+
+  async partialReleaseFromEscrow(accountId: string, amount: string, milestoneIndex: number | null, createdBy: string, description?: string): Promise<EscrowAccount> {
+    return await this.withPaymentTransaction(async (tx) => {
+      // Verify ownership - only client can release escrow funds
+      await this.assertEscrowOwnership(createdBy, accountId, 'client', tx);
+
+      // Validate balance before partial release
+      const [account] = await tx.select().from(escrowAccounts).where(eq(escrowAccounts.id, accountId));
+      if (!account) {
+        throw new Error('Escrow account not found');
+      }
+
+      const requestedAmount = parseFloat(amount);
+      const available = parseFloat(account.availableBalance);
+
+      if (requestedAmount <= 0) {
+        throw new Error('Release amount must be positive');
+      }
+
+      if (requestedAmount > available) {
+        throw new Error(`Insufficient escrow balance. Available: ${available}, Requested: ${requestedAmount}`);
+      }
+
+      // Create transaction record with milestone link
+      await tx.insert(escrowTransactions).values({
+        escrowAccountId: accountId,
+        type: 'partial_release',
+        amount,
+        status: 'completed',
+        description: description || `Partial release for milestone ${milestoneIndex}`,
+        createdBy,
+        relatedMilestoneIndex: milestoneIndex,
+      });
+
+      // Update escrow account balances
+      const [updated] = await tx
+        .update(escrowAccounts)
+        .set({
+          availableBalance: sql`${escrowAccounts.availableBalance} - ${amount}::numeric`,
+          releasedAmount: sql`${escrowAccounts.releasedAmount} + ${amount}::numeric`,
+          updatedAt: new Date(),
+        })
+        .where(eq(escrowAccounts.id, accountId))
+        .returning();
+
+      return updated;
+    });
+  }
+
+  async holdEscrowFunds(accountId: string, amount: string, createdBy: string, description?: string): Promise<EscrowAccount> {
+    return await this.withPaymentTransaction(async (tx) => {
+      // Verify ownership - both parties can initiate hold
+      await this.assertEscrowOwnership(createdBy, accountId, 'both', tx);
+
+      // Validate balance before hold
+      const [account] = await tx.select().from(escrowAccounts).where(eq(escrowAccounts.id, accountId));
+      if (!account) {
+        throw new Error('Escrow account not found');
+      }
+
+      const requestedAmount = parseFloat(amount);
+      const available = parseFloat(account.availableBalance);
+
+      if (requestedAmount <= 0) {
+        throw new Error('Hold amount must be positive');
+      }
+
+      if (requestedAmount > available) {
+        throw new Error(`Insufficient escrow balance to hold. Available: ${available}, Requested: ${requestedAmount}`);
+      }
+
+      // Create transaction record
+      await tx.insert(escrowTransactions).values({
+        escrowAccountId: accountId,
+        type: 'hold',
+        amount,
+        status: 'completed',
+        description: description || 'Hold escrow funds',
+        createdBy,
+      });
+
+      // Update escrow account balances
+      const [updated] = await tx
+        .update(escrowAccounts)
+        .set({
+          availableBalance: sql`${escrowAccounts.availableBalance} - ${amount}::numeric`,
+          onHoldAmount: sql`${escrowAccounts.onHoldAmount} + ${amount}::numeric`,
+          updatedAt: new Date(),
+        })
+        .where(eq(escrowAccounts.id, accountId))
+        .returning();
+
+      return updated;
+    });
+  }
+
+  async refundFromEscrow(accountId: string, amount: string, createdBy: string, description?: string): Promise<EscrowAccount> {
+    return await this.withPaymentTransaction(async (tx) => {
+      // Verify ownership - typically client initiates refund, but admin/system can too
+      await this.assertEscrowOwnership(createdBy, accountId, 'both', tx);
+
+      // Validate balance before refund
+      const [account] = await tx.select().from(escrowAccounts).where(eq(escrowAccounts.id, accountId));
+      if (!account) {
+        throw new Error('Escrow account not found');
+      }
+
+      const requestedAmount = parseFloat(amount);
+      const available = parseFloat(account.availableBalance);
+
+      if (requestedAmount <= 0) {
+        throw new Error('Refund amount must be positive');
+      }
+
+      if (requestedAmount > available) {
+        throw new Error(`Insufficient escrow balance for refund. Available: ${available}, Requested: ${requestedAmount}`);
+      }
+
+      // Create transaction record
+      await tx.insert(escrowTransactions).values({
+        escrowAccountId: accountId,
+        type: 'refund',
+        amount,
+        status: 'completed',
+        description: description || 'Refund from escrow',
+        createdBy,
+      });
+
+      // Update escrow account balances
+      const [updated] = await tx
+        .update(escrowAccounts)
+        .set({
+          availableBalance: sql`${escrowAccounts.availableBalance} - ${amount}::numeric`,
+          refundedAmount: sql`${escrowAccounts.refundedAmount} + ${amount}::numeric`,
+          updatedAt: new Date(),
+        })
+        .where(eq(escrowAccounts.id, accountId))
+        .returning();
+
+      return updated;
+    });
+  }
+
+  async getEscrowTransactions(accountId: string): Promise<EscrowTransaction[]> {
+    return await db
+      .select()
+      .from(escrowTransactions)
+      .where(eq(escrowTransactions.escrowAccountId, accountId))
+      .orderBy(desc(escrowTransactions.createdAt));
+  }
+
+  async getEscrowBalance(accountId: string): Promise<{ totalAmount: string; availableBalance: string; onHoldAmount: string; releasedAmount: string; refundedAmount: string }> {
+    const [account] = await db.select().from(escrowAccounts).where(eq(escrowAccounts.id, accountId));
+    if (!account) {
+      return { totalAmount: '0.00', availableBalance: '0.00', onHoldAmount: '0.00', releasedAmount: '0.00', refundedAmount: '0.00' };
+    }
+    return {
+      totalAmount: account.totalAmount,
+      availableBalance: account.availableBalance,
+      onHoldAmount: account.onHoldAmount,
+      releasedAmount: account.releasedAmount,
+      refundedAmount: account.refundedAmount,
+    };
+  }
+
+  async updateEscrowStatus(accountId: string, status: string): Promise<EscrowAccount> {
+    const [updated] = await db
+      .update(escrowAccounts)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(escrowAccounts.id, accountId))
+      .returning();
+    return updated;
+  }
+
+  async getEscrowAnalytics(): Promise<{ totalEscrow: string; activeProjects: number; pendingReleases: number }> {
+    const accounts = await db.select().from(escrowAccounts).where(eq(escrowAccounts.status, 'active'));
+    const totalEscrow = accounts.reduce((sum, acc) => {
+      const balance = parseFloat(acc.availableBalance || '0');
+      return sum + (isNaN(balance) ? 0 : balance);
+    }, 0).toFixed(2);
+    const activeProjects = accounts.length;
+    const pendingReleases = accounts.filter(acc => {
+      const balance = parseFloat(acc.availableBalance || '0');
+      return !isNaN(balance) && balance > 0;
+    }).length;
+    
+    return { totalEscrow, activeProjects, pendingReleases };
+  }
+
+  // 8.2 PAYMENT MILESTONE OPERATIONS (8 methods)
+
+  async createPaymentMilestone(milestone: InsertPaymentMilestone): Promise<PaymentMilestone> {
+    const [created] = await db.insert(paymentMilestones).values(milestone).returning();
+    return created;
+  }
+
+  async getPaymentMilestones(projectId: string): Promise<PaymentMilestone[]> {
+    return await db
+      .select()
+      .from(paymentMilestones)
+      .where(eq(paymentMilestones.projectId, projectId))
+      .orderBy(paymentMilestones.createdAt);
+  }
+
+  async updateMilestonePaymentStatus(milestoneId: string, status: string, releasedBy?: string): Promise<PaymentMilestone> {
+    const updateData: any = { status, updatedAt: new Date() };
+    if (releasedBy) updateData.releasedBy = releasedBy;
+    if (status === 'released') updateData.paidAt = new Date();
+
+    const [updated] = await db
+      .update(paymentMilestones)
+      .set(updateData)
+      .where(eq(paymentMilestones.id, milestoneId))
+      .returning();
+    return updated;
+  }
+
+  async releaseMilestonePayment(milestoneId: string, releasedBy: string): Promise<PaymentMilestone> {
+    return await this.withPaymentTransaction(async (tx) => {
+      // Get milestone details
+      const [milestone] = await tx.select().from(paymentMilestones).where(eq(paymentMilestones.id, milestoneId));
+      if (!milestone) {
+        throw new Error('Payment milestone not found');
+      }
+
+      // Get escrow account for this project
+      const [escrowAccount] = await tx.select().from(escrowAccounts).where(eq(escrowAccounts.projectId, milestone.projectId));
+      if (!escrowAccount) {
+        throw new Error('Escrow account not found for this project');
+      }
+
+      // Verify ownership - only client can release milestone payments
+      await this.assertEscrowOwnership(releasedBy, escrowAccount.id, 'client', tx);
+
+      // Validate escrow has sufficient balance
+      const requestedAmount = parseFloat(milestone.amount);
+      const available = parseFloat(escrowAccount.availableBalance);
+      
+      if (requestedAmount > available) {
+        throw new Error(`Insufficient escrow balance for milestone release. Available: ${available}, Requested: ${requestedAmount}`);
+      }
+
+      // Create escrow transaction for this milestone release
+      await tx.insert(escrowTransactions).values({
+        escrowAccountId: escrowAccount.id,
+        type: 'partial_release',
+        amount: milestone.amount,
+        status: 'completed',
+        description: `Release payment for milestone ${milestone.milestoneIndex}`,
+        createdBy: releasedBy,
+        relatedMilestoneIndex: milestone.milestoneIndex,
+      });
+
+      // Update escrow account balances
+      await tx
+        .update(escrowAccounts)
+        .set({
+          availableBalance: sql`${escrowAccounts.availableBalance} - ${milestone.amount}::numeric`,
+          releasedAmount: sql`${escrowAccounts.releasedAmount} + ${milestone.amount}::numeric`,
+          updatedAt: new Date(),
+        })
+        .where(eq(escrowAccounts.id, escrowAccount.id));
+
+      // Update milestone payment status
+      const [updatedMilestone] = await tx
+        .update(paymentMilestones)
+        .set({
+          status: 'released',
+          releasedBy,
+          paidAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(paymentMilestones.id, milestoneId))
+        .returning();
+
+      return updatedMilestone;
+    });
+  }
+
+  async linkMilestoneToPayment(projectId: string, milestoneIndex: number, amount: string): Promise<PaymentMilestone> {
+    const [created] = await db
+      .insert(paymentMilestones)
+      .values({
+        projectId,
+        milestoneIndex,
+        amount,
+        status: 'pending_deposit',
+      })
+      .returning();
+    return created;
+  }
+
+  async getPendingMilestonePayments(projectId: string): Promise<PaymentMilestone[]> {
+    return await db
+      .select()
+      .from(paymentMilestones)
+      .where(
+        and(
+          eq(paymentMilestones.projectId, projectId),
+          eq(paymentMilestones.status, 'pending_deposit')
+        )
+      );
+  }
+
+  async getCompletedMilestonePayments(projectId: string): Promise<PaymentMilestone[]> {
+    return await db
+      .select()
+      .from(paymentMilestones)
+      .where(
+        and(
+          eq(paymentMilestones.projectId, projectId),
+          eq(paymentMilestones.status, 'released')
+        )
+      );
+  }
+
+  async getMilestonePaymentHistory(projectId: string): Promise<PaymentMilestone[]> {
+    return await this.getPaymentMilestones(projectId);
+  }
+
+  // 8.3 INVOICE MANAGEMENT OPERATIONS (10 methods)
+
+  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
+    // Auto-generate invoice number if not provided
+    if (!invoice.invoiceNumber) {
+      invoice.invoiceNumber = await this.generateInvoiceNumber();
+    }
+    const [created] = await db.insert(invoices).values(invoice).returning();
+    return created;
+  }
+
+  async getInvoiceById(id: string): Promise<Invoice | undefined> {
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return invoice;
+  }
+
+  async getAllInvoices(filters?: { status?: string; projectId?: string; userId?: string }): Promise<Invoice[]> {
+    let query = db.select().from(invoices);
+    
+    const conditions = [];
+    if (filters?.status) conditions.push(eq(invoices.status, filters.status));
+    if (filters?.projectId) conditions.push(eq(invoices.projectId, filters.projectId));
+    if (filters?.userId) {
+      conditions.push(or(eq(invoices.clientId, filters.userId), eq(invoices.consultantId, filters.userId)));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    return await query.orderBy(desc(invoices.createdAt));
+  }
+
+  async updateInvoiceStatus(id: string, status: string): Promise<Invoice> {
+    const updateData: any = { status, updatedAt: new Date() };
+    if (status === 'paid') updateData.paidAt = new Date();
+
+    const [updated] = await db
+      .update(invoices)
+      .set(updateData)
+      .where(eq(invoices.id, id))
+      .returning();
+    return updated;
+  }
+
+  async generateInvoiceNumber(): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `INV-${year}-`;
+    
+    // Get the latest invoice for this year
+    const latestInvoices = await db
+      .select()
+      .from(invoices)
+      .where(sql`${invoices.invoiceNumber} LIKE ${prefix}%`)
+      .orderBy(desc(invoices.invoiceNumber))
+      .limit(1);
+
+    let nextNumber = 1;
+    if (latestInvoices.length > 0) {
+      const lastNumber = parseInt(latestInvoices[0].invoiceNumber.split('-')[2]);
+      nextNumber = lastNumber + 1;
+    }
+
+    return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+  }
+
+  async getInvoicesByProject(projectId: string): Promise<Invoice[]> {
+    return await db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.projectId, projectId))
+      .orderBy(desc(invoices.createdAt));
+  }
+
+  async getInvoicesByUser(userId: string, role: 'client' | 'consultant'): Promise<Invoice[]> {
+    const condition = role === 'client' 
+      ? eq(invoices.clientId, userId)
+      : eq(invoices.consultantId, userId);
+
+    return await db
+      .select()
+      .from(invoices)
+      .where(condition)
+      .orderBy(desc(invoices.createdAt));
+  }
+
+  async markInvoiceAsPaid(id: string): Promise<Invoice> {
+    return await this.updateInvoiceStatus(id, 'paid');
+  }
+
+  async cancelInvoice(id: string): Promise<Invoice> {
+    return await this.updateInvoiceStatus(id, 'cancelled');
+  }
+
+  async getOverdueInvoices(): Promise<Invoice[]> {
+    const now = new Date();
+    return await db
+      .select()
+      .from(invoices)
+      .where(
+        and(
+          sql`${invoices.dueDate} < ${now}`,
+          sql`${invoices.status} NOT IN ('paid', 'cancelled')`
+        )
+      )
+      .orderBy(invoices.dueDate);
+  }
+
+  // 8.4 WALLET SYSTEM OPERATIONS (9 methods)
+
+  async createWalletAccount(account: InsertWalletAccount): Promise<WalletAccount> {
+    const [created] = await db.insert(walletAccounts).values(account).returning();
+    return created;
+  }
+
+  async getWalletAccount(userId: string): Promise<WalletAccount | undefined> {
+    const [wallet] = await db.select().from(walletAccounts).where(eq(walletAccounts.userId, userId));
+    return wallet;
+  }
+
+  async addFundsToWallet(userId: string, amount: string, description?: string): Promise<WalletAccount> {
+    // Get current wallet
+    let wallet = await this.getWalletAccount(userId);
+    if (!wallet) {
+      wallet = await this.createWalletAccount({ userId, balance: '0.00' });
+    }
+
+    const balanceBefore = wallet.balance;
+    const balanceAfter = (parseFloat(balanceBefore) + parseFloat(amount)).toFixed(2);
+
+    // Create transaction record
+    await db.insert(walletTransactions).values({
+      walletAccountId: wallet.id,
+      type: 'add_funds',
+      amount,
+      description: description || 'Add funds to wallet',
+      balanceBefore,
+      balanceAfter,
+    });
+
+    // Update wallet balance
+    const [updated] = await db
+      .update(walletAccounts)
+      .set({
+        balance: balanceAfter,
+        updatedAt: new Date(),
+      })
+      .where(eq(walletAccounts.id, wallet.id))
+      .returning();
+
+    return updated;
+  }
+
+  async deductFromWallet(userId: string, amount: string, projectId?: string, description?: string): Promise<WalletAccount> {
+    return await this.withPaymentTransaction(async (tx) => {
+      // Get wallet within transaction
+      const [wallet] = await tx.select().from(walletAccounts).where(eq(walletAccounts.userId, userId));
+      if (!wallet) throw new Error('Wallet not found');
+
+      const requestedAmount = parseFloat(amount);
+      const currentBalance = parseFloat(wallet.balance);
+
+      if (requestedAmount <= 0) {
+        throw new Error('Deduction amount must be positive');
+      }
+
+      if (requestedAmount > currentBalance) {
+        throw new Error(`Insufficient wallet balance. Available: ${currentBalance}, Requested: ${requestedAmount}`);
+      }
+
+      const balanceBefore = wallet.balance;
+      const balanceAfter = (currentBalance - requestedAmount).toFixed(2);
+
+      // Create transaction record
+      await tx.insert(walletTransactions).values({
+        walletAccountId: wallet.id,
+        type: 'payment',
+        amount,
+        relatedProjectId: projectId,
+        description: description || 'Payment from wallet',
+        balanceBefore,
+        balanceAfter,
+      });
+
+      // Update wallet balance
+      const [updated] = await tx
+        .update(walletAccounts)
+        .set({
+          balance: balanceAfter,
+          updatedAt: new Date(),
+        })
+        .where(eq(walletAccounts.id, wallet.id))
+        .returning();
+
+      return updated;
+    });
+  }
+
+  async getWalletBalance(userId: string): Promise<string> {
+    const wallet = await this.getWalletAccount(userId);
+    return wallet?.balance || '0.00';
+  }
+
+  async getWalletTransactions(userId: string): Promise<WalletTransaction[]> {
+    const wallet = await this.getWalletAccount(userId);
+    if (!wallet) return [];
+
+    return await db
+      .select()
+      .from(walletTransactions)
+      .where(eq(walletTransactions.walletAccountId, wallet.id))
+      .orderBy(desc(walletTransactions.createdAt));
+  }
+
+  async withdrawFromWallet(userId: string, amount: string, description?: string): Promise<WalletAccount> {
+    return await this.withPaymentTransaction(async (tx) => {
+      // Get wallet within transaction
+      const [wallet] = await tx.select().from(walletAccounts).where(eq(walletAccounts.userId, userId));
+      if (!wallet) throw new Error('Wallet not found');
+
+      const requestedAmount = parseFloat(amount);
+      const currentBalance = parseFloat(wallet.balance);
+
+      if (requestedAmount <= 0) {
+        throw new Error('Withdrawal amount must be positive');
+      }
+
+      if (requestedAmount > currentBalance) {
+        throw new Error(`Insufficient wallet balance. Available: ${currentBalance}, Requested: ${requestedAmount}`);
+      }
+
+      const balanceBefore = wallet.balance;
+      const balanceAfter = (currentBalance - requestedAmount).toFixed(2);
+
+      // Create transaction record
+      await tx.insert(walletTransactions).values({
+        walletAccountId: wallet.id,
+        type: 'withdraw',
+        amount,
+        description: description || 'Withdraw from wallet',
+        balanceBefore,
+        balanceAfter,
+      });
+
+      // Update wallet balance
+      const [updated] = await tx
+        .update(walletAccounts)
+        .set({
+          balance: balanceAfter,
+          updatedAt: new Date(),
+        })
+        .where(eq(walletAccounts.id, wallet.id))
+        .returning();
+
+      return updated;
+    });
+  }
+
+  async getWalletHistory(userId: string, limit?: number): Promise<WalletTransaction[]> {
+    const wallet = await this.getWalletAccount(userId);
+    if (!wallet) return [];
+
+    let query = db
+      .select()
+      .from(walletTransactions)
+      .where(eq(walletTransactions.walletAccountId, wallet.id))
+      .orderBy(desc(walletTransactions.createdAt));
+
+    if (limit) {
+      query = query.limit(limit) as any;
+    }
+
+    return await query;
+  }
+
+  async updateWalletPreferences(userId: string, preferences: Partial<InsertPaymentPreferences>): Promise<PaymentPreferences> {
+    // Try to get existing preferences
+    const [existing] = await db
+      .select()
+      .from(paymentPreferences)
+      .where(eq(paymentPreferences.userId, userId));
+
+    if (existing) {
+      // Update existing
+      const [updated] = await db
+        .update(paymentPreferences)
+        .set({ ...preferences, updatedAt: new Date() })
+        .where(eq(paymentPreferences.userId, userId))
+        .returning();
+      return updated;
+    } else {
+      // Create new
+      const [created] = await db
+        .insert(paymentPreferences)
+        .values({ userId, ...preferences })
+        .returning();
+      return created;
+    }
+  }
+
+  // 8.5 REFUND & TAX OPERATIONS (11 methods)
+
+  async createRefundRequest(request: InsertRefundRequest): Promise<RefundRequest> {
+    const [created] = await db.insert(refundRequests).values(request).returning();
+    return created;
+  }
+
+  async getRefundRequest(id: string): Promise<RefundRequest | undefined> {
+    const [request] = await db.select().from(refundRequests).where(eq(refundRequests.id, id));
+    return request;
+  }
+
+  async getAllRefundRequests(filters?: { status?: string; userId?: string }): Promise<RefundRequest[]> {
+    let query = db.select().from(refundRequests);
+
+    const conditions = [];
+    if (filters?.status) conditions.push(eq(refundRequests.status, filters.status));
+    if (filters?.userId) conditions.push(eq(refundRequests.requestedBy, filters.userId));
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    return await query.orderBy(desc(refundRequests.requestedAt));
+  }
+
+  async updateRefundStatus(id: string, status: string, adminId?: string, adminNotes?: string): Promise<RefundRequest> {
+    const updateData: any = { status, updatedAt: new Date() };
+    if (adminId) {
+      updateData.adminId = adminId;
+      updateData.reviewedAt = new Date();
+    }
+    if (adminNotes) updateData.adminNotes = adminNotes;
+    if (status === 'processed') updateData.processedAt = new Date();
+
+    const [updated] = await db
+      .update(refundRequests)
+      .set(updateData)
+      .where(eq(refundRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  async approveRefundRequest(id: string, adminId: string, notes?: string): Promise<RefundRequest> {
+    return await this.updateRefundStatus(id, 'approved', adminId, notes);
+  }
+
+  async rejectRefundRequest(id: string, adminId: string, notes: string): Promise<RefundRequest> {
+    return await this.updateRefundStatus(id, 'rejected', adminId, notes);
+  }
+
+  async processRefund(id: string): Promise<RefundRequest> {
+    return await this.updateRefundStatus(id, 'processed');
+  }
+
+  async createTaxProfile(profile: InsertTaxProfile): Promise<TaxProfile> {
+    const [created] = await db.insert(taxProfiles).values(profile).returning();
+    return created;
+  }
+
+  async getTaxProfile(userId: string): Promise<TaxProfile | undefined> {
+    const [profile] = await db.select().from(taxProfiles).where(eq(taxProfiles.userId, userId));
+    return profile;
+  }
+
+  async updateTaxProfile(userId: string, updates: Partial<InsertTaxProfile>): Promise<TaxProfile> {
+    const [updated] = await db
+      .update(taxProfiles)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(taxProfiles.userId, userId))
+      .returning();
+    return updated;
+  }
+
+  async calculateVAT(amount: number): Promise<{ vatAmount: number; total: number }> {
+    const VAT_RATE = 0.15; // 15% for Saudi Arabia
+    const vatAmount = parseFloat((amount * VAT_RATE).toFixed(2));
+    const total = parseFloat((amount + vatAmount).toFixed(2));
+    return { vatAmount, total };
+  }
+
+  // 8.6 ANALYTICS & TRANSACTION HISTORY OPERATIONS (9 methods)
+
+  async getAllTransactions(userId?: string): Promise<any[]> {
+    const escrowTxns = userId 
+      ? await db.select().from(escrowTransactions).where(eq(escrowTransactions.createdBy, userId))
+      : await db.select().from(escrowTransactions);
+    
+    const walletTxns = userId
+      ? await db.select().from(walletTransactions)
+          .innerJoin(walletAccounts, eq(walletTransactions.walletAccountId, walletAccounts.id))
+          .where(eq(walletAccounts.userId, userId))
+      : await db.select().from(walletTransactions);
+
+    return [...escrowTxns, ...walletTxns].sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+
+  async getTransactionsByUser(userId: string, role: 'client' | 'consultant'): Promise<any[]> {
+    return await this.getAllTransactions(userId);
+  }
+
+  async getTransactionsByProject(projectId: string): Promise<any[]> {
+    const escrowAccount = await this.getEscrowAccountByProject(projectId);
+    if (!escrowAccount) return [];
+
+    const escrowTxns = await this.getEscrowTransactions(escrowAccount.id);
+    const walletTxns = await db
+      .select()
+      .from(walletTransactions)
+      .where(eq(walletTransactions.relatedProjectId, projectId));
+
+    return [...escrowTxns, ...walletTxns].sort((a: any, b: any) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+
+  async exportTransactions(filters?: any): Promise<string> {
+    const transactions = await this.getAllTransactions();
+    
+    // Generate CSV
+    const headers = 'Date,Type,Amount,Description,Status\n';
+    const rows = transactions.map((t: any) => {
+      const date = new Date(t.createdAt).toISOString().split('T')[0];
+      return `${date},${t.type || 'N/A'},${t.amount},${t.description || 'N/A'},${t.status || 'N/A'}`;
+    }).join('\n');
+
+    return headers + rows;
+  }
+
+  async getVendorEarnings(consultantId: string, period?: { start: Date; end: Date }): Promise<any> {
+    // Get all projects for this consultant
+    const consultantProjects = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.consultantId, consultantId));
+
+    let totalEarnings = 0;
+    let pendingPayments = 0;
+    let releasedAmount = 0;
+
+    for (const project of consultantProjects) {
+      const escrowAccount = await this.getEscrowAccountByProject(project.id);
+      if (escrowAccount) {
+        const total = parseFloat(escrowAccount.totalAmount || '0');
+        const available = parseFloat(escrowAccount.availableBalance || '0');
+        const released = parseFloat(escrowAccount.releasedAmount || '0');
+        
+        totalEarnings += isNaN(total) ? 0 : total;
+        pendingPayments += isNaN(available) ? 0 : available;
+        releasedAmount += isNaN(released) ? 0 : released;
+      }
+    }
+
+    return {
+      totalEarnings: totalEarnings.toFixed(2),
+      pendingPayments: pendingPayments.toFixed(2),
+      releasedAmount: releasedAmount.toFixed(2),
+      projectCount: consultantProjects.length,
+    };
+  }
+
+  async getClientSpending(clientId: string, period?: { start: Date; end: Date }): Promise<any> {
+    // Get all projects for this client
+    const clientProjects = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.clientId, clientId));
+
+    let totalSpent = 0;
+    let inEscrow = 0;
+    let releasedAmount = 0;
+
+    for (const project of clientProjects) {
+      const escrowAccount = await this.getEscrowAccountByProject(project.id);
+      if (escrowAccount) {
+        const total = parseFloat(escrowAccount.totalAmount || '0');
+        const available = parseFloat(escrowAccount.availableBalance || '0');
+        const released = parseFloat(escrowAccount.releasedAmount || '0');
+        
+        totalSpent += isNaN(total) ? 0 : total;
+        inEscrow += isNaN(available) ? 0 : available;
+        releasedAmount += isNaN(released) ? 0 : released;
+      }
+    }
+
+    return {
+      totalSpent: totalSpent.toFixed(2),
+      inEscrow: inEscrow.toFixed(2),
+      releasedAmount: releasedAmount.toFixed(2),
+      projectCount: clientProjects.length,
+    };
+  }
+
+  async getPaymentAnalytics(): Promise<any> {
+    const allEscrowAccounts = await db.select().from(escrowAccounts);
+    
+    const totalPlatformEscrow = allEscrowAccounts.reduce(
+      (sum, acc) => {
+        const balance = parseFloat(acc.availableBalance || '0');
+        return sum + (isNaN(balance) ? 0 : balance);
+      },
+      0
+    ).toFixed(2);
+
+    const totalReleased = allEscrowAccounts.reduce(
+      (sum, acc) => {
+        const released = parseFloat(acc.releasedAmount || '0');
+        return sum + (isNaN(released) ? 0 : released);
+      },
+      0
+    ).toFixed(2);
+
+    const totalRefunded = allEscrowAccounts.reduce(
+      (sum, acc) => {
+        const refunded = parseFloat(acc.refundedAmount || '0');
+        return sum + (isNaN(refunded) ? 0 : refunded);
+      },
+      0
+    ).toFixed(2);
+
+    const activeProjects = allEscrowAccounts.filter(acc => acc.status === 'active').length;
+
+    return {
+      totalPlatformEscrow,
+      totalReleased,
+      totalRefunded,
+      activeProjects,
+      totalProjects: allEscrowAccounts.length,
+    };
+  }
+
+  async getEarningsChartData(consultantId: string, period: 'week' | 'month' | 'year'): Promise<any[]> {
+    // Simplified implementation - returns mock data structure
+    // In production, this would query actual transaction data grouped by time period
+    return [];
+  }
+
+  async getSpendingChartData(clientId: string, period: 'week' | 'month' | 'year'): Promise<any[]> {
+    // Simplified implementation - returns mock data structure
+    // In production, this would query actual transaction data grouped by time period
+    return [];
   }
 }
 

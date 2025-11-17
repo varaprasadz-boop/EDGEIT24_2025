@@ -2883,3 +2883,288 @@ export const insertSoftwareActivationSchema = createInsertSchema(softwareActivat
 });
 export type InsertSoftwareActivation = z.infer<typeof insertSoftwareActivationSchema>;
 export type SoftwareActivation = typeof softwareActivations.$inferSelect;
+
+// ============================================================================
+// PAYMENT & ESCROW SYSTEM
+// ============================================================================
+
+// 8.1 ESCROW ACCOUNTS - Master escrow tracking per project
+export const escrowAccounts = pgTable("escrow_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().unique().references(() => projects.id, { onDelete: "cascade" }),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull().default('0.00'), // Total project value
+  availableBalance: decimal("available_balance", { precision: 12, scale: 2 }).notNull().default('0.00'), // Available to release
+  onHoldAmount: decimal("on_hold_amount", { precision: 12, scale: 2 }).notNull().default('0.00'), // Temporarily held
+  releasedAmount: decimal("released_amount", { precision: 12, scale: 2 }).notNull().default('0.00'), // Already paid to consultant
+  refundedAmount: decimal("refunded_amount", { precision: 12, scale: 2 }).notNull().default('0.00'), // Refunded to client
+  currency: text("currency").notNull().default('SAR'), // Always SAR (Saudi Riyal)
+  status: text("status").notNull().default('pending'), // pending, active, completed, refunded
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const escrowStatusEnum = z.enum(['pending', 'active', 'completed', 'refunded', 'cancelled']);
+export const ESCROW_STATUSES = escrowStatusEnum.options;
+
+export const insertEscrowAccountSchema = createInsertSchema(escrowAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  totalAmount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid amount format"),
+  status: escrowStatusEnum.default('pending'),
+});
+export type InsertEscrowAccount = z.infer<typeof insertEscrowAccountSchema>;
+export type EscrowAccount = typeof escrowAccounts.$inferSelect;
+
+// 8.2 ESCROW TRANSACTIONS - All escrow movements
+export const escrowTransactions = pgTable("escrow_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  escrowAccountId: varchar("escrow_account_id").notNull().references(() => escrowAccounts.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // deposit, release, partial_release, hold, unhold, refund
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  status: text("status").notNull().default('completed'), // pending, completed, failed, cancelled
+  description: text("description"),
+  createdBy: varchar("created_by").notNull().references(() => users.id),
+  relatedMilestoneIndex: integer("related_milestone_index"), // Optional link to milestone in project's milestones array
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const escrowTransactionTypeEnum = z.enum([
+  'deposit',
+  'release',
+  'partial_release',
+  'hold',
+  'unhold',
+  'refund'
+]);
+export const escrowTransactionStatusEnum = z.enum(['pending', 'completed', 'failed', 'cancelled']);
+export const ESCROW_TRANSACTION_TYPES = escrowTransactionTypeEnum.options;
+export const ESCROW_TRANSACTION_STATUSES = escrowTransactionStatusEnum.options;
+
+export const insertEscrowTransactionSchema = createInsertSchema(escrowTransactions).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  type: escrowTransactionTypeEnum,
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid amount format"),
+  status: escrowTransactionStatusEnum.default('completed'),
+});
+export type InsertEscrowTransaction = z.infer<typeof insertEscrowTransactionSchema>;
+export type EscrowTransaction = typeof escrowTransactions.$inferSelect;
+
+// 8.3 PAYMENT MILESTONES - Link project milestones to payments
+export const paymentMilestones = pgTable("payment_milestones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  milestoneIndex: integer("milestone_index"), // Index of milestone in project's milestones array
+  milestoneTitle: text("milestone_title"), // Title for display purposes
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  status: text("status").notNull().default('pending'), // pending_deposit, in_escrow, released, refunded
+  dueDate: timestamp("due_date"),
+  paidAt: timestamp("paid_at"),
+  releasedBy: varchar("released_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const paymentMilestoneStatusEnum = z.enum([
+  'pending_deposit',
+  'in_escrow',
+  'released',
+  'refunded',
+  'cancelled'
+]);
+export const PAYMENT_MILESTONE_STATUSES = paymentMilestoneStatusEnum.options;
+
+export const insertPaymentMilestoneSchema = createInsertSchema(paymentMilestones).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  paidAt: true,
+}).extend({
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid amount format"),
+  status: paymentMilestoneStatusEnum.default('pending_deposit'),
+});
+export type InsertPaymentMilestone = z.infer<typeof insertPaymentMilestoneSchema>;
+export type PaymentMilestone = typeof paymentMilestones.$inferSelect;
+
+// 8.4 INVOICES - Invoice generation and tracking
+export const invoices = pgTable("invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceNumber: varchar("invoice_number").notNull().unique(), // Auto-generated: INV-2025-001
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  issueDate: timestamp("issue_date").notNull().defaultNow(),
+  dueDate: timestamp("due_date").notNull(),
+  clientId: varchar("client_id").notNull().references(() => users.id),
+  consultantId: varchar("consultant_id").notNull().references(() => users.id),
+  items: jsonb("items").notNull(), // Array of {description, quantity, unitPrice, total}
+  subtotal: decimal("subtotal", { precision: 12, scale: 2 }).notNull(),
+  vatRate: decimal("vat_rate", { precision: 5, scale: 2 }).notNull().default('15.00'), // 15% VAT for Saudi Arabia
+  vatAmount: decimal("vat_amount", { precision: 12, scale: 2 }).notNull(),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default('SAR'),
+  status: text("status").notNull().default('draft'), // draft, sent, paid, overdue, cancelled
+  notes: text("notes"),
+  paymentTerms: text("payment_terms"), // e.g., "Net 30 days"
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const invoiceStatusEnum = z.enum(['draft', 'sent', 'paid', 'overdue', 'cancelled']);
+export const INVOICE_STATUSES = invoiceStatusEnum.options;
+
+const invoiceItemSchema = z.object({
+  description: z.string().min(1, "Description required"),
+  quantity: z.number().positive("Quantity must be positive"),
+  unitPrice: z.number().nonnegative("Unit price cannot be negative"),
+  total: z.number().nonnegative("Total cannot be negative"),
+});
+
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  paidAt: true,
+  issueDate: true,
+}).extend({
+  invoiceNumber: z.string().optional(), // Auto-generated if not provided
+  items: z.array(invoiceItemSchema).min(1, "At least one item required"),
+  subtotal: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid amount format"),
+  vatAmount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid amount format"),
+  totalAmount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid amount format"),
+  status: invoiceStatusEnum.default('draft'),
+});
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type Invoice = typeof invoices.$inferSelect;
+
+// 8.5 WALLET ACCOUNTS - User wallet balances
+export const walletAccounts = pgTable("wallet_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  balance: decimal("balance", { precision: 12, scale: 2 }).notNull().default('0.00'),
+  currency: text("currency").notNull().default('SAR'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertWalletAccountSchema = createInsertSchema(walletAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertWalletAccount = z.infer<typeof insertWalletAccountSchema>;
+export type WalletAccount = typeof walletAccounts.$inferSelect;
+
+// 8.6 WALLET TRANSACTIONS - Wallet activity log
+export const walletTransactions = pgTable("wallet_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAccountId: varchar("wallet_account_id").notNull().references(() => walletAccounts.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // add_funds, withdraw, payment, refund, release
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  relatedProjectId: varchar("related_project_id").references(() => projects.id),
+  description: text("description"),
+  balanceBefore: decimal("balance_before", { precision: 12, scale: 2 }).notNull(),
+  balanceAfter: decimal("balance_after", { precision: 12, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const walletTransactionTypeEnum = z.enum([
+  'add_funds',
+  'withdraw',
+  'payment',
+  'refund',
+  'release'
+]);
+export const WALLET_TRANSACTION_TYPES = walletTransactionTypeEnum.options;
+
+export const insertWalletTransactionSchema = createInsertSchema(walletTransactions).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  type: walletTransactionTypeEnum,
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid amount format"),
+  balanceBefore: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid amount format"),
+  balanceAfter: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid amount format"),
+});
+export type InsertWalletTransaction = z.infer<typeof insertWalletTransactionSchema>;
+export type WalletTransaction = typeof walletTransactions.$inferSelect;
+
+// 8.7 REFUND REQUESTS - Refund workflow tracking
+export const refundRequests = pgTable("refund_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  requestedBy: varchar("requested_by").notNull().references(() => users.id),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default('pending'), // pending, approved, rejected, processed
+  adminId: varchar("admin_id").references(() => users.id), // Admin who reviewed
+  adminNotes: text("admin_notes"),
+  requestedAt: timestamp("requested_at").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const refundStatusEnum = z.enum(['pending', 'approved', 'rejected', 'processed', 'cancelled']);
+export const REFUND_STATUSES = refundStatusEnum.options;
+
+export const insertRefundRequestSchema = createInsertSchema(refundRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  requestedAt: true,
+  reviewedAt: true,
+  processedAt: true,
+}).extend({
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid amount format"),
+  reason: z.string().min(10, "Please provide a detailed reason for the refund"),
+  status: refundStatusEnum.default('pending'),
+});
+export type InsertRefundRequest = z.infer<typeof insertRefundRequestSchema>;
+export type RefundRequest = typeof refundRequests.$inferSelect;
+
+// 8.8 TAX PROFILES - User VAT configuration (Saudi Arabia)
+export const taxProfiles = pgTable("tax_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  vatNumber: varchar("vat_number"), // Saudi VAT format: 15 digits
+  businessName: text("business_name"),
+  billingAddress: text("billing_address"),
+  isVatExempt: boolean("is_vat_exempt").default(false),
+  exemptionReason: text("exemption_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertTaxProfileSchema = createInsertSchema(taxProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  vatNumber: z.string().regex(/^\d{15}$/, "Saudi VAT number must be 15 digits").optional(),
+});
+export type InsertTaxProfile = z.infer<typeof insertTaxProfileSchema>;
+export type TaxProfile = typeof taxProfiles.$inferSelect;
+
+// 8.9 PAYMENT PREFERENCES - User payment settings
+export const paymentPreferences = pgTable("payment_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  preferredMethod: text("preferred_method").default('wallet'), // wallet, bank_transfer (mock)
+  autoWithdrawal: boolean("auto_withdrawal").default(false), // Auto-withdraw earnings to bank
+  minimumBalance: decimal("minimum_balance", { precision: 12, scale: 2 }).default('0.00'), // Min balance before auto-withdrawal
+  notificationsEnabled: boolean("notifications_enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPaymentPreferencesSchema = createInsertSchema(paymentPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPaymentPreferences = z.infer<typeof insertPaymentPreferencesSchema>;
+export type PaymentPreferences = typeof paymentPreferences.$inferSelect;
