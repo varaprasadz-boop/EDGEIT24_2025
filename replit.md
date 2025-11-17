@@ -66,6 +66,12 @@ The system includes 5 database tables (escrow_transactions, invoices, wallet_tra
 
 All pages follow Material Design 3 guidelines with proper loading states, error handling, responsive layouts, and data-testid attributes for testing. Payment workflows integrated with existing authentication, toast notifications, and React Query for state management.
 
+**Critical API Integration Fixes (Nov 17, 2025):**
+- Invoice download: Fixed all download buttons to use correct `/api/invoices/:id/pdf` endpoint (was incorrectly using `/download`)
+- Invoice email: Fixed send-email payload to include required `recipientEmail` field with proper client email lookup
+- Wallet operations: Fixed deposit/withdraw to use correct endpoints (`/add-funds`, `/withdraw`) with string amounts formatted via `.toFixed(2)` matching backend regex validation `^\d+(\.\d{1,2})?$`
+- Invoice payment: Added new POST `/api/invoices/:id/pay` endpoint with full payment workflow (client verification, status validation, balance check, wallet deduction via `withdrawFromWallet()`, invoice marking as paid via `markInvoiceAsPaid()`)
+
 ## External Dependencies
 
 ### Database
