@@ -57,25 +57,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CustomFieldsBuilder from "@/components/admin/CustomFieldsBuilder";
+import CategoryFormDialog from "@/components/admin/CategoryFormDialog";
 
-interface Category {
-  id: string;
-  parentId: string | null;
-  level: number;
-  name: string;
-  nameAr: string | null;
-  slug: string;
-  description: string | null;
-  descriptionAr: string | null;
-  heroTitle: string | null;
-  heroTitleAr: string | null;
-  heroDescription: string | null;
-  heroDescriptionAr: string | null;
-  icon: string | null;
-  displayOrder: number;
-  featured: boolean;
-  active: boolean;
-  visible: boolean;
+import type { Category as CategoryType, CustomField, DeliveryOptions, WarrantyConfig } from "@shared/schema";
+
+interface Category extends CategoryType {
   children?: Category[];
 }
 
@@ -96,6 +84,16 @@ const categoryFormSchema = z.object({
   featured: z.boolean().default(false),
   active: z.boolean().default(true),
   visible: z.boolean().default(true),
+  // Dynamic category fields
+  categoryType: z.enum([
+    'human_services', 'software_services', 'hardware_supply', 'digital_marketing',
+    'infrastructure', 'cloud_services', 'cybersecurity', 'data_services'
+  ]).optional(),
+  requiresApproval: z.boolean().default(false),
+  customFields: z.any().optional(), // Will be validated by CustomFieldsBuilder
+  deliveryOptions: z.any().optional(),
+  warrantyConfig: z.any().optional(),
+  complianceRequirements: z.array(z.string()).optional(),
 });
 
 type CategoryFormData = z.infer<typeof categoryFormSchema>;
@@ -119,6 +117,7 @@ export default function AdminCategories() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedParent, setSelectedParent] = useState<Category | null>(null);
+  const [activeTab, setActiveTab] = useState("basic");
 
   // Fetch category tree
   const { data, isLoading, refetch } = useQuery({
@@ -358,10 +357,16 @@ export default function AdminCategories() {
       heroDescription: category.heroDescription || "",
       heroDescriptionAr: category.heroDescriptionAr || "",
       icon: category.icon || "Briefcase",
-      displayOrder: category.displayOrder,
-      featured: category.featured,
-      active: category.active,
-      visible: category.visible,
+      displayOrder: category.displayOrder ?? 0,
+      featured: category.featured ?? false,
+      active: category.active ?? true,
+      visible: category.visible ?? true,
+      categoryType: (category.categoryType as typeof categoryFormSchema.shape.categoryType._type) ?? undefined,
+      requiresApproval: category.requiresApproval ?? false,
+      customFields: category.customFields ?? undefined,
+      deliveryOptions: category.deliveryOptions ?? undefined,
+      warrantyConfig: category.warrantyConfig ?? undefined,
+      complianceRequirements: category.complianceRequirements ?? undefined,
     });
     setIsEditDialogOpen(true);
   };
@@ -405,7 +410,7 @@ export default function AdminCategories() {
 
           {/* Order */}
           <div className="w-12 text-sm text-muted-foreground" data-testid={`order-${category.id}`}>
-            {category.displayOrder + 1}
+            {(category.displayOrder ?? 0) + 1}
           </div>
 
           {/* Icon */}
@@ -585,440 +590,28 @@ export default function AdminCategories() {
         </div>
 
         {/* Create Dialog */}
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {selectedParent ? `Add Child to "${selectedParent.name}"` : "Add Root Category"}
-              </DialogTitle>
-              <DialogDescription>
-                {selectedParent 
-                  ? `Create a new level ${selectedParent.level + 1} category under "${selectedParent.name}"`
-                  : "Create a new root category (level 0)"}
-              </DialogDescription>
-            </DialogHeader>
-
-            <Form {...createForm}>
-              <form onSubmit={createForm.handleSubmit((data) => createMutation.mutate(data))} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={createForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Name (English)</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-name" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={createForm.control}
-                    name="nameAr"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Name (Arabic)</FormLabel>
-                        <FormControl>
-                          <Input {...field} dir="rtl" data-testid="input-nameAr" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={createForm.control}
-                  name="slug"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Slug</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="lowercase-with-hyphens" data-testid="input-slug" />
-                      </FormControl>
-                      <FormDescription>URL-friendly identifier (lowercase letters, numbers, hyphens only)</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={createForm.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description (English)</FormLabel>
-                        <FormControl>
-                          <Textarea {...field} rows={3} data-testid="input-description" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={createForm.control}
-                    name="descriptionAr"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description (Arabic)</FormLabel>
-                        <FormControl>
-                          <Textarea {...field} dir="rtl" rows={3} data-testid="input-descriptionAr" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={createForm.control}
-                    name="icon"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Icon</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-icon">
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {commonIcons.map(icon => {
-                              const Icon = (LucideIcons as any)[icon];
-                              return (
-                                <SelectItem key={icon} value={icon}>
-                                  <div className="flex items-center gap-2">
-                                    {Icon && <Icon className="h-4 w-4" />}
-                                    {icon}
-                                  </div>
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={createForm.control}
-                    name="displayOrder"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Display Order</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            onChange={e => field.onChange(parseInt(e.target.value) || 0)}
-                            data-testid="input-displayOrder"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="flex gap-4">
-                  <FormField
-                    control={createForm.control}
-                    name="featured"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center gap-2 space-y-0">
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid="switch-featured"
-                          />
-                        </FormControl>
-                        <FormLabel className="!mt-0">Featured</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={createForm.control}
-                    name="active"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center gap-2 space-y-0">
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid="switch-active"
-                          />
-                        </FormControl>
-                        <FormLabel className="!mt-0">Active</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={createForm.control}
-                    name="visible"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center gap-2 space-y-0">
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid="switch-visible"
-                          />
-                        </FormControl>
-                        <FormLabel className="!mt-0">Visible</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsCreateDialogOpen(false)}
-                    data-testid="button-cancel-create"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={createMutation.isPending}
-                    data-testid="button-submit-create"
-                  >
-                    {createMutation.isPending ? "Creating..." : "Create Category"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Edit Dialog - Similar structure to Create Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit Category</DialogTitle>
-              <DialogDescription>
-                Update category details for "{selectedCategory?.name}"
-              </DialogDescription>
-            </DialogHeader>
-
-            <Form {...editForm}>
-              <form onSubmit={editForm.handleSubmit((data) => {
-                if (selectedCategory) {
-                  updateMutation.mutate({ id: selectedCategory.id, data });
-                }
-              })} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Name (English)</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-edit-name" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editForm.control}
-                    name="nameAr"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Name (Arabic)</FormLabel>
-                        <FormControl>
-                          <Input {...field} dir="rtl" data-testid="input-edit-nameAr" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={editForm.control}
-                  name="slug"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Slug</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="lowercase-with-hyphens" data-testid="input-edit-slug" />
-                      </FormControl>
-                      <FormDescription>URL-friendly identifier</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description (English)</FormLabel>
-                        <FormControl>
-                          <Textarea {...field} rows={3} data-testid="input-edit-description" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editForm.control}
-                    name="descriptionAr"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description (Arabic)</FormLabel>
-                        <FormControl>
-                          <Textarea {...field} dir="rtl" rows={3} data-testid="input-edit-descriptionAr" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="icon"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Icon</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-edit-icon">
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {commonIcons.map(icon => {
-                              const Icon = (LucideIcons as any)[icon];
-                              return (
-                                <SelectItem key={icon} value={icon}>
-                                  <div className="flex items-center gap-2">
-                                    {Icon && <Icon className="h-4 w-4" />}
-                                    {icon}
-                                  </div>
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editForm.control}
-                    name="displayOrder"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Display Order</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            onChange={e => field.onChange(parseInt(e.target.value) || 0)}
-                            data-testid="input-edit-displayOrder"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="flex gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="featured"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center gap-2 space-y-0">
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid="switch-edit-featured"
-                          />
-                        </FormControl>
-                        <FormLabel className="!mt-0">Featured</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editForm.control}
-                    name="active"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center gap-2 space-y-0">
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid="switch-edit-active"
-                          />
-                        </FormControl>
-                        <FormLabel className="!mt-0">Active</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editForm.control}
-                    name="visible"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center gap-2 space-y-0">
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid="switch-edit-visible"
-                          />
-                        </FormControl>
-                        <FormLabel className="!mt-0">Visible</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsEditDialogOpen(false)}
-                    data-testid="button-cancel-edit"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={updateMutation.isPending}
-                    data-testid="button-submit-edit"
-                  >
-                    {updateMutation.isPending ? "Updating..." : "Update Category"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <CategoryFormDialog
+          open={isCreateDialogOpen}
+          onOpenChange={setIsCreateDialogOpen}
+          mode="create"
+          defaultValues={createForm.getValues()}
+          onSubmit={(data) => createMutation.mutate(data)}
+          isPending={createMutation.isPending}
+          parentName={selectedParent?.name}
+        />
+        {/* Edit Dialog */}
+        <CategoryFormDialog
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          mode="edit"
+          defaultValues={editForm.getValues()}
+          onSubmit={(data) => {
+            if (selectedCategory) {
+              updateMutation.mutate({ id: selectedCategory.id, data });
+            }
+          }}
+          isPending={updateMutation.isPending}
+        />
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
