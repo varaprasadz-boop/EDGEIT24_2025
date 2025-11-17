@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -12,18 +12,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CascadingCategorySelector } from "@/components/CascadingCategorySelector";
+import { DynamicFormFieldRenderer } from "@/components/forms/DynamicFormFieldRenderer";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Briefcase, ArrowLeft, UserCircle, Clock, AlertCircle, Users } from "lucide-react";
-import { insertJobSchema } from "@shared/schema";
+import { Briefcase, ArrowLeft, UserCircle, Clock, AlertCircle, Users, Layers } from "lucide-react";
+import { insertJobSchema, type CustomField, type Category } from "@shared/schema";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Progress } from "@/components/ui/progress";
 
-// Extend schema with validation
+// Extend schema with validation and custom field data
 const postJobSchema = insertJobSchema.extend({
   categoryId: z.string().min(1, "Please select a service category"),
   title: z.string().min(10, "Title must be at least 10 characters"),
   description: z.string().min(50, "Description must be at least 50 characters"),
+  customFieldData: z.record(z.any()).optional(),
 });
 
 type PostJobFormData = z.infer<typeof postJobSchema>;
@@ -42,6 +44,8 @@ export default function PostJob() {
   const { toast } = useToast();
   const [categoryPath, setCategoryPath] = useState<string>("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const { user, isLoading, getActiveRole } = useAuthContext();
 
   // Check if user has client role (safely after user is loaded)
@@ -66,6 +70,20 @@ export default function PostJob() {
     retry: false, // Don't retry on 403
   });
 
+  // Fetch category details including custom fields
+  const { data: categoryDetails, isLoading: categoryLoading } = useQuery<Category | null>({
+    queryKey: ['/api/categories', selectedCategoryId],
+    queryFn: async () => {
+      if (!selectedCategoryId) return null;
+      const res = await fetch(`/api/categories/${selectedCategoryId}`, { credentials: 'include' });
+      if (!res.ok) {
+        throw new Error(`${res.status}: ${await res.text() || res.statusText}`);
+      }
+      return res.json();
+    },
+    enabled: !!selectedCategoryId,
+  });
+
   const form = useForm<PostJobFormData>({
     resolver: zodResolver(postJobSchema),
     defaultValues: {
@@ -75,8 +93,21 @@ export default function PostJob() {
       budgetType: "negotiable",
       budget: undefined,
       status: "open",
+      customFieldData: {},
     },
   });
+
+  // Update custom fields when category details are fetched
+  useEffect(() => {
+    if (categoryDetails?.customFields) {
+      setCustomFields(categoryDetails.customFields as CustomField[]);
+      // Reset customFieldData when custom fields schema changes
+      form.setValue('customFieldData', {});
+    } else {
+      setCustomFields([]);
+      form.setValue('customFieldData', {});
+    }
+  }, [categoryDetails]);
 
   const createJobMutation = useMutation({
     mutationFn: async (data: PostJobFormData) => {
@@ -409,6 +440,7 @@ export default function PostJob() {
                         value={field.value}
                         onChange={(categoryId, path) => {
                           field.onChange(categoryId);
+                          setSelectedCategoryId(categoryId || "");
                           if (path) setCategoryPath(path);
                         }}
                         disabled={createJobMutation.isPending}
@@ -516,6 +548,28 @@ export default function PostJob() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Dynamic Custom Fields Section */}
+          {customFields.length > 0 && (
+            <Card data-testid="card-custom-fields">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Layers className="h-5 w-5 text-primary" />
+                  Additional Requirements
+                </CardTitle>
+                <CardDescription>
+                  Category-specific information required for this type of project
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DynamicFormFieldRenderer
+                  customFields={customFields}
+                  namePrefix="customFieldData"
+                  disabled={createJobMutation.isPending}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex items-center space-x-2 pt-2 pb-4" data-testid="container-terms-checkbox">
             <Checkbox
