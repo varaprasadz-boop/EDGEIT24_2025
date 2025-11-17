@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 type Notification = {
   id: string;
@@ -34,6 +35,26 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  // WebSocket connection for real-time notifications
+  useWebSocket({
+    onMessage: (message) => {
+      if (message.type === 'notification') {
+        // Invalidate queries to refresh notification list and count
+        queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread-count'] });
+        
+        // Show toast for new notification
+        const notification = message.payload?.notification;
+        if (notification) {
+          toast({
+            title: notification.title,
+            description: notification.message,
+          });
+        }
+      }
+    },
+  });
 
   const { data: unreadCountData } = useQuery<{ count: number }>({
     queryKey: ['/api/notifications/unread-count'],

@@ -3936,6 +3936,17 @@ export class DatabaseStorage implements IStorage {
         console.error('[Notification] Failed to send email notification:', error);
       }
     }
+
+    // Broadcast real-time notification via WebSocket if in-app notification was created
+    if (!options?.skipInAppRecord) {
+      try {
+        const { wsManager } = await import('./websocket');
+        wsManager.broadcastNotification(notification.userId, created);
+      } catch (error) {
+        // Log error but don't fail notification creation if WebSocket broadcast fails
+        console.error('[Notification] Failed to broadcast WebSocket notification:', error);
+      }
+    }
     
     return created;
   }

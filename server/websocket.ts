@@ -439,6 +439,15 @@ class WebSocketManager {
   getOnlineUsersCount(): number {
     return this.clients.size;
   }
+
+  // Broadcast new notification to user
+  broadcastNotification(userId: string, notification: any) {
+    this.sendToClient(userId, {
+      type: "notification",
+      payload: { notification },
+      timestamp: new Date().toISOString(),
+    });
+  }
 }
 
 // Singleton instance
