@@ -6,6 +6,7 @@ import {
   consultantCategories,
   teamMembers,
   categories,
+  vendorCategoryRequests,
   jobs,
   bids,
   projects,
@@ -50,6 +51,8 @@ import {
   type InsertJob,
   type Bid,
   type Category,
+  type VendorCategoryRequest,
+  type InsertVendorCategoryRequest,
   type Review,
   type InsertReview,
   type KycDocument,
@@ -194,6 +197,15 @@ export interface IStorage {
   // Consultant Category operations
   getConsultantCategories(userId: string): Promise<ConsultantCategoryWithDetails[]>;
   setConsultantCategories(userId: string, categoryIds: string[], primaryCategoryId: string | null): Promise<ConsultantCategoryWithDetails[]>;
+  
+  // Vendor Category Request operations
+  createCategoryRequest(request: InsertVendorCategoryRequest): Promise<VendorCategoryRequest>;
+  getCategoryRequest(id: string): Promise<VendorCategoryRequest | undefined>;
+  getVendorCategoryRequests(vendorId: string): Promise<VendorCategoryRequest[]>;
+  getCategoryRequestsByStatus(status: string): Promise<VendorCategoryRequest[]>;
+  updateCategoryRequest(id: string, data: Partial<InsertVendorCategoryRequest>): Promise<VendorCategoryRequest>;
+  approveCategoryRequest(id: string, reviewedBy: string, adminNotes?: string, verificationBadge?: string, maxConcurrentJobs?: number): Promise<VendorCategoryRequest>;
+  rejectCategoryRequest(id: string, reviewedBy: string, adminNotes?: string): Promise<VendorCategoryRequest>;
   
   // KYC Document operations
   getKycDocument(userId: string, profileType: 'client' | 'consultant'): Promise<KycDocument | undefined>;
@@ -2899,6 +2911,86 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // Vendor Category Request operations
+  async createCategoryRequest(request: InsertVendorCategoryRequest): Promise<VendorCategoryRequest> {
+    const [created] = await db.insert(vendorCategoryRequests)
+      .values(request)
+      .returning();
+    return created;
+  }
+
+  async getCategoryRequest(id: string): Promise<VendorCategoryRequest | undefined> {
+    const [request] = await db.select()
+      .from(vendorCategoryRequests)
+      .where(eq(vendorCategoryRequests.id, id));
+    return request;
+  }
+
+  async getVendorCategoryRequests(vendorId: string): Promise<VendorCategoryRequest[]> {
+    const requests = await db.select()
+      .from(vendorCategoryRequests)
+      .where(eq(vendorCategoryRequests.vendorId, vendorId))
+      .orderBy(desc(vendorCategoryRequests.createdAt));
+    return requests;
+  }
+
+  async getCategoryRequestsByStatus(status: string): Promise<VendorCategoryRequest[]> {
+    const requests = await db.select()
+      .from(vendorCategoryRequests)
+      .where(eq(vendorCategoryRequests.status, status))
+      .orderBy(desc(vendorCategoryRequests.createdAt));
+    return requests;
+  }
+
+  async updateCategoryRequest(id: string, data: Partial<InsertVendorCategoryRequest>): Promise<VendorCategoryRequest> {
+    const [updated] = await db.update(vendorCategoryRequests)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(vendorCategoryRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  async approveCategoryRequest(
+    id: string,
+    reviewedBy: string,
+    adminNotes?: string,
+    verificationBadge?: string,
+    maxConcurrentJobs?: number
+  ): Promise<VendorCategoryRequest> {
+    const [updated] = await db.update(vendorCategoryRequests)
+      .set({
+        status: 'approved',
+        reviewedBy,
+        reviewedAt: new Date(),
+        adminNotes,
+        verificationBadge,
+        maxConcurrentJobs,
+        badgeIssuedAt: verificationBadge ? new Date() : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(vendorCategoryRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  async rejectCategoryRequest(
+    id: string,
+    reviewedBy: string,
+    adminNotes?: string
+  ): Promise<VendorCategoryRequest> {
+    const [updated] = await db.update(vendorCategoryRequests)
+      .set({
+        status: 'rejected',
+        reviewedBy,
+        reviewedAt: new Date(),
+        adminNotes,
+        updatedAt: new Date(),
+      })
+      .where(eq(vendorCategoryRequests.id, id))
+      .returning();
+    return updated;
   }
 }
 

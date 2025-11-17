@@ -3669,6 +3669,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== CATEGORY ACCESS REQUEST ROUTES ====================
+  
+  // Create category access request
+  app.post('/api/category-requests', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const schema = z.object({
+        categoryId: z.string().uuid(),
+        credentials: z.any().optional(),
+        yearsOfExperience: z.number().int().min(0).optional(),
+        reasonForRequest: z.string().optional(),
+      });
+
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request data", errors: parsed.error.errors });
+      }
+
+      const requestData: InsertVendorCategoryRequest = {
+        vendorId: userId,
+        categoryId: parsed.data.categoryId,
+        credentials: parsed.data.credentials,
+        yearsOfExperience: parsed.data.yearsOfExperience,
+        reasonForRequest: parsed.data.reasonForRequest,
+        status: 'pending',
+      };
+
+      const created = await storage.createCategoryRequest(requestData);
+      res.json(created);
+    } catch (error) {
+      console.error("Error creating category request:", error);
+      res.status(500).json({ message: "Failed to create category request" });
+    }
+  });
+
+  // Get category requests
+  app.get('/api/category-requests', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Check if user is admin
+      const isAdmin = req.user?.role === 'admin';
+      const status = req.query.status as string | undefined;
+
+      let requests;
+      if (isAdmin && status) {
+        requests = await storage.getCategoryRequestsByStatus(status);
+      } else if (isAdmin) {
+        requests = await storage.getCategoryRequestsByStatus('pending');
+      } else {
+        requests = await storage.getVendorCategoryRequests(userId);
+      }
+
+      res.json({ requests });
+    } catch (error) {
+      console.error("Error fetching category requests:", error);
+      res.status(500).json({ message: "Failed to fetch category requests" });
+    }
+  });
+
+  // Approve category request (admin only)
+  app.patch('/api/category-requests/:id/approve', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const schema = z.object({
+        adminNotes: z.string().optional(),
+        verificationBadge: z.enum(['verified', 'premium', 'expert']).optional(),
+        maxConcurrentJobs: z.number().int().min(1).optional(),
+      });
+
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request data", errors: parsed.error.errors });
+      }
+
+      const approved = await storage.approveCategoryRequest(
+        req.params.id,
+        userId,
+        parsed.data.adminNotes,
+        parsed.data.verificationBadge,
+        parsed.data.maxConcurrentJobs
+      );
+
+      res.json(approved);
+    } catch (error) {
+      console.error("Error approving category request:", error);
+      res.status(500).json({ message: "Failed to approve category request" });
+    }
+  });
+
+  // Reject category request (admin only)
+  app.patch('/api/category-requests/:id/reject', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const schema = z.object({
+        adminNotes: z.string().optional(),
+      });
+
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request data", errors: parsed.error.errors });
+      }
+
+      const rejected = await storage.rejectCategoryRequest(
+        req.params.id,
+        userId,
+        parsed.data.adminNotes
+      );
+
+      res.json(rejected);
+    } catch (error) {
+      console.error("Error rejecting category request:", error);
+      res.status(500).json({ message: "Failed to reject category request" });
+    }
+  });
+
   // ==================== ADMIN ROUTES ====================
   
   // Admin login - same as regular login but requires admin role
