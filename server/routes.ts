@@ -3671,12 +3671,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== CATEGORY ACCESS REQUEST ROUTES ====================
   
-  // Create category access request
+  // Create category access request (consultant only)
   app.post('/api/category-requests', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserIdFromRequest(req);
       if (!userId) {
         return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify user has consultant profile and is approved/active
+      const consultantProfile = await storage.getConsultantProfile(userId);
+      if (!consultantProfile || consultantProfile.userId !== userId) {
+        return res.status(403).json({ message: "Only consultants can request category access" });
+      }
+
+      if (consultantProfile.approvalStatus !== 'approved') {
+        return res.status(403).json({ message: "Consultant profile must be approved before requesting category access" });
       }
 
       const schema = z.object({
@@ -3717,15 +3727,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user is admin
-      const isAdmin = req.user?.role === 'admin';
+      const adminCheck = await db.select()
+        .from(adminRoles)
+        .where(and(
+          eq(adminRoles.userId, userId),
+          eq(adminRoles.active, true)
+        ))
+        .limit(1);
+
+      const isAdmin = adminCheck.length > 0;
       const status = req.query.status as string | undefined;
 
       let requests;
-      if (isAdmin && status) {
-        requests = await storage.getCategoryRequestsByStatus(status);
-      } else if (isAdmin) {
-        requests = await storage.getCategoryRequestsByStatus('pending');
+      if (isAdmin) {
+        // Admins can query by status or get all pending
+        if (status) {
+          requests = await storage.getCategoryRequestsByStatus(status);
+        } else {
+          requests = await storage.getCategoryRequestsByStatus('pending');
+        }
       } else {
+        // Consultants can only see their own requests
+        const consultantProfile = await storage.getConsultantProfile(userId);
+        if (!consultantProfile || consultantProfile.userId !== userId) {
+          return res.status(403).json({ message: "Only consultants can access category requests" });
+        }
         requests = await storage.getVendorCategoryRequests(userId);
       }
 
@@ -3747,12 +3773,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const schema = z.object({
         adminNotes: z.string().optional(),
         verificationBadge: z.enum(['verified', 'premium', 'expert']).optional(),
-        maxConcurrentJobs: z.number().int().min(1).optional(),
+        maxConcurrentJobs: z.number().int().min(1).max(100).optional(),
       });
 
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ message: "Invalid request data", errors: parsed.error.errors });
+      }
+
+      // Get the request to verify it exists and is pending
+      const request = await storage.getCategoryRequest(req.params.id);
+      if (!request) {
+        return res.status(404).json({ message: "Category request not found" });
+      }
+
+      if (request.status !== 'pending') {
+        return res.status(400).json({ message: "Only pending requests can be approved" });
+      }
+
+      // Verify vendor has consultant profile
+      const consultantProfile = await storage.getConsultantProfile(request.vendorId);
+      if (!consultantProfile) {
+        return res.status(400).json({ message: "Vendor must have consultant profile to approve request" });
+      }
+
+      // Check if consultant is already approved for this category
+      const existingCategories = await storage.getConsultantCategories(request.vendorId);
+      const alreadyApproved = existingCategories.some(cc => cc.categoryId === request.categoryId);
+      
+      if (alreadyApproved) {
+        return res.status(400).json({ message: "Consultant is already approved for this category" });
       }
 
       const approved = await storage.approveCategoryRequest(
@@ -3785,6 +3835,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ message: "Invalid request data", errors: parsed.error.errors });
+      }
+
+      // Get the request to verify it exists and is pending
+      const request = await storage.getCategoryRequest(req.params.id);
+      if (!request) {
+        return res.status(404).json({ message: "Category request not found" });
+      }
+
+      if (request.status !== 'pending') {
+        return res.status(400).json({ message: "Only pending requests can be rejected" });
       }
 
       const rejected = await storage.rejectCategoryRequest(
