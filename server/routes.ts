@@ -5843,13 +5843,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
 
-      const savedSearch = await storage.getSavedSearch(req.params.id);
+      const savedSearch = await storage.getSavedSearchById(req.params.id, userId);
       if (!savedSearch) {
-        return res.status(404).json({ message: "Saved search not found" });
-      }
-
-      if (savedSearch.userId !== userId) {
-        return res.status(403).json({ message: "Access denied" });
+        return res.status(404).json({ message: "Saved search not found or access denied" });
       }
 
       res.json(savedSearch);
@@ -5866,18 +5862,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
 
-      const existing = await storage.getSavedSearch(req.params.id);
-      if (!existing) {
-        return res.status(404).json({ message: "Saved search not found" });
-      }
-
-      if (existing.userId !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-
       const updateSchema = z.object({
         name: z.string().min(1).max(100).optional(),
         filters: z.record(z.any()).optional(),
+        emailAlerts: z.boolean().optional(),
       });
 
       const parsed = updateSchema.safeParse(req.body);
@@ -5885,11 +5873,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
       }
 
-      const updated = await storage.updateSavedSearch(req.params.id, parsed.data);
+      const updated = await storage.updateSavedSearch(req.params.id, userId, parsed.data);
       res.json(updated);
     } catch (error) {
       console.error("Error updating saved search:", error);
-      res.status(500).json({ message: "Failed to update saved search" });
+      const message = error instanceof Error ? error.message : "Failed to update saved search";
+      res.status(500).json({ message });
     }
   });
 
@@ -5900,20 +5889,303 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
 
-      const existing = await storage.getSavedSearch(req.params.id);
-      if (!existing) {
-        return res.status(404).json({ message: "Saved search not found" });
-      }
-
-      if (existing.userId !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-
-      await storage.deleteSavedSearch(req.params.id);
+      await storage.deleteSavedSearch(req.params.id, userId);
       res.json({ message: "Saved search deleted successfully" });
     } catch (error) {
       console.error("Error deleting saved search:", error);
       res.status(500).json({ message: "Failed to delete saved search" });
+    }
+  });
+
+  // ============================================================================
+  // SEARCH HISTORY ROUTES
+  // ============================================================================
+
+  app.post('/api/search/history', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const createSchema = z.object({
+        searchType: z.enum(['requirements', 'consultants']),
+        query: z.string().max(500).optional(),
+        filters: z.record(z.any()).optional(),
+        resultsCount: z.number().int().min(0),
+      });
+
+      const parsed = createSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const history = await storage.createSearchHistory({
+        userId,
+        ...parsed.data,
+      });
+
+      res.status(201).json(history);
+    } catch (error) {
+      console.error("Error creating search history:", error);
+      res.status(500).json({ message: "Failed to create search history" });
+    }
+  });
+
+  app.get('/api/search/history', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const history = await storage.getSearchHistory(userId, limit);
+      res.json({ history });
+    } catch (error) {
+      console.error("Error fetching search history:", error);
+      res.status(500).json({ message: "Failed to fetch search history" });
+    }
+  });
+
+  app.delete('/api/search/history/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      await storage.deleteSearchHistory(req.params.id, userId);
+      res.json({ message: "Search history item deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting search history:", error);
+      res.status(500).json({ message: "Failed to delete search history" });
+    }
+  });
+
+  app.delete('/api/search/history', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      await storage.clearOldSearchHistory(userId, 30);
+      res.json({ message: "Search history cleared successfully" });
+    } catch (error) {
+      console.error("Error clearing search history:", error);
+      res.status(500).json({ message: "Failed to clear search history" });
+    }
+  });
+
+  // ============================================================================
+  // SEARCH SUGGESTIONS / AUTOCOMPLETE ROUTES
+  // ============================================================================
+
+  app.get('/api/search/suggestions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const query = req.query.q as string || '';
+      const searchType = req.query.type as string || 'requirements';
+
+      // Get recent searches
+      const recentHistory = await storage.getSearchHistory(userId, 5);
+      const recentSearches = recentHistory
+        .filter(h => h.query)
+        .map(h => h.query!)
+        .filter(q => q.toLowerCase().includes(query.toLowerCase()));
+
+      // For now, return basic suggestions
+      // In production, this would query database for matching keywords
+      res.json({
+        recentSearches: recentSearches.slice(0, 5),
+        suggestions: [],
+        popular: []
+      });
+    } catch (error) {
+      console.error("Error fetching search suggestions:", error);
+      res.status(500).json({ message: "Failed to fetch search suggestions" });
+    }
+  });
+
+  // ============================================================================
+  // VENDOR LISTS ROUTES
+  // ============================================================================
+
+  app.post('/api/vendor-lists', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const createSchema = z.object({
+        name: z.string().min(1).max(255),
+        description: z.string().max(1000).optional(),
+      });
+
+      const parsed = createSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const list = await storage.createVendorList({
+        userId,
+        ...parsed.data,
+      });
+
+      res.status(201).json(list);
+    } catch (error) {
+      console.error("Error creating vendor list:", error);
+      res.status(500).json({ message: "Failed to create vendor list" });
+    }
+  });
+
+  app.get('/api/vendor-lists', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const lists = await storage.getVendorLists(userId);
+      res.json({ lists });
+    } catch (error) {
+      console.error("Error fetching vendor lists:", error);
+      res.status(500).json({ message: "Failed to fetch vendor lists" });
+    }
+  });
+
+  app.get('/api/vendor-lists/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const list = await storage.getVendorListById(req.params.id, userId);
+      if (!list) {
+        return res.status(404).json({ message: "Vendor list not found or access denied" });
+      }
+
+      res.json(list);
+    } catch (error) {
+      console.error("Error fetching vendor list:", error);
+      res.status(500).json({ message: "Failed to fetch vendor list" });
+    }
+  });
+
+  app.put('/api/vendor-lists/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const updateSchema = z.object({
+        name: z.string().min(1).max(255).optional(),
+        description: z.string().max(1000).optional(),
+      });
+
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const updated = await storage.updateVendorList(req.params.id, userId, parsed.data);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating vendor list:", error);
+      const message = error instanceof Error ? error.message : "Failed to update vendor list";
+      res.status(500).json({ message });
+    }
+  });
+
+  app.delete('/api/vendor-lists/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      await storage.deleteVendorList(req.params.id, userId);
+      res.json({ message: "Vendor list deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting vendor list:", error);
+      res.status(500).json({ message: "Failed to delete vendor list" });
+    }
+  });
+
+  app.post('/api/vendor-lists/:id/consultants', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const addSchema = z.object({
+        consultantId: z.string().uuid(),
+        notes: z.string().max(2000).optional(),
+      });
+
+      const parsed = addSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const item = await storage.addConsultantToList(
+        req.params.id,
+        parsed.data.consultantId,
+        userId,
+        parsed.data.notes
+      );
+
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error adding consultant to list:", error);
+      const message = error instanceof Error ? error.message : "Failed to add consultant to list";
+      res.status(500).json({ message });
+    }
+  });
+
+  app.delete('/api/vendor-lists/:listId/consultants/:consultantId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      await storage.removeConsultantFromList(
+        req.params.listId,
+        req.params.consultantId,
+        userId
+      );
+
+      res.json({ message: "Consultant removed from list successfully" });
+    } catch (error) {
+      console.error("Error removing consultant from list:", error);
+      const message = error instanceof Error ? error.message : "Failed to remove consultant from list";
+      res.status(500).json({ message });
+    }
+  });
+
+  app.get('/api/vendor-lists/:id/consultants', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const consultants = await storage.getConsultantsInList(req.params.id, userId);
+      res.json({ consultants });
+    } catch (error) {
+      console.error("Error fetching consultants in list:", error);
+      const message = error instanceof Error ? error.message : "Failed to fetch consultants";
+      res.status(500).json({ message });
     }
   });
 

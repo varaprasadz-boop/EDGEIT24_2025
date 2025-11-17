@@ -3278,3 +3278,81 @@ export const insertPaymentPreferencesSchema = createInsertSchema(paymentPreferen
 });
 export type InsertPaymentPreferences = z.infer<typeof insertPaymentPreferencesSchema>;
 export type PaymentPreferences = typeof paymentPreferences.$inferSelect;
+
+// ============================================================================
+// 11. SEARCH & DISCOVERY SYSTEM - Additional Tables
+// ============================================================================
+
+// 11.1 SEARCH HISTORY - Track user search queries for recent searches
+export const searchHistory = pgTable("search_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  searchType: text("search_type").notNull(), // 'requirements' | 'consultants'
+  query: varchar("query", { length: 500 }), // Search keywords
+  filters: jsonb("filters"), // Applied filters
+  resultsCount: integer("results_count").default(0).notNull(), // Number of results found
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("search_history_user_id_idx").on(table.userId),
+  createdAtIdx: index("search_history_created_at_idx").on(table.createdAt),
+}));
+
+export const searchTypeEnum = z.enum(['requirements', 'consultants']);
+export const SEARCH_TYPES = searchTypeEnum.options;
+
+export const insertSearchHistorySchema = createInsertSchema(searchHistory).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  searchType: searchTypeEnum,
+  query: z.string().max(500).optional(),
+  filters: z.record(z.any()).optional(),
+  resultsCount: z.number().int().min(0).default(0),
+});
+export type InsertSearchHistory = z.infer<typeof insertSearchHistorySchema>;
+export type SearchHistory = typeof searchHistory.$inferSelect;
+
+// 11.2 VENDOR LISTS - Client-created lists to organize consultants
+export const vendorLists = pgTable("vendor_lists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Client only
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("vendor_lists_user_id_idx").on(table.userId),
+}));
+
+export const insertVendorListSchema = createInsertSchema(vendorLists).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "List name is required").max(255),
+  description: z.string().max(1000).optional(),
+});
+export type InsertVendorList = z.infer<typeof insertVendorListSchema>;
+export type VendorList = typeof vendorLists.$inferSelect;
+
+// 11.3 VENDOR LIST ITEMS - Consultants saved to specific lists
+export const vendorListItems = pgTable("vendor_list_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  listId: varchar("list_id").notNull().references(() => vendorLists.id, { onDelete: "cascade" }),
+  consultantId: varchar("consultant_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Must be a consultant
+  notes: text("notes"), // Client notes about this consultant
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+}, (table) => ({
+  listIdIdx: index("vendor_list_items_list_id_idx").on(table.listId),
+  consultantIdIdx: index("vendor_list_items_consultant_id_idx").on(table.consultantId),
+  uniqueListConsultant: uniqueIndex("vendor_list_items_list_consultant_unique").on(table.listId, table.consultantId),
+}));
+
+export const insertVendorListItemSchema = createInsertSchema(vendorListItems).omit({
+  id: true,
+  addedAt: true,
+}).extend({
+  notes: z.string().max(2000).optional(),
+});
+export type InsertVendorListItem = z.infer<typeof insertVendorListItemSchema>;
+export type VendorListItem = typeof vendorListItems.$inferSelect;

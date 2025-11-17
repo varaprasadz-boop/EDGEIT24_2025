@@ -198,6 +198,15 @@ import {
   type SavedSearch,
   type InsertSavedSearch,
   savedSearches,
+  type SearchHistory,
+  type InsertSearchHistory,
+  searchHistory,
+  type VendorList,
+  type InsertVendorList,
+  vendorLists,
+  type VendorListItem,
+  type InsertVendorListItem,
+  vendorListItems,
   type Notification,
   type InsertNotification,
   notifications,
@@ -790,6 +799,33 @@ export interface IStorage {
   getPaymentAnalytics(): Promise<any>; // Platform-wide analytics
   getEarningsChartData(consultantId: string, period: 'week' | 'month' | 'year'): Promise<any[]>;
   getSpendingChartData(clientId: string, period: 'week' | 'month' | 'year'): Promise<any[]>;
+
+  // ============================================================================
+  // 11. SEARCH & DISCOVERY SYSTEM (17 methods)
+  // ============================================================================
+
+  // 11.1 Search History operations (4 methods)
+  createSearchHistory(data: InsertSearchHistory): Promise<SearchHistory>;
+  getSearchHistory(userId: string, limit?: number): Promise<SearchHistory[]>;
+  deleteSearchHistory(id: string, userId: string): Promise<void>;
+  clearOldSearchHistory(userId: string, daysOld?: number): Promise<void>;
+
+  // 11.2 Saved Searches operations (5 methods)
+  createSavedSearch(data: InsertSavedSearch): Promise<SavedSearch>;
+  getSavedSearches(userId: string): Promise<SavedSearch[]>;
+  getSavedSearchById(id: string, userId: string): Promise<SavedSearch | undefined>;
+  updateSavedSearch(id: string, userId: string, data: Partial<InsertSavedSearch>): Promise<SavedSearch>;
+  deleteSavedSearch(id: string, userId: string): Promise<void>;
+
+  // 11.3 Vendor Lists operations (8 methods)
+  createVendorList(data: InsertVendorList): Promise<VendorList>;
+  getVendorLists(userId: string): Promise<VendorList[]>;
+  getVendorListById(id: string, userId: string): Promise<VendorList | undefined>;
+  updateVendorList(id: string, userId: string, data: Partial<InsertVendorList>): Promise<VendorList>;
+  deleteVendorList(id: string, userId: string): Promise<void>;
+  addConsultantToList(listId: string, consultantId: string, userId: string, notes?: string): Promise<VendorListItem>;
+  removeConsultantFromList(listId: string, consultantId: string, userId: string): Promise<void>;
+  getConsultantsInList(listId: string, userId: string): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6097,6 +6133,225 @@ export class DatabaseStorage implements IStorage {
     // Simplified implementation - returns mock data structure
     // In production, this would query actual transaction data grouped by time period
     return [];
+  }
+
+  // ============================================================================
+  // 11. SEARCH & DISCOVERY SYSTEM - Implementation
+  // ============================================================================
+
+  // 11.1 Search History operations
+  async createSearchHistory(data: InsertSearchHistory): Promise<SearchHistory> {
+    const [created] = await db.insert(searchHistory).values(data).returning();
+    if (!created) {
+      throw new Error('Failed to create search history');
+    }
+    return created;
+  }
+
+  async getSearchHistory(userId: string, limit: number = 50): Promise<SearchHistory[]> {
+    return await db
+      .select()
+      .from(searchHistory)
+      .where(eq(searchHistory.userId, userId))
+      .orderBy(desc(searchHistory.createdAt))
+      .limit(limit);
+  }
+
+  async deleteSearchHistory(id: string, userId: string): Promise<void> {
+    await db
+      .delete(searchHistory)
+      .where(and(eq(searchHistory.id, id), eq(searchHistory.userId, userId)));
+  }
+
+  async clearOldSearchHistory(userId: string, daysOld: number = 30): Promise<void> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+    await db
+      .delete(searchHistory)
+      .where(
+        and(
+          eq(searchHistory.userId, userId),
+          sql`${searchHistory.createdAt} < ${cutoffDate}`
+        )
+      );
+  }
+
+  // 11.2 Saved Searches operations
+  async createSavedSearch(data: InsertSavedSearch): Promise<SavedSearch> {
+    const [created] = await db.insert(savedSearches).values(data).returning();
+    if (!created) {
+      throw new Error('Failed to create saved search');
+    }
+    return created;
+  }
+
+  async getSavedSearches(userId: string): Promise<SavedSearch[]> {
+    return await db
+      .select()
+      .from(savedSearches)
+      .where(eq(savedSearches.userId, userId))
+      .orderBy(desc(savedSearches.createdAt));
+  }
+
+  async getSavedSearchById(id: string, userId: string): Promise<SavedSearch | undefined> {
+    const [search] = await db
+      .select()
+      .from(savedSearches)
+      .where(and(eq(savedSearches.id, id), eq(savedSearches.userId, userId)));
+    return search;
+  }
+
+  async updateSavedSearch(
+    id: string,
+    userId: string,
+    data: Partial<InsertSavedSearch>
+  ): Promise<SavedSearch> {
+    const [updated] = await db
+      .update(savedSearches)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(savedSearches.id, id), eq(savedSearches.userId, userId)))
+      .returning();
+
+    if (!updated) {
+      throw new Error('Saved search not found or unauthorized');
+    }
+    return updated;
+  }
+
+  async deleteSavedSearch(id: string, userId: string): Promise<void> {
+    await db
+      .delete(savedSearches)
+      .where(and(eq(savedSearches.id, id), eq(savedSearches.userId, userId)));
+  }
+
+  // 11.3 Vendor Lists operations
+  async createVendorList(data: InsertVendorList): Promise<VendorList> {
+    const [created] = await db.insert(vendorLists).values(data).returning();
+    if (!created) {
+      throw new Error('Failed to create vendor list');
+    }
+    return created;
+  }
+
+  async getVendorLists(userId: string): Promise<VendorList[]> {
+    return await db
+      .select()
+      .from(vendorLists)
+      .where(eq(vendorLists.userId, userId))
+      .orderBy(desc(vendorLists.createdAt));
+  }
+
+  async getVendorListById(id: string, userId: string): Promise<VendorList | undefined> {
+    const [list] = await db
+      .select()
+      .from(vendorLists)
+      .where(and(eq(vendorLists.id, id), eq(vendorLists.userId, userId)));
+    return list;
+  }
+
+  async updateVendorList(
+    id: string,
+    userId: string,
+    data: Partial<InsertVendorList>
+  ): Promise<VendorList> {
+    const [updated] = await db
+      .update(vendorLists)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(vendorLists.id, id), eq(vendorLists.userId, userId)))
+      .returning();
+
+    if (!updated) {
+      throw new Error('Vendor list not found or unauthorized');
+    }
+    return updated;
+  }
+
+  async deleteVendorList(id: string, userId: string): Promise<void> {
+    await db
+      .delete(vendorLists)
+      .where(and(eq(vendorLists.id, id), eq(vendorLists.userId, userId)));
+  }
+
+  async addConsultantToList(
+    listId: string,
+    consultantId: string,
+    userId: string,
+    notes?: string
+  ): Promise<VendorListItem> {
+    // Verify the list belongs to the user
+    const list = await this.getVendorListById(listId, userId);
+    if (!list) {
+      throw new Error('Vendor list not found or unauthorized');
+    }
+
+    const [created] = await db
+      .insert(vendorListItems)
+      .values({
+        listId,
+        consultantId,
+        notes,
+      })
+      .returning();
+
+    if (!created) {
+      throw new Error('Failed to add consultant to list');
+    }
+    return created;
+  }
+
+  async removeConsultantFromList(
+    listId: string,
+    consultantId: string,
+    userId: string
+  ): Promise<void> {
+    // Verify the list belongs to the user
+    const list = await this.getVendorListById(listId, userId);
+    if (!list) {
+      throw new Error('Vendor list not found or unauthorized');
+    }
+
+    await db
+      .delete(vendorListItems)
+      .where(
+        and(
+          eq(vendorListItems.listId, listId),
+          eq(vendorListItems.consultantId, consultantId)
+        )
+      );
+  }
+
+  async getConsultantsInList(listId: string, userId: string): Promise<any[]> {
+    // Verify the list belongs to the user
+    const list = await this.getVendorListById(listId, userId);
+    if (!list) {
+      throw new Error('Vendor list not found or unauthorized');
+    }
+
+    const items = await db
+      .select()
+      .from(vendorListItems)
+      .where(eq(vendorListItems.listId, listId));
+
+    // Fetch consultant details for each item
+    const consultantsWithDetails = await Promise.all(
+      items.map(async (item) => {
+        const user = await this.getUser(item.consultantId);
+        const profile = await this.getConsultantProfile(item.consultantId);
+        return {
+          ...item,
+          consultant: {
+            id: user?.id,
+            fullName: user?.fullName,
+            email: user?.email,
+            profileImageUrl: user?.profileImageUrl,
+            profile,
+          },
+        };
+      })
+    );
+
+    return consultantsWithDetails;
   }
 }
 
