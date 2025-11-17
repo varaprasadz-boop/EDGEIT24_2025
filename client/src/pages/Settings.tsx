@@ -69,6 +69,10 @@ export default function Settings() {
 
   const { data: preferences, isLoading: preferencesLoading } = useQuery<NotificationPreferences>({
     queryKey: ['/api/notification-preferences'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/notification-preferences');
+      return res.json();
+    },
     enabled: activeTab === 'notifications',
   });
 

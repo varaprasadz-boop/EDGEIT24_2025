@@ -51,6 +51,7 @@ export function NotificationBell() {
       return res.json();
     },
     enabled: open,
+    refetchInterval: open ? 30000 : false,
   });
 
   const markAsReadMutation = useMutation({
