@@ -17,6 +17,12 @@ interface SeedCategory {
   displayOrder: number;
   parentSlug?: string; // For linking children to parents
   children?: SeedCategory[];
+  // New fields for dynamic category system
+  categoryType?: 'human_services' | 'software_services' | 'hardware_supply' | 'digital_marketing' | 'infrastructure' | 'cloud_services' | 'cybersecurity' | 'data_services';
+  requiresApproval?: boolean;
+  deliveryOptions?: any;
+  warrantyConfig?: any;
+  complianceRequirements?: string[];
 }
 
 // Complete 3-level category hierarchy
@@ -34,6 +40,8 @@ const categoryTree: SeedCategory[] = [
     icon: "Code",
     level: 0,
     displayOrder: 1,
+    categoryType: "software_services",
+    requiresApproval: false,
     children: [
       {
         name: "Web Development",
@@ -338,6 +346,8 @@ const categoryTree: SeedCategory[] = [
     icon: "Megaphone",
     level: 0,
     displayOrder: 2,
+    categoryType: "digital_marketing",
+    requiresApproval: false,
     children: [
       {
         name: "SEO Services",
@@ -642,6 +652,8 @@ const categoryTree: SeedCategory[] = [
     icon: "Users",
     level: 0,
     displayOrder: 3,
+    categoryType: "human_services",
+    requiresApproval: false,
     children: [
       {
         name: "Recruitment",
@@ -946,6 +958,9 @@ const categoryTree: SeedCategory[] = [
     icon: "HardDrive",
     level: 0,
     displayOrder: 4,
+    categoryType: "infrastructure",
+    requiresApproval: true,
+    complianceRequirements: ["ISO 27001", "Network+ Certification"],
     children: [
       {
         name: "Network Equipment",
@@ -1265,6 +1280,12 @@ async function insertCategoryTree(
       active: true,
       visible: true,
       featured: category.level === 0, // Feature root categories
+      // New fields for dynamic category system
+      categoryType: category.categoryType,
+      requiresApproval: category.requiresApproval,
+      deliveryOptions: category.deliveryOptions,
+      warrantyConfig: category.warrantyConfig,
+      complianceRequirements: category.complianceRequirements,
     })
     .returning({ id: categories.id });
 

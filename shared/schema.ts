@@ -171,6 +171,7 @@ export const consultantCategories = pgTable("consultant_categories", {
   consultantProfileId: varchar("consultant_profile_id").notNull().references(() => consultantProfiles.id, { onDelete: "cascade" }),
   categoryId: varchar("category_id").notNull().references(() => categories.id, { onDelete: "cascade" }),
   isPrimary: boolean("is_primary").default(false), // One primary service per consultant (enforced in API)
+  customFieldData: jsonb("custom_field_data"), // Consultant's answers to category-specific custom fields
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   consultantIdIdx: index("consultant_categories_consultant_id_idx").on(table.consultantProfileId),
@@ -328,6 +329,12 @@ export const categories = pgTable("categories", {
   parentId: varchar("parent_id").references((): any => categories.id, { onDelete: "set null" }), // Self-reference for subcategories
   level: integer("level").notNull().default(0), // 0 = root, 1 = subcategory, 2 = super-subcategory (max depth = 2)
   customFields: jsonb("custom_fields"), // Array of field definitions for category forms
+  // Dynamic category system enhancements
+  categoryType: text("category_type"), // 'human_services', 'software_services', 'hardware_supply', 'digital_marketing', 'infrastructure', 'cloud_services', 'cybersecurity', 'data_services'
+  requiresApproval: boolean("requires_approval").default(false), // Requires vendor approval to offer services in this category
+  deliveryOptions: jsonb("delivery_options"), // Delivery/shipping configuration for hardware categories
+  warrantyConfig: jsonb("warranty_config"), // Warranty and support requirements
+  complianceRequirements: text("compliance_requirements").array(), // Required certifications/compliance standards
   requirementApprovalRequired: boolean("requirement_approval_required").default(false),
   bidLimit: integer("bid_limit"),
   commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }), // % commission in SAR
@@ -360,6 +367,11 @@ export const vendorCategoryRequests = pgTable("vendor_category_requests", {
   reviewedBy: varchar("reviewed_by").references(() => users.id),
   reviewedAt: timestamp("reviewed_at"),
   expiresAt: timestamp("expires_at"), // Category access expiry for re-verification
+  // Verification badge and capacity management
+  verificationBadge: text("verification_badge"), // 'verified', 'premium', 'expert'
+  badgeIssuedAt: timestamp("badge_issued_at"),
+  maxConcurrentJobs: integer("max_concurrent_jobs"), // Maximum concurrent jobs allowed in this category
+  currentActiveJobs: integer("current_active_jobs").default(0), // Current count of active jobs
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -388,6 +400,10 @@ export const jobs = pgTable("jobs", {
   expiresAt: timestamp("expires_at"),
   viewCount: integer("view_count").default(0),
   bidCount: integer("bid_count").default(0),
+  // Dynamic category custom fields
+  customFieldData: jsonb("custom_field_data"), // Client's answers to category-specific custom fields
+  deliveryOptions: jsonb("delivery_options"), // Selected delivery options for hardware/physical jobs
+  complianceRequirements: text("compliance_requirements").array(), // Required certifications from consultant
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -1143,11 +1159,33 @@ export type InsertConsultantCategory = z.infer<typeof insertConsultantCategorySc
 export type ConsultantCategory = typeof consultantCategories.$inferSelect;
 
 // Categories
+// Category type enum
+export const categoryTypeEnum = z.enum([
+  'human_services',
+  'software_services', 
+  'hardware_supply',
+  'digital_marketing',
+  'infrastructure',
+  'cloud_services',
+  'cybersecurity',
+  'data_services'
+]);
+export const CATEGORY_TYPES = categoryTypeEnum.options;
+export type CategoryType = z.infer<typeof categoryTypeEnum>;
+
+// Verification badge enum
+export const verificationBadgeEnum = z.enum(['verified', 'premium', 'expert']);
+export const VERIFICATION_BADGES = verificationBadgeEnum.options;
+export type VerificationBadge = z.infer<typeof verificationBadgeEnum>;
+
 export const insertCategorySchema = createInsertSchema(categories).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 }).extend({
   level: z.number().min(0).max(2).default(0), // Enforce 3-level hierarchy (0, 1, 2)
+  categoryType: categoryTypeEnum.optional(),
+  requiresApproval: z.boolean().optional(),
 });
 
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
@@ -1280,8 +1318,11 @@ export const insertVendorCategoryRequestSchema = createInsertSchema(vendorCatego
   id: true,
   createdAt: true,
   updatedAt: true,
+  currentActiveJobs: true, // Auto-managed by system
 }).extend({
   status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  verificationBadge: verificationBadgeEnum.optional(),
+  maxConcurrentJobs: z.number().min(1).max(100).optional(),
 });
 
 export type InsertVendorCategoryRequest = z.infer<typeof insertVendorCategoryRequestSchema>;
