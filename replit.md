@@ -79,7 +79,7 @@ The frontend utilizes React with Vite, employing shadcn/ui and Radix UI componen
 - ws
 ## Category Access Request Workflow
 
-### Implementation Status: ✅ COMPLETE (Phases 4.1-4.5)
+### Implementation Status: ✅ COMPLETE (Phases 4.1-4.7 + Phase 5)
 
 **Completed Components:**
 1. **Backend API** (Phase 4.1):
@@ -100,6 +100,25 @@ The frontend utilizes React with Vite, employing shadcn/ui and Radix UI componen
    - Approve with verification badge and capacity allocation
    - Reject with required admin notes
    - Integrated into admin navigation (/admin/category-requests)
+
+4. **Verification Badge Display** (Phase 4.6):
+   - VerificationBadge component with proper styling and icons (Shield, Crown, Star)
+   - BrowseConsultants shows badges on consultant search results
+   - Backend searchConsultants returns highest badge level (expert > premium > verified)
+   - Type-safe implementation with proper null handling
+
+5. **Request Access Integration** (Phase 4.7):
+   - "Request Access" button in BrowseJobs when consultant views category requiring approval
+   - Button appears only when consultant lacks access to selected category
+   - Fetches consultant categories and validates eligibility client-side
+   - CategoryAccessRequestDialog integrated for seamless request submission
+
+6. **Delivery/Warranty/Compliance Configuration** (Phase 5):
+   - Admin UI in CategoryFormDialog with dedicated tabs
+   - Delivery Options: JSON textarea for shipping methods, delivery times, fee structure
+   - Warranty Config: JSON textarea for duration, terms, support options
+   - Compliance Requirements: Full tag-based UI with add/remove functionality (already complete)
+   - All configs persist as JSONB/array in categories table
 
 ### Consultant Flow
 1. **Access Request Submission** (requires approved consultant profile):
@@ -148,13 +167,11 @@ The frontend utilizes React with Vite, employing shadcn/ui and Radix UI componen
 ### Current Limitations
 1. **Category Switching in PostJob**: Changing category mid-form clears all custom field data. This is an intentional UX tradeoff to ensure data consistency when different categories have incompatible custom fields. Future enhancement: preserve compatible fields across category switches.
 
-### Deferred Features (Phases 4.6-4.7, 5-6)
-- **Phase 4.6**: Verification badge displays on consultant profiles and search cards
-- **Phase 4.7**: Integration of "Request Access" buttons in PostJob and browse pages (currently accessible via dashboard)
-- **Phase 5**: Delivery/Warranty/Compliance configuration UI
-- **Phase 6**: Enhanced browse with filters, analytics integration
+### Deferred Features (Phase 6+)
+- **Phase 6**: Enhanced browse with advanced filters for jobs/consultants, analytics integration
 - Category access expiry and re-verification workflow
-- Capacity enforcement in active job tracking (currently approved but not enforced)
+- Capacity enforcement in active job tracking (maxConcurrentJobs currently approved but not actively enforced)
+- JSON schema validation for delivery/warranty configurations (currently uses free-form JSON textarea)
 
 ## Critical Source Files
 
@@ -171,14 +188,18 @@ The frontend utilizes React with Vite, employing shadcn/ui and Radix UI componen
 
 ### Frontend Components
 - **Category Access Request**: `client/src/components/`
-  - CategoryAccessRequestDialog.tsx: Request submission dialog
+  - CategoryAccessRequestDialog.tsx: Request submission dialog (integrated in Dashboard & BrowseJobs)
   - CategoryRequestsList.tsx: Dashboard widget showing request status
+  - VerificationBadge.tsx: Badge display component with icon variants (Shield/Crown/Star)
 - **Admin Portal**: `client/src/pages/AdminCategoryRequests.tsx`
   - Tabs for pending/approved/rejected requests
   - Approval dialog with badge and capacity settings
+- **Browse Pages**: 
+  - BrowseConsultants.tsx: Displays verification badges on search results
+  - BrowseJobs.tsx: Shows "Request Access" button for categories requiring approval
 - **Admin Category Management**: `client/src/components/admin/`
   - CustomFieldsBuilder.tsx: Visual builder for custom field definitions
-  - CategoryFormDialog.tsx: Category creation/editing with type selection
+  - CategoryFormDialog.tsx: Category creation/editing with tabs for basic info, custom fields, delivery, warranty, compliance
   - AdminCategories.tsx: Main category management interface
 - **Dynamic Job Posting**: `client/src/pages/PostJob.tsx`
   - Integration with category selection and custom fields
