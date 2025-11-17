@@ -4,6 +4,7 @@ import type { IStorage } from "../../storage";
 import { insertInvoiceSchema } from "@shared/schema";
 import { emailService } from "../../email";
 import { invoicePdfService } from "../../invoicePdf";
+import type { NotificationService } from "../../notifications";
 
 // Validation schemas
 const updateInvoiceSchema = z.object({
@@ -25,6 +26,7 @@ const sendEmailSchema = z.object({
 
 interface RouteBuilderDeps {
   storage: IStorage;
+  notificationService: NotificationService;
   isAuthenticated: any;
   requireEmailVerified: any;
   getUserIdFromRequest: (req: any) => string | null;
@@ -32,7 +34,7 @@ interface RouteBuilderDeps {
 
 export function buildInvoiceRouter(deps: RouteBuilderDeps) {
   const router = Router();
-  const { storage, isAuthenticated, requireEmailVerified, getUserIdFromRequest } = deps;
+  const { storage, notificationService, isAuthenticated, requireEmailVerified, getUserIdFromRequest } = deps;
 
   // POST /api/invoices - Create new invoice
   router.post('/', isAuthenticated, requireEmailVerified, async (req, res) => {
@@ -79,6 +81,17 @@ export function buildInvoiceRouter(deps: RouteBuilderDeps) {
         currency: 'SAR',
         status: 'draft',
       });
+
+      // Notify client about invoice generation
+      try {
+        await notificationService.notifyInvoiceGenerated(project.clientId, {
+          invoiceNumber,
+          amount: `${totalAmount} SAR`,
+          invoiceId: invoice.id,
+        });
+      } catch (notifError) {
+        console.error("Error sending invoice notification:", notifError);
+      }
 
       res.status(201).json(invoice);
     } catch (error: any) {

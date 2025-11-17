@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import type { IStorage } from "../../storage";
 import { insertRefundRequestSchema, insertTaxProfileSchema } from "@shared/schema";
+import type { NotificationService } from "../../notifications";
 
 // Validation schemas
 const approveRefundSchema = z.object({
@@ -20,6 +21,7 @@ const calculateVATSchema = z.object({
 
 interface RouteBuilderDeps {
   storage: IStorage;
+  notificationService: NotificationService;
   isAuthenticated: any;
   requireEmailVerified: any;
   getUserIdFromRequest: (req: any) => string | null;
@@ -28,7 +30,7 @@ interface RouteBuilderDeps {
 
 export function buildRefundRouter(deps: RouteBuilderDeps) {
   const router = Router();
-  const { storage, isAuthenticated, requireEmailVerified, getUserIdFromRequest, isAdmin } = deps;
+  const { storage, notificationService, isAuthenticated, requireEmailVerified, getUserIdFromRequest, isAdmin } = deps;
 
   // POST /refunds - Create refund request
   router.post('/', isAuthenticated, requireEmailVerified, async (req, res) => {
@@ -233,6 +235,20 @@ export function buildRefundRouter(deps: RouteBuilderDeps) {
       }
 
       const processed = await storage.processRefund(id, userId);
+
+      // Notify user about refund processing
+      try {
+        // Get project for notification
+        const project = await storage.getProjectById(refund.projectId);
+        await notificationService.notifyRefundProcessed(refund.requestedBy, {
+          amount: `${refund.amount} SAR`,
+          projectTitle: project?.title || 'Project',
+          refundId: refund.id,
+        });
+      } catch (notifError) {
+        console.error("Error sending refund notification:", notifError);
+      }
+
       res.json(processed);
     } catch (error: any) {
       console.error("Error processing refund:", error);

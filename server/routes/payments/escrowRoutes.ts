@@ -33,8 +33,11 @@ const paymentRequestSchema = z.object({
   milestoneIndex: z.number().int().positive().optional(),
 });
 
+import type { NotificationService } from "../../notifications";
+
 interface RouteBuilderDeps {
   storage: IStorage;
+  notificationService: NotificationService;
   isAuthenticated: any;
   requireEmailVerified: any;
   getUserIdFromRequest: (req: any) => string | null;
@@ -44,7 +47,7 @@ interface RouteBuilderDeps {
 // Project-scoped escrow routes
 export function buildEscrowRouter(deps: RouteBuilderDeps) {
   const router = Router();
-  const { storage, isAuthenticated, requireEmailVerified, getUserIdFromRequest } = deps;
+  const { storage, notificationService, isAuthenticated, requireEmailVerified, getUserIdFromRequest } = deps;
 
   // POST /:projectId/escrow/deposit - Client deposits funds to escrow (mock)
   router.post('/:projectId/escrow/deposit', isAuthenticated, requireEmailVerified, async (req, res) => {
@@ -94,6 +97,17 @@ export function buildEscrowRouter(deps: RouteBuilderDeps) {
       // Mock deposit (in production, this would integrate with payment gateway)
       await storage.depositToEscrow(escrowAccount.id, amount, userId, description);
 
+      // Notify consultant about payment deposit
+      try {
+        await notificationService.notifyPaymentDeposited(project.consultantId, {
+          amount: `${amount} SAR`,
+          projectTitle: project.title,
+          transactionId: escrowAccount.id,
+        });
+      } catch (notifError) {
+        console.error("Error sending payment deposit notification:", notifError);
+      }
+
       res.json({ 
         message: "Funds deposited to escrow successfully (mock)",
         escrowAccount: await storage.getEscrowAccountByProject(projectId)
@@ -133,6 +147,21 @@ export function buildEscrowRouter(deps: RouteBuilderDeps) {
       // Release funds (ownership verification happens in storage layer)
       await storage.releaseFromEscrow(escrowAccount.id, userId, description || 'Full payment release');
 
+      // Get project for notification
+      const project = await storage.getProjectById(projectId);
+      if (project) {
+        // Notify consultant about payment release
+        try {
+          await notificationService.notifyPaymentReleased(project.consultantId, {
+            amount: `${escrowAccount.availableBalance} SAR`,
+            projectTitle: project.title,
+            transactionId: escrowAccount.id,
+          });
+        } catch (notifError) {
+          console.error("Error sending payment release notification:", notifError);
+        }
+      }
+
       res.json({ 
         message: "Payment released successfully",
         escrowAccount: await storage.getEscrowAccountByProject(projectId)
@@ -170,7 +199,7 @@ export function buildEscrowRouter(deps: RouteBuilderDeps) {
       }
 
       // Partial release (ownership verification happens in storage layer)
-      await storage.partialReleaseFromEscrow(escrowAccount.id, amount, userId, description || 'Partial payment release');
+      await storage.partialReleaseFromEscrow(escrowAccount.id, amount, null, userId, description || 'Partial payment release');
 
       res.json({ 
         message: "Partial payment released successfully",

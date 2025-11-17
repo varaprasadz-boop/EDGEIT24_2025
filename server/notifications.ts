@@ -290,6 +290,14 @@ export class NotificationService {
       metadata: { projectId: deadlineDetails.projectId, daysLeft },
     });
   }
+  // TODO: DEADLINE_REMINDER requires scheduled task implementation
+  // This notification method exists but needs a cron job/scheduler to call it periodically.
+  // Implementation plan:
+  // 1. Create server/scheduledTasks.ts with a daily cron job (e.g., using node-cron)
+  // 2. Query projects/milestones with upcoming deadlines (1, 3, 7 days before due date)
+  // 3. Call notifyDeadlineReminder() for each approaching deadline
+  // 4. Track sent reminders to avoid duplicates (add reminderSentAt timestamps)
+  // Example: cron.schedule('0 9 * * *', async () => { /* check deadlines and notify */ });
 
   async notifyRefundProcessed(userId: string, refundDetails: { amount: string; projectTitle: string; refundId: string }): Promise<void> {
     await this.sendNotification({

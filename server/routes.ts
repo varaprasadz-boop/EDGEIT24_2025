@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { Router } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { notificationService } from "./notifications";
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { wsManager } from "./websocket";
@@ -979,6 +980,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify email and clear the token (verifyUserEmail already clears token)
       await storage.verifyUserEmail(user.id);
 
+      // Notify user about successful verification
+      try {
+        await notificationService.notifyVerificationStatus(user.id, {
+          status: 'verified',
+          email: user.email,
+        });
+      } catch (notifError) {
+        console.error("Error sending verification notification:", notifError);
+      }
+
       res.json({ message: "Email verified successfully" });
     } catch (error) {
       console.error("Error verifying email:", error);
@@ -1657,6 +1668,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const bid = await storage.createBid(validation.data);
+      
+      // Get job details to notify the client
+      try {
+        const job = await storage.getJobById(bid.jobId);
+        if (job) {
+          await notificationService.notifyBidReceived(job.clientId, {
+            bidId: bid.id,
+            consultantName: consultantProfile.businessName || consultantProfile.fullName || 'A consultant',
+            jobTitle: job.title,
+            jobId: job.id,
+          });
+        }
+      } catch (notifError) {
+        console.error("Error sending bid notification:", notifError);
+        // Don't fail the request if notification fails
+      }
+      
       res.status(201).json(bid);
     } catch (error) {
       console.error("Error creating bid:", error);
@@ -1740,6 +1768,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updated = await storage.updateBid(req.params.id, userId, req.body);
+
+      // Notify consultant about bid status update
+      try {
+        const job = await storage.getJobById(updated.jobId);
+        if (job) {
+          await notificationService.notifyBidStatusUpdate(updated.consultantId, {
+            bidId: updated.id,
+            jobTitle: job.title,
+            status: updated.status,
+          });
+        }
+      } catch (notifError) {
+        console.error("Error sending bid status update notification:", notifError);
+      }
+
       res.json(updated);
     } catch (error) {
       console.error("Error updating bid:", error);
@@ -1755,6 +1798,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const bid = await storage.withdrawBid(req.params.id, userId);
+
+      // Notify consultant about bid withdrawal
+      try {
+        const job = await storage.getJobById(bid.jobId);
+        if (job) {
+          await notificationService.notifyBidStatusUpdate(bid.consultantId, {
+            bidId: bid.id,
+            jobTitle: job.title,
+            status: 'withdrawn',
+          });
+        }
+      } catch (notifError) {
+        console.error("Error sending bid withdrawal notification:", notifError);
+      }
+
       res.json(bid);
     } catch (error) {
       console.error("Error withdrawing bid:", error);
@@ -1785,6 +1843,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const acceptedBid = await storage.acceptBid(req.params.id, userId);
+
+      // Notify consultant that their bid was awarded (note: project created below)
+      // We'll send notification after project creation to include projectId
+      let awardedNotificationPending = true;
 
       // Auto-create project/contract after bid acceptance
       const startDate = new Date();
@@ -1817,6 +1879,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         signedAt: null,
       });
 
+      // Now send bid awarded notification with project ID
+      if (awardedNotificationPending) {
+        try {
+          await notificationService.notifyBidAwarded(bid.consultantId, {
+            bidId: bid.id,
+            jobTitle: job.title,
+            projectId: project.id,
+          });
+        } catch (notifError) {
+          console.error("Error sending bid awarded notification:", notifError);
+        }
+      }
+
       res.json({ bid: acceptedBid, project });
     } catch (error) {
       console.error("Error accepting bid:", error);
@@ -1847,6 +1922,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const declinedBid = await storage.declineBid(req.params.id, userId, req.body.message);
+      
+      // Notify consultant that their bid was rejected
+      try {
+        await notificationService.notifyBidRejected(bid.consultantId, {
+          bidId: bid.id,
+          jobTitle: job.title,
+        });
+      } catch (notifError) {
+        console.error("Error sending bid rejected notification:", notifError);
+      }
+      
       res.json(declinedBid);
     } catch (error) {
       console.error("Error declining bid:", error);
@@ -2012,6 +2098,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedProject = await storage.updateProjectStatus(req.params.id, status, userId);
+      
+      // Notify the other party about project status change
+      try {
+        const notifyUserId = userId === project.clientId ? project.consultantId : project.clientId;
+        await notificationService.notifyProjectStatusChange(notifyUserId, {
+          projectId: project.id,
+          projectTitle: project.title,
+          newStatus: status,
+        });
+      } catch (notifError) {
+        console.error("Error sending project status notification:", notifError);
+      }
+      
       res.json(updatedProject);
     } catch (error) {
       console.error("Error updating project status:", error);
@@ -2044,6 +2143,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status, progress } = req.body;
 
       const updatedProject = await storage.updateMilestoneStatus(req.params.id, milestoneIndex, status, progress);
+      
+      // Notify client when milestone is completed
+      if (status === 'completed') {
+        try {
+          const milestones = Array.isArray(project.milestones) ? project.milestones : [];
+          const milestone = milestones[milestoneIndex];
+          if (milestone) {
+            await notificationService.notifyMilestoneCompleted(project.clientId, {
+              projectId: project.id,
+              projectTitle: project.title,
+              milestoneTitle: typeof milestone === 'object' && 'title' in milestone ? (milestone as any).title : `Milestone ${milestoneIndex + 1}`,
+            });
+          }
+        } catch (notifError) {
+          console.error("Error sending milestone notification:", notifError);
+        }
+      }
+      
       res.json(updatedProject);
     } catch (error) {
       console.error("Error updating milestone:", error);
@@ -2200,6 +2317,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         addedBy: userId,
       });
 
+      // Notify the new team member
+      try {
+        const adder = await storage.getUser(userId);
+        await notificationService.notifyTeamMemberActivity(memberId, {
+          memberName: adder?.email || 'A team member',
+          action: 'added you to',
+          projectTitle: project.title,
+          projectId: project.id,
+        });
+      } catch (notifError) {
+        console.error("Error sending team member notification:", notifError);
+      }
+
       res.status(201).json(teamMember);
     } catch (error) {
       console.error("Error adding team member:", error);
@@ -2263,6 +2393,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         uploadedBy: userId,
         status: 'pending',
       });
+
+      // Notify client about deliverable submission
+      try {
+        await notificationService.notifyDeliverableSubmitted(project.clientId, {
+          projectId: project.id,
+          projectTitle: project.title,
+          deliverableTitle: title,
+        });
+      } catch (notifError) {
+        console.error("Error sending deliverable notification:", notifError);
+      }
 
       res.status(201).json(deliverable);
     } catch (error) {
@@ -4386,6 +4527,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const review = await storage.createReview(validation.data);
+      
+      // Notify the reviewed consultant/client about the new review
+      try {
+        await notificationService.notifyReviewReceived(review.reviewedUserId, {
+          reviewId: review.id,
+          reviewerName: validation.data.reviewerRole === 'client' ? 'A client' : 'A consultant',
+          rating: review.overallRating,
+        });
+      } catch (notifError) {
+        console.error("Error sending review notification:", notifError);
+      }
+      
       res.status(201).json(review);
     } catch (error) {
       console.error("Error creating review:", error);
@@ -4573,6 +4726,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const response = await storage.createReviewResponse(validation.data);
+      
+      // Notify the original reviewer about the response
+      try {
+        await notificationService.notifyReviewResponse(review.reviewerId, {
+          reviewId: reviewId,
+          responderName: 'The reviewee',
+        });
+      } catch (notifError) {
+        console.error("Error sending review response notification:", notifError);
+      }
+      
       res.status(201).json(response);
     } catch (error) {
       console.error("Error creating review response:", error);
@@ -6224,15 +6388,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Consultant not found" });
       }
 
-      await storage.createNotification({
-        userId: parsed.data.consultantId,
-        type: 'project_invitation',
-        title: `Invitation to bid on "${project.title}"`,
-        message: parsed.data.message || `You have been invited to submit a proposal for the project "${project.title}".`,
-        relatedEntityType: 'project',
-        relatedEntityId: project.id,
-        actionUrl: `/consultant/projects/${project.id}`,
-      });
+      // Notify consultant about the invitation using notification service
+      try {
+        await notificationService.notifyVendorInvited(parsed.data.consultantId, {
+          projectId: project.id,
+          projectTitle: project.title,
+          clientName: 'A client',
+        });
+      } catch (notifError) {
+        console.error("Error sending vendor invitation notification:", notifError);
+      }
 
       res.status(201).json({ 
         message: "Consultant invited successfully",
@@ -6686,6 +6851,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parsed.data.verificationBadge,
         parsed.data.maxConcurrentJobs
       );
+
+      // Notify vendor about category approval
+      try {
+        const category = await storage.getCategoryById(request.categoryId);
+        await notificationService.notifyCategoryApproval(request.vendorId, {
+          categoryId: request.categoryId,
+          categoryName: category?.name || 'Category',
+        });
+      } catch (notifError) {
+        console.error("Error sending category approval notification:", notifError);
+      }
 
       res.json(approved);
     } catch (error) {
@@ -9224,6 +9400,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Broadcast new message via WebSocket
       await wsManager.broadcastNewMessage(req.params.conversationId, message);
+
+      // Notify conversation participants about new message (excluding sender)
+      try {
+        const otherParticipants = participants.filter(p => p.userId !== userId);
+        for (const participant of otherParticipants) {
+          await notificationService.notifyNewMessage(participant.userId, {
+            senderId: userId,
+            senderName: message.senderName || 'User',
+            conversationId: req.params.conversationId,
+            messagePreview: message.content.substring(0, 100),
+          });
+        }
+      } catch (notifError) {
+        console.error("Error sending new message notifications:", notifError);
+      }
       
       res.status(201).json(message);
     } catch (error: any) {
@@ -10490,6 +10681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register payment and escrow routes
   registerPaymentRoutes(app, {
     storage,
+    notificationService,
     isAuthenticated,
     requireEmailVerified,
     getUserIdFromRequest,

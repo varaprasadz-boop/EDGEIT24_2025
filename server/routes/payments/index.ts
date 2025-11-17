@@ -6,8 +6,11 @@ import { buildWalletRouter } from "./walletRoutes";
 import { buildRefundRouter, buildTaxRouter } from "./refundTaxRoutes";
 import { buildDashboardRouter, buildTransactionsRouter } from "./analyticsRoutes";
 
+import type { NotificationService } from "../../notifications";
+
 interface PaymentRouteDeps {
   storage: IStorage;
+  notificationService: NotificationService;
   isAuthenticated: any;
   requireEmailVerified: any;
   getUserIdFromRequest: (req: any) => string | null;
@@ -19,11 +22,12 @@ interface PaymentRouteDeps {
  * Mounts escrow, invoice, wallet, refund/tax, and analytics routers
  */
 export function registerPaymentRoutes(app: Express, deps: PaymentRouteDeps) {
-  const { storage, isAuthenticated, requireEmailVerified, getUserIdFromRequest, isAdmin } = deps;
+  const { storage, notificationService, isAuthenticated, requireEmailVerified, getUserIdFromRequest, isAdmin } = deps;
 
   // Build all route modules with dependency injection
   const projectEscrowRouter = buildEscrowRouter({ 
-    storage, 
+    storage,
+    notificationService,
     isAuthenticated, 
     requireEmailVerified, 
     getUserIdFromRequest, 
@@ -32,6 +36,7 @@ export function registerPaymentRoutes(app: Express, deps: PaymentRouteDeps) {
 
   const globalEscrowRouter = buildGlobalEscrowRouter({
     storage,
+    notificationService,
     isAuthenticated,
     requireEmailVerified,
     getUserIdFromRequest,
@@ -39,7 +44,8 @@ export function registerPaymentRoutes(app: Express, deps: PaymentRouteDeps) {
   });
   
   const invoiceRouter = buildInvoiceRouter({ 
-    storage, 
+    storage,
+    notificationService,
     isAuthenticated, 
     requireEmailVerified, 
     getUserIdFromRequest 
@@ -53,7 +59,8 @@ export function registerPaymentRoutes(app: Express, deps: PaymentRouteDeps) {
   });
   
   const refundRouter = buildRefundRouter({ 
-    storage, 
+    storage,
+    notificationService,
     isAuthenticated, 
     requireEmailVerified, 
     getUserIdFromRequest, 
