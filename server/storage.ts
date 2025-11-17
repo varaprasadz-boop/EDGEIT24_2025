@@ -14,6 +14,10 @@ import {
   bidClarifications,
   bidViews,
   projects,
+  milestoneComments,
+  projectDeliverables,
+  projectTeamMembers,
+  projectActivityLog,
   payments,
   reviews,
   kycDocuments,
@@ -63,6 +67,16 @@ import {
   type InsertBidClarification,
   type BidView,
   type InsertBidView,
+  type Project,
+  type InsertProject,
+  type MilestoneComment,
+  type InsertMilestoneComment,
+  type ProjectDeliverable,
+  type InsertProjectDeliverable,
+  type ProjectTeamMember,
+  type InsertProjectTeamMember,
+  type ProjectActivityLog,
+  type InsertProjectActivityLog,
   type Category,
   type VendorCategoryRequest,
   type InsertVendorCategoryRequest,
@@ -516,6 +530,38 @@ export interface IStorage {
   // Notification Preferences operations
   getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
   upsertNotificationPreferences(userId: string, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences>;
+
+  // Project/Contract operations
+  createProject(project: InsertProject): Promise<Project>;
+  getProjectById(projectId: string): Promise<Project | undefined>;
+  getConsultantProjects(consultantId: string, filters?: { status?: string; categoryId?: string; limit?: number; offset?: number }): Promise<{ projects: Project[]; total: number }>;
+  getClientProjects(clientId: string, filters?: { status?: string; categoryId?: string; limit?: number; offset?: number }): Promise<{ projects: Project[]; total: number }>;
+  updateProject(projectId: string, data: Partial<InsertProject>): Promise<Project>;
+  updateProjectStatus(projectId: string, status: string, userId: string): Promise<Project>;
+  updateMilestoneStatus(projectId: string, milestoneIndex: number, status: string, progress?: number): Promise<Project>;
+  extendProjectDeadline(projectId: string, newEndDate: Date, reason: string, userId: string): Promise<Project>;
+  
+  // Milestone Comment operations
+  addMilestoneComment(comment: InsertMilestoneComment): Promise<MilestoneComment>;
+  getProjectComments(projectId: string, milestoneIndex?: number): Promise<MilestoneComment[]>;
+  resolveComment(commentId: string, userId: string): Promise<MilestoneComment>;
+  unresolveComment(commentId: string): Promise<MilestoneComment>;
+  
+  // Project Deliverable operations
+  submitDeliverable(deliverable: InsertProjectDeliverable): Promise<ProjectDeliverable>;
+  getProjectDeliverables(projectId: string, milestoneIndex?: number): Promise<ProjectDeliverable[]>;
+  approveDeliverable(deliverableId: string, reviewedBy: string): Promise<ProjectDeliverable>;
+  requestRevision(deliverableId: string, reviewNotes: string, reviewedBy: string): Promise<ProjectDeliverable>;
+  
+  // Project Team Member operations
+  addTeamMember(member: InsertProjectTeamMember): Promise<ProjectTeamMember>;
+  getProjectTeamMembers(projectId: string): Promise<ProjectTeamMember[]>;
+  removeTeamMember(projectId: string, userId: string): Promise<void>;
+  updateTeamMemberRole(projectId: string, userId: string, role: string, assignedMilestones?: number[]): Promise<ProjectTeamMember>;
+  
+  // Project Activity Log operations
+  logProjectActivity(activity: InsertProjectActivityLog): Promise<ProjectActivityLog>;
+  getProjectActivityLog(projectId: string, filters?: { action?: string; limit?: number; offset?: number }): Promise<{ activities: ProjectActivityLog[]; total: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3448,6 +3494,374 @@ export class DatabaseStorage implements IStorage {
       .where(eq(vendorCategoryRequests.id, id))
       .returning();
     return updated;
+  }
+
+  // Project/Contract Management
+  async createProject(project: InsertProject): Promise<Project> {
+    const [newProject] = await db.insert(projects).values(project).returning();
+    
+    await this.logProjectActivity({
+      projectId: newProject.id,
+      userId: project.clientId,
+      action: 'project_created',
+      details: { title: project.title, budget: project.budget },
+    });
+    
+    return newProject;
+  }
+
+  async getProjectById(projectId: string): Promise<Project | undefined> {
+    const [project] = await db.select().from(projects).where(eq(projects.id, projectId));
+    return project;
+  }
+
+  async getConsultantProjects(
+    consultantId: string,
+    filters?: { status?: string; categoryId?: string; limit?: number; offset?: number }
+  ): Promise<{ projects: Project[]; total: number }> {
+    const conditions = [eq(projects.consultantId, consultantId)];
+    
+    if (filters?.status) {
+      conditions.push(eq(projects.status, filters.status));
+    }
+    
+    const projectsList = await db
+      .select()
+      .from(projects)
+      .where(and(...conditions))
+      .limit(filters?.limit || 100)
+      .offset(filters?.offset || 0)
+      .orderBy(desc(projects.createdAt));
+    
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(projects)
+      .where(and(...conditions));
+    
+    return { projects: projectsList, total: Number(count) };
+  }
+
+  async getClientProjects(
+    clientId: string,
+    filters?: { status?: string; categoryId?: string; limit?: number; offset?: number }
+  ): Promise<{ projects: Project[]; total: number }> {
+    const conditions = [eq(projects.clientId, clientId)];
+    
+    if (filters?.status) {
+      conditions.push(eq(projects.status, filters.status));
+    }
+    
+    const projectsList = await db
+      .select()
+      .from(projects)
+      .where(and(...conditions))
+      .limit(filters?.limit || 100)
+      .offset(filters?.offset || 0)
+      .orderBy(desc(projects.createdAt));
+    
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(projects)
+      .where(and(...conditions));
+    
+    return { projects: projectsList, total: Number(count) };
+  }
+
+  async updateProject(projectId: string, data: Partial<InsertProject>): Promise<Project> {
+    const [updated] = await db.update(projects)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(projects.id, projectId))
+      .returning();
+    return updated;
+  }
+
+  async updateProjectStatus(projectId: string, status: string, userId: string): Promise<Project> {
+    const [updated] = await db.update(projects)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(projects.id, projectId))
+      .returning();
+    
+    await this.logProjectActivity({
+      projectId,
+      userId,
+      action: 'status_changed',
+      details: { newStatus: status },
+    });
+    
+    return updated;
+  }
+
+  async updateMilestoneStatus(
+    projectId: string,
+    milestoneIndex: number,
+    status: string,
+    progress?: number
+  ): Promise<Project> {
+    const project = await this.getProjectById(projectId);
+    if (!project || !project.milestones) throw new Error('Project not found');
+    
+    const milestones = project.milestones as any[];
+    if (milestoneIndex >= milestones.length) throw new Error('Invalid milestone index');
+    
+    milestones[milestoneIndex].status = status;
+    if (progress !== undefined) {
+      milestones[milestoneIndex].progress = progress;
+    }
+    
+    const completedCount = milestones.filter(m => m.status === 'completed').length;
+    const overallProgress = Math.floor((completedCount / milestones.length) * 100);
+    
+    const [updated] = await db.update(projects)
+      .set({ milestones, overallProgress, updatedAt: new Date() })
+      .where(eq(projects.id, projectId))
+      .returning();
+    
+    return updated;
+  }
+
+  async extendProjectDeadline(
+    projectId: string,
+    newEndDate: Date,
+    reason: string,
+    userId: string
+  ): Promise<Project> {
+    const [updated] = await db.update(projects)
+      .set({ endDate: newEndDate, updatedAt: new Date() })
+      .where(eq(projects.id, projectId))
+      .returning();
+    
+    await this.logProjectActivity({
+      projectId,
+      userId,
+      action: 'deadline_extended',
+      details: { newEndDate, reason },
+    });
+    
+    return updated;
+  }
+
+  // Milestone Comments
+  async addMilestoneComment(comment: InsertMilestoneComment): Promise<MilestoneComment> {
+    const [newComment] = await db.insert(milestoneComments).values(comment).returning();
+    
+    await this.logProjectActivity({
+      projectId: comment.projectId,
+      userId: comment.userId,
+      action: 'comment_added',
+      details: { milestoneIndex: comment.milestoneIndex },
+    });
+    
+    return newComment;
+  }
+
+  async getProjectComments(
+    projectId: string,
+    milestoneIndex?: number
+  ): Promise<MilestoneComment[]> {
+    const conditions = [eq(milestoneComments.projectId, projectId)];
+    
+    if (milestoneIndex !== undefined) {
+      conditions.push(eq(milestoneComments.milestoneIndex, milestoneIndex));
+    }
+    
+    return await db
+      .select()
+      .from(milestoneComments)
+      .where(and(...conditions))
+      .orderBy(desc(milestoneComments.createdAt));
+  }
+
+  async resolveComment(commentId: string, userId: string): Promise<MilestoneComment> {
+    const [updated] = await db.update(milestoneComments)
+      .set({ resolved: true, resolvedBy: userId, resolvedAt: new Date(), updatedAt: new Date() })
+      .where(eq(milestoneComments.id, commentId))
+      .returning();
+    return updated;
+  }
+
+  async unresolveComment(commentId: string): Promise<MilestoneComment> {
+    const [updated] = await db.update(milestoneComments)
+      .set({ resolved: false, resolvedBy: null, resolvedAt: null, updatedAt: new Date() })
+      .where(eq(milestoneComments.id, commentId))
+      .returning();
+    return updated;
+  }
+
+  // Project Deliverables
+  async submitDeliverable(deliverable: InsertProjectDeliverable): Promise<ProjectDeliverable> {
+    const [newDeliverable] = await db.insert(projectDeliverables).values(deliverable).returning();
+    
+    await this.logProjectActivity({
+      projectId: deliverable.projectId,
+      userId: deliverable.uploadedBy,
+      action: 'deliverable_submitted',
+      details: { 
+        title: deliverable.title,
+        milestoneIndex: deliverable.milestoneIndex,
+      },
+    });
+    
+    return newDeliverable;
+  }
+
+  async getProjectDeliverables(
+    projectId: string,
+    milestoneIndex?: number
+  ): Promise<ProjectDeliverable[]> {
+    const conditions = [eq(projectDeliverables.projectId, projectId)];
+    
+    if (milestoneIndex !== undefined) {
+      conditions.push(eq(projectDeliverables.milestoneIndex, milestoneIndex));
+    }
+    
+    return await db
+      .select()
+      .from(projectDeliverables)
+      .where(and(...conditions))
+      .orderBy(desc(projectDeliverables.submittedAt));
+  }
+
+  async approveDeliverable(deliverableId: string, reviewedBy: string): Promise<ProjectDeliverable> {
+    const [updated] = await db.update(projectDeliverables)
+      .set({
+        status: 'approved',
+        reviewedBy,
+        reviewedAt: new Date(),
+        approvedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(projectDeliverables.id, deliverableId))
+      .returning();
+    
+    await this.logProjectActivity({
+      projectId: updated.projectId,
+      userId: reviewedBy,
+      action: 'deliverable_approved',
+      details: { deliverableId, title: updated.title },
+    });
+    
+    return updated;
+  }
+
+  async requestRevision(
+    deliverableId: string,
+    reviewNotes: string,
+    reviewedBy: string
+  ): Promise<ProjectDeliverable> {
+    const [updated] = await db.update(projectDeliverables)
+      .set({
+        status: 'revision_requested',
+        reviewNotes,
+        reviewedBy,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(projectDeliverables.id, deliverableId))
+      .returning();
+    
+    await this.logProjectActivity({
+      projectId: updated.projectId,
+      userId: reviewedBy,
+      action: 'revision_requested',
+      details: { deliverableId, title: updated.title },
+    });
+    
+    return updated;
+  }
+
+  // Project Team Members
+  async addTeamMember(member: InsertProjectTeamMember): Promise<ProjectTeamMember> {
+    const [newMember] = await db.insert(projectTeamMembers).values(member).returning();
+    
+    await this.logProjectActivity({
+      projectId: member.projectId,
+      userId: member.addedBy,
+      action: 'team_member_added',
+      details: { userId: member.userId, role: member.role },
+    });
+    
+    return newMember;
+  }
+
+  async getProjectTeamMembers(projectId: string): Promise<ProjectTeamMember[]> {
+    return await db
+      .select()
+      .from(projectTeamMembers)
+      .where(eq(projectTeamMembers.projectId, projectId));
+  }
+
+  async removeTeamMember(projectId: string, userId: string): Promise<void> {
+    await db
+      .delete(projectTeamMembers)
+      .where(
+        and(
+          eq(projectTeamMembers.projectId, projectId),
+          eq(projectTeamMembers.userId, userId)
+        )
+      );
+    
+    await this.logProjectActivity({
+      projectId,
+      userId,
+      action: 'team_member_removed',
+      details: { userId },
+    });
+  }
+
+  async updateTeamMemberRole(
+    projectId: string,
+    userId: string,
+    role: string,
+    assignedMilestones?: number[]
+  ): Promise<ProjectTeamMember> {
+    const updateData: any = { role };
+    if (assignedMilestones) {
+      updateData.assignedMilestones = assignedMilestones;
+    }
+    
+    const [updated] = await db.update(projectTeamMembers)
+      .set(updateData)
+      .where(
+        and(
+          eq(projectTeamMembers.projectId, projectId),
+          eq(projectTeamMembers.userId, userId)
+        )
+      )
+      .returning();
+    
+    return updated;
+  }
+
+  // Project Activity Log
+  async logProjectActivity(activity: InsertProjectActivityLog): Promise<ProjectActivityLog> {
+    const [log] = await db.insert(projectActivityLog).values(activity).returning();
+    return log;
+  }
+
+  async getProjectActivityLog(
+    projectId: string,
+    filters?: { action?: string; limit?: number; offset?: number }
+  ): Promise<{ activities: ProjectActivityLog[]; total: number }> {
+    const conditions = [eq(projectActivityLog.projectId, projectId)];
+    
+    if (filters?.action) {
+      conditions.push(eq(projectActivityLog.action, filters.action));
+    }
+    
+    const activities = await db
+      .select()
+      .from(projectActivityLog)
+      .where(and(...conditions))
+      .limit(filters?.limit || 100)
+      .offset(filters?.offset || 0)
+      .orderBy(desc(projectActivityLog.timestamp));
+    
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(projectActivityLog)
+      .where(and(...conditions));
+    
+    return { activities, total: Number(count) };
   }
 }
 
