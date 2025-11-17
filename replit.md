@@ -42,6 +42,22 @@ The frontend utilizes React with Vite, shadcn/ui, and Radix UI components, style
 
 The system includes 9 database tables (deliverable_versions, deliverable_downloads, hardware_shipments, quality_inspections, returns_replacements, warranty_claims, software_licenses, software_subscriptions, software_activations) with 47 dedicated storage methods and 29 secure API endpoints. Projects automatically display the appropriate delivery workflow based on the job's category type (hardware_supply → Hardware, software_services → Software, all others → Service). The delivery tab is integrated into both consultant and client project detail pages with role-based permissions controlling workflow actions.
 
+**Payment & Escrow System:** A comprehensive SAR-only payment system with 15% VAT compliance, featuring secure escrow workflows for project payments, professional invoice generation with email delivery, wallet management with transaction history, flexible refund workflows, and payment analytics. The system includes:
+
+- **Escrow Management:** Secure fund holding during project execution with milestone-based releases, automatic status tracking (pending → held → released → refunded), authorization verification, and detailed transaction logging.
+
+- **Invoice System:** Professional invoice generation with auto-numbered invoices (INV-YYYY-NNNN format), line item support, automatic VAT calculation (15%), multi-status lifecycle (draft → sent → paid → overdue → cancelled), print-ready HTML with EDGEIT24 branding, and email delivery with PDF generation capability.
+
+- **Wallet Management:** Digital wallet system for platform users with deposit/withdrawal support, transaction history with pagination and filtering, balance tracking with security validations, comprehensive transaction categorization (escrow_hold, escrow_release, invoice_payment, refund, withdrawal, deposit, platform_fee), and proper authorization checks.
+
+- **Refund Workflows:** Multi-stage refund processing with reason tracking, admin approval requirements, automatic wallet crediting, escrow fund reversal, and detailed audit trails.
+
+- **Payment Analytics:** Role-based analytics dashboards showing revenue metrics, transaction volumes, payment method distributions, wallet balances, escrow statistics, and invoice status breakdowns. Consultants see earnings data, clients see payment history, admins see platform-wide financial metrics.
+
+- **Service Layer:** Email service for invoice delivery with professional HTML/text templates and environment-aware URL handling. Invoice PDF service generates print-ready HTML invoices with proper SAR currency formatting (2 decimal places), responsive design with print media queries, and status-based badge styling.
+
+The system includes 5 database tables (escrow_transactions, invoices, wallet_transactions, wallet_balances, refund_requests) with 40 REST API endpoints covering escrow operations, invoice management, wallet transactions, refund processing, and payment analytics. All currency operations enforce SAR-only with 15% VAT. Invoice emails integrate with existing email infrastructure, ready for production email provider integration.
+
 ## External Dependencies
 
 ### Database
