@@ -2,6 +2,8 @@ import { Router } from "express";
 import { z } from "zod";
 import type { IStorage } from "../../storage";
 import { insertInvoiceSchema } from "@shared/schema";
+import { emailService } from "../../email";
+import { invoicePdfService } from "../../invoicePdf";
 
 // Validation schemas
 const updateInvoiceSchema = z.object({
@@ -228,75 +230,23 @@ export function buildInvoiceRouter(deps: RouteBuilderDeps) {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      // Generate simple HTML invoice (PDF generation would use Puppeteer in production)
-      const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Invoice ${invoice.invoiceNumber}</title>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
-    .header { text-align: center; margin-bottom: 30px; }
-    .invoice-details { margin-bottom: 30px; }
-    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
-    th { background-color: #f5f5f5; }
-    .total-row { font-weight: bold; background-color: #f9f9f9; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>INVOICE</h1>
-    <p>${invoice.invoiceNumber}</p>
-  </div>
-  
-  <div class="invoice-details">
-    <p><strong>Issue Date:</strong> ${new Date(invoice.issueDate).toLocaleDateString()}</p>
-    <p><strong>Due Date:</strong> ${new Date(invoice.dueDate).toLocaleDateString()}</p>
-    <p><strong>Status:</strong> ${invoice.status.toUpperCase()}</p>
-  </div>
+      // Get client and consultant info
+      const client = await storage.getUser(invoice.clientId);
+      const consultant = await storage.getUser(invoice.consultantId);
 
-  <table>
-    <thead>
-      <tr>
-        <th>Description</th>
-        <th>Quantity</th>
-        <th>Unit Price (SAR)</th>
-        <th>Total (SAR)</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${(invoice.items as any[]).map((item: any) => `
-        <tr>
-          <td>${item.description}</td>
-          <td>${item.quantity}</td>
-          <td>${item.unitPrice}</td>
-          <td>${item.totalPrice}</td>
-        </tr>
-      `).join('')}
-    </tbody>
-  </table>
+      if (!client || !consultant) {
+        return res.status(404).json({ message: "User not found" });
+      }
 
-  <table>
-    <tr>
-      <td colspan="3" style="text-align: right;"><strong>Subtotal:</strong></td>
-      <td>${invoice.subtotal} SAR</td>
-    </tr>
-    <tr>
-      <td colspan="3" style="text-align: right;"><strong>VAT (${invoice.vatRate}%):</strong></td>
-      <td>${invoice.vatAmount} SAR</td>
-    </tr>
-    <tr class="total-row">
-      <td colspan="3" style="text-align: right;"><strong>Total Amount:</strong></td>
-      <td>${invoice.totalAmount} SAR</td>
-    </tr>
-  </table>
-
-  ${invoice.notes ? `<p><strong>Notes:</strong><br>${invoice.notes}</p>` : ''}
-  ${invoice.paymentTerms ? `<p><strong>Payment Terms:</strong><br>${invoice.paymentTerms}</p>` : ''}
-</body>
-</html>`;
+      // Generate professional HTML invoice using invoicePdfService
+      const html = invoicePdfService.generateInvoiceHtml({
+        invoice,
+        clientName: client.fullName || client.email,
+        clientEmail: client.email,
+        consultantName: consultant.fullName || consultant.email,
+        consultantEmail: consultant.email,
+        items: invoice.items as any[],
+      });
 
       res.setHeader('Content-Type', 'text/html');
       res.send(html);
@@ -334,14 +284,31 @@ export function buildInvoiceRouter(deps: RouteBuilderDeps) {
         });
       }
 
-      // Mock email send (in production, use email service)
+      // Get client and consultant info
+      const client = await storage.getUser(invoice.clientId);
+      const consultant = await storage.getUser(invoice.consultantId);
+
+      if (!client || !consultant) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Send invoice email using email service
+      await emailService.sendInvoiceEmail({
+        to: parsed.data.recipientEmail,
+        cc: parsed.data.ccEmails,
+        invoice,
+        clientName: client.fullName || client.email,
+        consultantName: consultant.fullName || consultant.email,
+        message: parsed.data.message,
+      });
+
       // Update invoice status to 'sent' if it was 'draft'
       if (invoice.status === 'draft') {
         await storage.updateInvoiceStatus(id, 'sent');
       }
 
       res.json({ 
-        message: "Invoice sent successfully (mock)",
+        message: "Invoice sent successfully",
         recipient: parsed.data.recipientEmail
       });
     } catch (error: any) {
