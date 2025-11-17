@@ -101,6 +101,7 @@ export default function CategoryFormDialog({
 }: CategoryFormDialogProps) {
   const [activeTab, setActiveTab] = useState("basic");
   const [complianceInput, setComplianceInput] = useState("");
+  const [shippingMethodInput, setShippingMethodInput] = useState("");
 
   const form = useForm<CategoryFormData>({
     resolver: zodResolver(categoryFormSchema),
@@ -130,6 +131,21 @@ export default function CategoryFormDialog({
   const removeComplianceRequirement = (index: number) => {
     const current = form.getValues("complianceRequirements") || [];
     form.setValue("complianceRequirements", current.filter((_, i) => i !== index));
+  };
+
+  const addShippingMethod = () => {
+    if (!shippingMethodInput.trim()) return;
+    
+    const current = form.getValues("deliveryOptions") || { shippingMethods: [], estimatedDays: null, feeStructure: null };
+    const methods = current.shippingMethods || [];
+    form.setValue("deliveryOptions", { ...current, shippingMethods: [...methods, shippingMethodInput.trim()] });
+    setShippingMethodInput("");
+  };
+
+  const removeShippingMethod = (index: number) => {
+    const current = form.getValues("deliveryOptions") || { shippingMethods: [] };
+    const methods = current.shippingMethods || [];
+    form.setValue("deliveryOptions", { ...current, shippingMethods: methods.filter((_, i) => i !== index) });
   };
 
   const categoryType = form.watch("categoryType");
@@ -412,9 +428,37 @@ export default function CategoryFormDialog({
                 {categoryType !== 'hardware_supply' && (
                   <Badge variant="secondary">This configuration is most relevant for Hardware Supply categories</Badge>
                 )}
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground italic">Delivery options configuration coming soon. This will include shipping methods, estimated delivery times, and fee structures.</p>
-                </div>
+                
+                <FormField
+                  control={form.control}
+                  name="deliveryOptions"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Delivery Configuration (JSON)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder='{"shippingMethods": ["Standard", "Express"], "estimatedDays": "3-5", "feeStructure": "Standard: SAR 25, Express: SAR 50"}'
+                          value={field.value ? JSON.stringify(field.value, null, 2) : ""}
+                          onChange={(e) => {
+                            try {
+                              const parsed = JSON.parse(e.target.value);
+                              field.onChange(parsed);
+                            } catch {
+                              field.onChange(e.target.value);
+                            }
+                          }}
+                          rows={6}
+                          className="font-mono text-sm"
+                          data-testid="textarea-delivery-options"
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Configure shipping methods, delivery times, and fee structure in JSON format
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </TabsContent>
 
               {/* Tab 4: Warranty Config */}
@@ -422,9 +466,37 @@ export default function CategoryFormDialog({
                 <p className="text-sm text-muted-foreground">
                   Define warranty and support requirements for products/services in this category.
                 </p>
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground italic">Warranty configuration coming soon. This will include warranty duration options, terms, and support requirements.</p>
-                </div>
+                
+                <FormField
+                  control={form.control}
+                  name="warrantyConfig"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Warranty Configuration (JSON)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder='{"duration": "1 year", "terms": "Limited warranty covering manufacturing defects", "supportOptions": ["Email", "Phone"]}'
+                          value={field.value ? JSON.stringify(field.value, null, 2) : ""}
+                          onChange={(e) => {
+                            try {
+                              const parsed = JSON.parse(e.target.value);
+                              field.onChange(parsed);
+                            } catch {
+                              field.onChange(e.target.value);
+                            }
+                          }}
+                          rows={6}
+                          className="font-mono text-sm"
+                          data-testid="textarea-warranty-config"
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Define warranty duration, terms, and support requirements in JSON format
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </TabsContent>
 
               {/* Tab 5: Compliance Requirements */}

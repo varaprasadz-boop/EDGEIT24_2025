@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Star, MapPin, DollarSign, Users, Filter, X, Search, CheckCircle } from "lucide-react";
+import { VerificationBadge } from "@/components/VerificationBadge";
 
 interface CategoryNode {
   id: string;
@@ -36,6 +37,9 @@ interface ConsultantProfile {
   operatingRegions: string[] | null;
   availability: string | null;
   verified: boolean;
+  verificationBadge?: 'verified' | 'premium' | 'expert' | null;
+  categoryPathLabel?: string;
+  primaryCategoryId?: string | null;
 }
 
 interface SearchFilters {
@@ -420,12 +424,15 @@ export default function BrowseConsultants() {
                           <CardHeader>
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <CardTitle data-testid={`text-consultant-name-${consultant.id}`}>
                                     {consultant.fullName}
                                   </CardTitle>
-                                  {consultant.verified && (
+                                  {consultant.verified && !consultant.verificationBadge && (
                                     <CheckCircle className="h-5 w-5 text-primary" data-testid={`icon-verified-${consultant.id}`} />
+                                  )}
+                                  {consultant.verificationBadge && (
+                                    <VerificationBadge badge={consultant.verificationBadge} />
                                   )}
                                 </div>
                                 <CardDescription className="mt-1" data-testid={`text-consultant-title-${consultant.id}`}>

@@ -1895,11 +1895,38 @@ export class DatabaseStorage implements IStorage {
       primaryCategories.map(cc => [cc.consultantProfileId, cc.categoryId])
     );
 
-    // Enrich consultants with category path and primary category ID
+    // Get verification badges for each consultant (highest badge level across all approved categories)
+    const verificationBadges = consultantIds.length > 0
+      ? await db
+          .select({
+            vendorId: vendorCategoryRequests.vendorId,
+            verificationBadge: vendorCategoryRequests.verificationBadge,
+          })
+          .from(vendorCategoryRequests)
+          .where(and(
+            inArray(vendorCategoryRequests.vendorId, consultantIds),
+            eq(vendorCategoryRequests.status, 'approved'),
+            sql`${vendorCategoryRequests.verificationBadge} IS NOT NULL`
+          ))
+      : [];
+
+    // Helper to get highest badge level for each consultant
+    const badgeHierarchy = { 'expert': 3, 'premium': 2, 'verified': 1 };
+    const highestBadgeMap = new Map<string, string>();
+    verificationBadges.forEach(({ vendorId, verificationBadge }) => {
+      if (!verificationBadge) return;
+      const current = highestBadgeMap.get(vendorId);
+      if (!current || badgeHierarchy[verificationBadge as keyof typeof badgeHierarchy] > badgeHierarchy[current as keyof typeof badgeHierarchy]) {
+        highestBadgeMap.set(vendorId, verificationBadge);
+      }
+    });
+
+    // Enrich consultants with category path, primary category ID, and verification badge
     const consultantsWithPaths = consultantList.map(consultant => ({
       ...consultant,
       primaryCategoryId: primaryCategoryMap.get(consultant.id) || null,
       categoryPathLabel: buildCategoryPath(primaryCategoryMap.get(consultant.id) || null),
+      verificationBadge: highestBadgeMap.get(consultant.id) || null,
     }));
 
     return { consultants: consultantsWithPaths, total: count };
