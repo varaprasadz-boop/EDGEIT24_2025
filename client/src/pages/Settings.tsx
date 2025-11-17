@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -21,6 +22,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { NOTIFICATION_TYPES } from "@shared/schema";
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
@@ -41,8 +43,57 @@ type NotificationPreferences = {
   userId: string;
   emailNotificationsEnabled: boolean;
   inAppNotificationsEnabled: boolean;
-  enabledTypes: string[] | null;
+  emailEnabledTypes: string[] | null;
+  inAppEnabledTypes: string[] | null;
 };
+
+// Friendly names for notification types
+const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
+  [NOTIFICATION_TYPES.BID_RECEIVED]: 'New bid received',
+  [NOTIFICATION_TYPES.BID_STATUS_UPDATE]: 'Bid status updated',
+  [NOTIFICATION_TYPES.BID_AWARDED]: 'Bid awarded',
+  [NOTIFICATION_TYPES.BID_REJECTED]: 'Bid rejected',
+  [NOTIFICATION_TYPES.PAYMENT_DEPOSITED]: 'Payment deposited',
+  [NOTIFICATION_TYPES.PAYMENT_RELEASED]: 'Payment released',
+  [NOTIFICATION_TYPES.PROJECT_STATUS_CHANGE]: 'Project status changed',
+  [NOTIFICATION_TYPES.MILESTONE_COMPLETED]: 'Milestone completed',
+  [NOTIFICATION_TYPES.DELIVERABLE_SUBMITTED]: 'Deliverable submitted',
+  [NOTIFICATION_TYPES.INVOICE_GENERATED]: 'Invoice generated',
+  [NOTIFICATION_TYPES.VENDOR_INVITED]: 'Invited to bid on project',
+  [NOTIFICATION_TYPES.VERIFICATION_STATUS]: 'Verification status updated',
+  [NOTIFICATION_TYPES.CATEGORY_APPROVAL]: 'Category access approved',
+  [NOTIFICATION_TYPES.NEW_MESSAGE]: 'New message',
+  [NOTIFICATION_TYPES.REVIEW_RECEIVED]: 'Review received',
+  [NOTIFICATION_TYPES.REVIEW_RESPONSE]: 'Review response',
+  [NOTIFICATION_TYPES.DEADLINE_REMINDER]: 'Deadline reminder',
+  [NOTIFICATION_TYPES.REFUND_PROCESSED]: 'Refund processed',
+  [NOTIFICATION_TYPES.TEAM_MEMBER_ACTIVITY]: 'Team member activity',
+};
+
+const CRITICAL_TYPES = [
+  NOTIFICATION_TYPES.BID_RECEIVED,
+  NOTIFICATION_TYPES.BID_STATUS_UPDATE,
+  NOTIFICATION_TYPES.BID_AWARDED,
+  NOTIFICATION_TYPES.BID_REJECTED,
+  NOTIFICATION_TYPES.PAYMENT_DEPOSITED,
+  NOTIFICATION_TYPES.PAYMENT_RELEASED,
+  NOTIFICATION_TYPES.PROJECT_STATUS_CHANGE,
+  NOTIFICATION_TYPES.MILESTONE_COMPLETED,
+  NOTIFICATION_TYPES.DELIVERABLE_SUBMITTED,
+  NOTIFICATION_TYPES.INVOICE_GENERATED,
+  NOTIFICATION_TYPES.VENDOR_INVITED,
+  NOTIFICATION_TYPES.VERIFICATION_STATUS,
+  NOTIFICATION_TYPES.CATEGORY_APPROVAL,
+];
+
+const IMPORTANT_TYPES = [
+  NOTIFICATION_TYPES.NEW_MESSAGE,
+  NOTIFICATION_TYPES.REVIEW_RECEIVED,
+  NOTIFICATION_TYPES.REVIEW_RESPONSE,
+  NOTIFICATION_TYPES.DEADLINE_REMINDER,
+  NOTIFICATION_TYPES.REFUND_PROCESSED,
+  NOTIFICATION_TYPES.TEAM_MEMBER_ACTIVITY,
+];
 
 export default function Settings() {
   const { toast } = useToast();
@@ -78,11 +129,15 @@ export default function Settings() {
 
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [inAppEnabled, setInAppEnabled] = useState(true);
+  const [emailTypes, setEmailTypes] = useState<string[] | null>(null);
+  const [inAppTypes, setInAppTypes] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (preferences) {
       setEmailEnabled(preferences.emailNotificationsEnabled);
       setInAppEnabled(preferences.inAppNotificationsEnabled);
+      setEmailTypes(preferences.emailEnabledTypes);
+      setInAppTypes(preferences.inAppEnabledTypes);
     }
   }, [preferences]);
 
@@ -109,7 +164,12 @@ export default function Settings() {
   });
 
   const updatePreferencesMutation = useMutation({
-    mutationFn: async (data: { emailNotificationsEnabled?: boolean; inAppNotificationsEnabled?: boolean }) => {
+    mutationFn: async (data: { 
+      emailNotificationsEnabled?: boolean; 
+      inAppNotificationsEnabled?: boolean;
+      emailEnabledTypes?: string[] | null;
+      inAppEnabledTypes?: string[] | null;
+    }) => {
       await apiRequest('PUT', '/api/notification-preferences', data);
     },
     onSuccess: () => {
@@ -143,6 +203,36 @@ export default function Settings() {
   const handleInAppToggle = (checked: boolean) => {
     setInAppEnabled(checked);
     updatePreferencesMutation.mutate({ inAppNotificationsEnabled: checked });
+  };
+
+  const handleEmailTypeToggle = (type: string, checked: boolean) => {
+    const newTypes = emailTypes === null 
+      ? (checked ? [type] : Object.values(NOTIFICATION_TYPES).filter(t => t !== type))
+      : checked 
+        ? [...emailTypes, type]
+        : emailTypes.filter(t => t !== type);
+    
+    setEmailTypes(newTypes.length === Object.values(NOTIFICATION_TYPES).length ? null : newTypes);
+    updatePreferencesMutation.mutate({ emailEnabledTypes: newTypes.length === Object.values(NOTIFICATION_TYPES).length ? null : newTypes });
+  };
+
+  const handleInAppTypeToggle = (type: string, checked: boolean) => {
+    const newTypes = inAppTypes === null 
+      ? (checked ? [type] : Object.values(NOTIFICATION_TYPES).filter(t => t !== type))
+      : checked 
+        ? [...inAppTypes, type]
+        : inAppTypes.filter(t => t !== type);
+    
+    setInAppTypes(newTypes.length === Object.values(NOTIFICATION_TYPES).length ? null : newTypes);
+    updatePreferencesMutation.mutate({ inAppEnabledTypes: newTypes.length === Object.values(NOTIFICATION_TYPES).length ? null : newTypes });
+  };
+
+  const isEmailTypeEnabled = (type: string) => {
+    return emailTypes === null || emailTypes.includes(type);
+  };
+
+  const isInAppTypeEnabled = (type: string) => {
+    return inAppTypes === null || inAppTypes.includes(type);
   };
 
   return (
@@ -317,11 +407,92 @@ export default function Settings() {
                       />
                     </div>
 
-                    <div className="pt-4 border-t">
-                      <h4 className="text-sm font-medium mb-3">Notification Types</h4>
-                      <p className="text-sm text-muted-foreground">
-                        You will receive notifications for new messages, bids, project updates, and system announcements.
-                      </p>
+                    <Separator className="my-6" />
+
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="text-base font-semibold mb-4">Critical Business Events</h3>
+                        <div className="space-y-4">
+                          {CRITICAL_TYPES.map((type) => (
+                            <div key={type} className="flex items-start justify-between gap-4" data-testid={`preference-type-${type}`}>
+                              <div className="flex-1 min-w-0">
+                                <Label className="text-sm font-medium">
+                                  {NOTIFICATION_TYPE_LABELS[type]}
+                                </Label>
+                              </div>
+                              <div className="flex items-center gap-4 flex-shrink-0">
+                                <div className="flex items-center gap-2">
+                                  <Label htmlFor={`email-${type}`} className="text-xs text-muted-foreground whitespace-nowrap">
+                                    Email
+                                  </Label>
+                                  <Switch
+                                    id={`email-${type}`}
+                                    checked={isEmailTypeEnabled(type)}
+                                    onCheckedChange={(checked) => handleEmailTypeToggle(type, checked)}
+                                    disabled={!emailEnabled || updatePreferencesMutation.isPending}
+                                    data-testid={`switch-email-${type}`}
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Label htmlFor={`inapp-${type}`} className="text-xs text-muted-foreground whitespace-nowrap">
+                                    In-App
+                                  </Label>
+                                  <Switch
+                                    id={`inapp-${type}`}
+                                    checked={isInAppTypeEnabled(type)}
+                                    onCheckedChange={(checked) => handleInAppTypeToggle(type, checked)}
+                                    disabled={!inAppEnabled || updatePreferencesMutation.isPending}
+                                    data-testid={`switch-inapp-${type}`}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div>
+                        <h3 className="text-base font-semibold mb-4">Important Value-Add Features</h3>
+                        <div className="space-y-4">
+                          {IMPORTANT_TYPES.map((type) => (
+                            <div key={type} className="flex items-start justify-between gap-4" data-testid={`preference-type-${type}`}>
+                              <div className="flex-1 min-w-0">
+                                <Label className="text-sm font-medium">
+                                  {NOTIFICATION_TYPE_LABELS[type]}
+                                </Label>
+                              </div>
+                              <div className="flex items-center gap-4 flex-shrink-0">
+                                <div className="flex items-center gap-2">
+                                  <Label htmlFor={`email-${type}`} className="text-xs text-muted-foreground whitespace-nowrap">
+                                    Email
+                                  </Label>
+                                  <Switch
+                                    id={`email-${type}`}
+                                    checked={isEmailTypeEnabled(type)}
+                                    onCheckedChange={(checked) => handleEmailTypeToggle(type, checked)}
+                                    disabled={!emailEnabled || updatePreferencesMutation.isPending}
+                                    data-testid={`switch-email-${type}`}
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Label htmlFor={`inapp-${type}`} className="text-xs text-muted-foreground whitespace-nowrap">
+                                    In-App
+                                  </Label>
+                                  <Switch
+                                    id={`inapp-${type}`}
+                                    checked={isInAppTypeEnabled(type)}
+                                    onCheckedChange={(checked) => handleInAppTypeToggle(type, checked)}
+                                    disabled={!inAppEnabled || updatePreferencesMutation.isPending}
+                                    data-testid={`switch-inapp-${type}`}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </>
                 )}
