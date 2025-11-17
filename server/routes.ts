@@ -8,8 +8,8 @@ import { wsManager } from "./websocket";
 import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema, insertTeamMemberSchema } from "@shared/schema";
 import { db } from "./db";
-import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, teamMembers, contentPages, footerLinks, homePageSections, messageFiles, conversations, messages, meetingLinks, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema } from "@shared/schema";
-import { eq, and, or, count, sql, desc, ilike, gte, lte } from "drizzle-orm";
+import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, teamMembers, contentPages, footerLinks, homePageSections, messageFiles, conversations, messages, meetingLinks, reviews, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema } from "@shared/schema";
+import { eq, and, or, count, sql, desc, ilike, gte, lte, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
 import { randomBytes } from "crypto";
@@ -3373,7 +3373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
 
-      const savedSearches = await storage.getSavedSearchesByUserId(userId);
+      const savedSearches = await storage.getSavedSearches(userId);
       res.json({ savedSearches });
     } catch (error) {
       console.error("Error fetching saved searches:", error);
@@ -3388,7 +3388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
 
-      const savedSearch = await storage.getSavedSearchById(req.params.id);
+      const savedSearch = await storage.getSavedSearch(req.params.id);
       if (!savedSearch) {
         return res.status(404).json({ message: "Saved search not found" });
       }
@@ -3411,7 +3411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
 
-      const existing = await storage.getSavedSearchById(req.params.id);
+      const existing = await storage.getSavedSearch(req.params.id);
       if (!existing) {
         return res.status(404).json({ message: "Saved search not found" });
       }
@@ -3445,7 +3445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
 
-      const existing = await storage.getSavedSearchById(req.params.id);
+      const existing = await storage.getSavedSearch(req.params.id);
       if (!existing) {
         return res.status(404).json({ message: "Saved search not found" });
       }
@@ -7110,6 +7110,227 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching security stats:", error);
       res.status(500).json({ message: "Failed to fetch security statistics" });
+    }
+  });
+
+  // ===========================
+  // PORTFOLIO ROUTES
+  // ===========================
+
+  // GET /api/portfolio - Get consultant's completed projects for portfolio
+  app.get('/api/portfolio', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get completed projects with reviews
+      const portfolioProjects = await db
+        .select({
+          id: projects.id,
+          title: projects.title,
+          description: projects.description,
+          completedAt: projects.completedAt,
+          budget: projects.budget,
+          rating: reviews.rating,
+          reviewText: reviews.comment,
+          clientName: sql<string>`trim(concat(coalesce(${users.firstName}, ''), ' ', coalesce(${users.lastName}, '')))`,
+          category: categories.name,
+        })
+        .from(projects)
+        .leftJoin(reviews, eq(reviews.projectId, projects.id))
+        .leftJoin(users, eq(projects.clientId, users.id))
+        .leftJoin(jobs, eq(projects.jobId, jobs.id))
+        .leftJoin(categories, eq(jobs.categoryId, categories.id))
+        .where(and(
+          eq(projects.consultantId, userId),
+          eq(projects.status, 'completed')
+        ))
+        .orderBy(desc(projects.completedAt))
+        .limit(20);
+
+      res.json(portfolioProjects);
+    } catch (error) {
+      console.error("Error fetching portfolio:", error);
+      res.status(500).json({ message: "Failed to fetch portfolio" });
+    }
+  });
+
+  // ===========================
+  // DOCUMENTS ROUTES
+  // ===========================
+
+  // GET /api/documents - Get all documents for current user
+  app.get('/api/documents', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get all conversations the user is part of
+      const userConversations = await storage.getUserConversations(userId);
+      const conversationIds = userConversations.map(c => c.id);
+
+      if (conversationIds.length === 0) {
+        return res.json([]);
+      }
+
+      // Get all files from those conversations
+      const files = await db.select({
+        id: messageFiles.id,
+        fileName: messageFiles.fileName,
+        fileSize: messageFiles.fileSize,
+        mimeType: messageFiles.mimeType,
+        fileUrl: messageFiles.fileUrl,
+        uploadedBy: messageFiles.uploadedBy,
+        conversationId: messageFiles.conversationId,
+        versionNumber: messageFiles.versionNumber,
+        createdAt: messageFiles.createdAt,
+      })
+        .from(messageFiles)
+        .where(inArray(messageFiles.conversationId, conversationIds))
+        .orderBy(desc(messageFiles.createdAt))
+        .limit(100);
+
+      res.json(files);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  // ===========================
+  // ANALYTICS ROUTES
+  // ===========================
+
+  // GET /api/analytics/consultant - Get consultant analytics
+  app.get('/api/analytics/consultant', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get consultant metrics and stats
+      const metrics = await storage.getConsultantMetrics(userId);
+      const reviewStats = await storage.getReviewStats(userId);
+      const consultantProfile = await storage.getConsultantProfile(userId);
+
+      // Calculate total earnings from completed payments
+      const [earningsResult] = await db.select({
+        total: sql<string>`COALESCE(SUM(${payments.amount}), 0)`
+      })
+        .from(payments)
+        .where(and(
+          eq(payments.toUserId, userId),
+          eq(payments.status, 'completed')
+        ));
+
+      // Count active projects (accepted bids)
+      const [activeBidsResult] = await db.select({ count: count() })
+        .from(bids)
+        .where(and(
+          eq(bids.consultantId, userId),
+          eq(bids.status, 'accepted')
+        ));
+
+      // Calculate bid success rate
+      const [totalBidsResult] = await db.select({ count: count() })
+        .from(bids)
+        .where(eq(bids.consultantId, userId));
+
+      const [acceptedBidsResult] = await db.select({ count: count() })
+        .from(bids)
+        .where(and(
+          eq(bids.consultantId, userId),
+          eq(bids.status, 'accepted')
+        ));
+
+      const bidSuccessRate = totalBidsResult.count > 0 
+        ? (acceptedBidsResult.count / totalBidsResult.count) * 100 
+        : 0;
+
+      const analytics = {
+        totalEarnings: earningsResult?.total || "0",
+        completedProjects: metrics.completedProjects || 0,
+        activeProjects: activeBidsResult?.count || 0,
+        averageRating: reviewStats.averageRating || 0,
+        totalReviews: reviewStats.totalReviews || 0,
+        bidSuccessRate: bidSuccessRate,
+        responseTime: consultantProfile?.responseTime || null,
+      };
+
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching consultant analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // GET /api/analytics/client - Get client analytics
+  app.get('/api/analytics/client', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Count active jobs
+      const [activeJobsResult] = await db.select({ count: count() })
+        .from(jobs)
+        .where(and(
+          eq(jobs.clientId, userId),
+          eq(jobs.status, 'open')
+        ));
+
+      // Count completed jobs
+      const [completedJobsResult] = await db.select({ count: count() })
+        .from(jobs)
+        .where(and(
+          eq(jobs.clientId, userId),
+          eq(jobs.status, 'completed')
+        ));
+
+      // Count total bids on client's jobs
+      const [totalBidsResult] = await db.select({ count: count() })
+        .from(bids)
+        .innerJoin(jobs, eq(bids.jobId, jobs.id))
+        .where(eq(jobs.clientId, userId));
+
+      // Calculate total spending (sum of completed payments)
+      const [spendingResult] = await db.select({ 
+        total: sql<string>`COALESCE(SUM(${payments.amount}), 0)`
+      })
+        .from(payments)
+        .where(and(
+          eq(payments.fromUserId, userId),
+          eq(payments.status, 'completed')
+        ));
+
+      // Calculate average project value
+      const [avgValueResult] = await db.select({
+        avg: sql<string>`COALESCE(AVG(${jobs.budget}), 0)`
+      })
+        .from(jobs)
+        .where(and(
+          eq(jobs.clientId, userId),
+          eq(jobs.status, 'completed')
+        ));
+
+      const analytics = {
+        totalSpending: spendingResult?.total || "0",
+        activeProjects: activeJobsResult?.count || 0,
+        completedProjects: completedJobsResult?.count || 0,
+        totalBids: totalBidsResult?.count || 0,
+        averageProjectValue: avgValueResult?.avg || "0",
+      };
+
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching client analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
     }
   });
 

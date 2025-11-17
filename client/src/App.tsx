@@ -26,6 +26,9 @@ import LegalPage from "@/pages/LegalPage";
 import Settings from "@/pages/Settings";
 import MyJobs from "@/pages/MyJobs";
 import Messages from "@/pages/Messages";
+import Analytics from "@/pages/Analytics";
+import Documents from "@/pages/Documents";
+import Portfolio from "@/pages/Portfolio";
 import UserSecurityDashboard from "@/pages/UserSecurityDashboard";
 import Setup2FA from "@/pages/Setup2FA";
 import Verify2FA from "@/pages/Verify2FA";
@@ -51,6 +54,9 @@ function Router() {
       <Route path="/profile/consultant" component={ConsultantProfile} />
       <Route path="/profile" component={Profile} />
       <Route path="/settings" component={Settings} />
+      <Route path="/analytics" component={Analytics} />
+      <Route path="/documents" component={Documents} />
+      <Route path="/portfolio" component={Portfolio} />
       <Route path="/security" component={UserSecurityDashboard} />
       <Route path="/security/setup-2fa" component={Setup2FA} />
       <Route path="/messages/:conversationId?" component={Messages} />

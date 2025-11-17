@@ -830,14 +830,14 @@ export const conversationParticipants = pgTable("conversation_participants", {
 
 // Messages - Individual messages within conversations
 // NOTE: Uses RESTRICT on conversation deletion to preserve audit trail
-export const messages = pgTable("messages", {
+export const messages: any = pgTable("messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "restrict" }), // RESTRICT for audit retention
   senderId: varchar("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   content: text("content").notNull(), // Message text content
   messageType: text("message_type").notNull().default('text'), // 'text', 'file', 'meeting', 'system'
   metadata: jsonb("metadata"), // For file info, meeting details, etc.
-  replyToId: varchar("reply_to_id").references(() => messages.id), // For threaded messages
+  replyToId: varchar("reply_to_id").references((): any => messages.id), // For threaded messages
   edited: boolean("edited").default(false),
   editedAt: timestamp("edited_at"),
   deleted: boolean("deleted").default(false), // Soft delete
@@ -884,7 +884,7 @@ export const messageTemplates = pgTable("message_templates", {
 
 // Message Files - File attachments in messages with version tracking
 // NOTE: parentFileId uses SET NULL to preserve version history when parent is deleted
-export const messageFiles = pgTable("message_files", {
+export const messageFiles: any = pgTable("message_files", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   messageId: varchar("message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
   conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "restrict" }), // RESTRICT for audit
@@ -895,7 +895,7 @@ export const messageFiles = pgTable("message_files", {
   fileUrl: text("file_url").notNull(), // Storage URL
   thumbnailUrl: text("thumbnail_url"), // For image/document previews
   versionNumber: integer("version_number").default(1).notNull(),
-  parentFileId: varchar("parent_file_id").references(() => messageFiles.id, { onDelete: "set null" }), // SET NULL to preserve history
+  parentFileId: varchar("parent_file_id").references((): any => messageFiles.id, { onDelete: "set null" }), // SET NULL to preserve history
   scanStatus: text("scan_status").default('pending'), // 'pending', 'clean', 'infected'
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
