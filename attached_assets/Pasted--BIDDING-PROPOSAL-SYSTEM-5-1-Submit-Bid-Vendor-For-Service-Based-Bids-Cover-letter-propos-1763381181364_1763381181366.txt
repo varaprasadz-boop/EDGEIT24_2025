@@ -1,0 +1,93 @@
+. BIDDING & PROPOSAL SYSTEM
+5.1 Submit Bid (Vendor)
+For Service-Based Bids:
+•	Cover letter/proposal (rich text)
+•	Delivery timeline
+•	Pricing breakdown
+•	Milestone structure
+•	Team composition (if agency/company)
+•	Similar project experience
+•	Approach/methodology
+•	Portfolio samples selection
+•	Attachments (resume, case studies)
+•	Reference service packages (if applicable)
+For Hardware Supply Bids:
+•	Product specifications offered
+•	Brand/manufacturer details
+•	Unit pricing
+•	Quantity availability
+•	Bulk pricing tiers
+•	Delivery timeline
+•	Shipping costs breakdown
+•	Warranty terms
+•	Payment terms
+•	Product images/spec sheets
+•	Certifications/compliance documents
+•	Alternative product suggestions
+For Software Service Bids:
+•	Licensing model (perpetual, subscription, one-time)
+•	Pricing structure
+•	Implementation timeline
+•	Training/onboarding included
+•	Support terms (24/7, business hours, SLA)
+•	Customization options available
+•	Integration support
+•	Trial period availability
+•	Demo access
+Common Bid Features:
+•	Bid amount (with currency)
+•	Estimated delivery/completion time
+•	Questions for client
+•	Use dynamic pricing templates
+•	Bid preview before submission
+•	Edit bid (while requirement still open)
+•	Withdraw bid option
+•	Bid validity period
+5.2 View & Manage Bids (Client)
+•	Bids listing page for each requirement
+•	Bid cards showing:
+o	Vendor name, photo, rating, performance score
+o	Bid amount
+o	Delivery timeline
+o	Proposal preview
+o	Date submitted
+o	Vendor category badges
+o	Response time indicator
+Bid Actions:
+•	Filter bids by:
+o	Bid amount range
+o	Vendor rating
+o	Performance score
+o	Date submitted
+o	Delivery timeline
+•	Sort bids
+•	Compare multiple bids side-by-side
+•	Comparison matrix (pricing, timeline, specs, ratings, terms)
+•	Export comparison as PDF
+•	Shortlist bids
+•	Request clarification from vendor
+•	Decline bids with optional message
+•	Award/accept bid and hire vendor
+•	Award to multiple vendors (if allowed)
+5.3 Bid Management (Vendor Dashboard)
+•	View all submitted bids
+•	Bid status:
+o	Pending review
+o	Shortlisted
+o	Awarded/Accepted
+o	Declined
+o	Withdrawn
+o	Expired
+•	Filter by status and category
+•	Track bid views by clients
+•	Bid response rate analytics
+•	Win rate statistics
+•	Conversion funnel: Viewed → Bid → Shortlisted → Awarded
+5.4 RFQ (Request for Quotation) System
+•	Clients mark requirements as RFQ
+•	Invite specific vendors to bid
+•	Set quotation submission deadline
+•	Template-based quotations
+•	Quote validity period
+•	Terms & conditions attachment
+•	Formal quotation format
