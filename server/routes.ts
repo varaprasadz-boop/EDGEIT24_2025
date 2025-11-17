@@ -6,7 +6,7 @@ import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { wsManager } from "./websocket";
 import { z } from "zod";
-import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema, insertTeamMemberSchema } from "@shared/schema";
+import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema, insertTeamMemberSchema, insertBidSchema } from "@shared/schema";
 import { db } from "./db";
 import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, teamMembers, contentPages, footerLinks, homePageSections, messageFiles, conversations, messages, meetingLinks, reviews, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema, insertCategorySchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte, inArray } from "drizzle-orm";
@@ -1632,6 +1632,470 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching bids:", error);
       res.status(500).json({ message: "Failed to fetch bids" });
+    }
+  });
+
+  // Enhanced Bid endpoints
+  app.post('/api/bids', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify user is consultant
+      const consultantProfile = await storage.getConsultantProfile(userId);
+      if (!consultantProfile) {
+        return res.status(403).json({ message: "Consultant profile required" });
+      }
+
+      // Validate bid data
+      const validation = insertBidSchema.safeParse({ ...req.body, consultantId: userId });
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid bid data", errors: validation.error });
+      }
+
+      const bid = await storage.createBid(validation.data);
+      res.status(201).json(bid);
+    } catch (error) {
+      console.error("Error creating bid:", error);
+      res.status(500).json({ message: "Failed to create bid" });
+    }
+  });
+
+  app.get('/api/bids/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const bid = await storage.getBid(req.params.id);
+      if (!bid) {
+        return res.status(404).json({ message: "Bid not found" });
+      }
+      res.json(bid);
+    } catch (error) {
+      console.error("Error fetching bid:", error);
+      res.status(500).json({ message: "Failed to fetch bid" });
+    }
+  });
+
+  app.get('/api/jobs/:jobId/bids', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify user owns the job
+      const job = await storage.getJobById(req.params.jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+      if (job.clientId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const options = {
+        status: req.query.status as string | undefined,
+        minBudget: req.query.minBudget ? Number(req.query.minBudget) : undefined,
+        maxBudget: req.query.maxBudget ? Number(req.query.maxBudget) : undefined,
+        sortBy: req.query.sortBy as 'budget' | 'rating' | 'date' | 'timeline' | undefined,
+        sortOrder: req.query.sortOrder as 'asc' | 'desc' | undefined,
+        limit: req.query.limit ? Number(req.query.limit) : undefined,
+        offset: req.query.offset ? Number(req.query.offset) : undefined,
+      };
+
+      const result = await storage.getJobBids(req.params.jobId, options);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching job bids:", error);
+      res.status(500).json({ message: "Failed to fetch job bids" });
+    }
+  });
+
+  app.get('/api/consultant/bids', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const options = {
+        status: req.query.status as string | undefined,
+        limit: req.query.limit ? Number(req.query.limit) : undefined,
+        offset: req.query.offset ? Number(req.query.offset) : undefined,
+      };
+
+      const bids = await storage.getConsultantBids(userId, options);
+      res.json({ bids, total: bids.length });
+    } catch (error) {
+      console.error("Error fetching consultant bids:", error);
+      res.status(500).json({ message: "Failed to fetch consultant bids" });
+    }
+  });
+
+  app.patch('/api/bids/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const updated = await storage.updateBid(req.params.id, userId, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating bid:", error);
+      res.status(500).json({ message: "Failed to update bid" });
+    }
+  });
+
+  app.post('/api/bids/:id/withdraw', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const bid = await storage.withdrawBid(req.params.id, userId);
+      res.json(bid);
+    } catch (error) {
+      console.error("Error withdrawing bid:", error);
+      res.status(500).json({ message: "Failed to withdraw bid" });
+    }
+  });
+
+  app.post('/api/bids/:id/accept', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Security: Verify user owns the job this bid is for
+      const bid = await storage.getBid(req.params.id);
+      if (!bid) {
+        return res.status(404).json({ message: "Bid not found" });
+      }
+
+      const job = await storage.getJobById(bid.jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      if (job.clientId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only accept bids on your own jobs" });
+      }
+
+      const acceptedBid = await storage.acceptBid(req.params.id, userId);
+      res.json(acceptedBid);
+    } catch (error) {
+      console.error("Error accepting bid:", error);
+      res.status(500).json({ message: "Failed to accept bid" });
+    }
+  });
+
+  app.post('/api/bids/:id/decline', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Security: Verify user owns the job this bid is for
+      const bid = await storage.getBid(req.params.id);
+      if (!bid) {
+        return res.status(404).json({ message: "Bid not found" });
+      }
+
+      const job = await storage.getJobById(bid.jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      if (job.clientId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only decline bids on your own jobs" });
+      }
+
+      const declinedBid = await storage.declineBid(req.params.id, userId, req.body.message);
+      res.json(declinedBid);
+    } catch (error) {
+      console.error("Error declining bid:", error);
+      res.status(500).json({ message: "Failed to decline bid" });
+    }
+  });
+
+  app.get('/api/bids/:id/analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const analytics = await storage.getBidAnalytics(req.params.id);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching bid analytics:", error);
+      res.status(500).json({ message: "Failed to fetch bid analytics" });
+    }
+  });
+
+  // Bid Shortlist endpoints
+  app.post('/api/bids/:id/shortlist', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const bid = await storage.getBid(req.params.id);
+      if (!bid) {
+        return res.status(404).json({ message: "Bid not found" });
+      }
+
+      // Security: Verify user owns the job this bid is for
+      const job = await storage.getJobById(bid.jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      if (job.clientId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only shortlist bids on your own jobs" });
+      }
+
+      const shortlist = await storage.addToShortlist({
+        jobId: bid.jobId,
+        bidId: req.params.id,
+        clientId: userId,
+        notes: req.body.notes,
+      });
+
+      res.status(201).json(shortlist);
+    } catch (error) {
+      console.error("Error adding to shortlist:", error);
+      res.status(500).json({ message: "Failed to add to shortlist" });
+    }
+  });
+
+  app.delete('/api/bids/:id/shortlist', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const bid = await storage.getBid(req.params.id);
+      if (!bid) {
+        return res.status(404).json({ message: "Bid not found" });
+      }
+
+      // Security: Verify user owns the job this bid is for
+      const job = await storage.getJobById(bid.jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      if (job.clientId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only manage shortlists on your own jobs" });
+      }
+
+      await storage.removeFromShortlist(bid.jobId, req.params.id, userId);
+      res.json({ message: "Removed from shortlist" });
+    } catch (error) {
+      console.error("Error removing from shortlist:", error);
+      res.status(500).json({ message: "Failed to remove from shortlist" });
+    }
+  });
+
+  app.get('/api/jobs/:jobId/shortlist', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const shortlist = await storage.getShortlistedBids(req.params.jobId, userId);
+      res.json(shortlist);
+    } catch (error) {
+      console.error("Error fetching shortlist:", error);
+      res.status(500).json({ message: "Failed to fetch shortlist" });
+    }
+  });
+
+  // Bid Clarification endpoints
+  app.post('/api/bids/:id/clarifications', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const clarification = await storage.createClarification({
+        bidId: req.params.id,
+        askedBy: userId,
+        question: req.body.question,
+      });
+
+      res.status(201).json(clarification);
+    } catch (error) {
+      console.error("Error creating clarification:", error);
+      res.status(500).json({ message: "Failed to create clarification" });
+    }
+  });
+
+  app.get('/api/bids/:id/clarifications', isAuthenticated, async (req: any, res) => {
+    try {
+      const clarifications = await storage.getBidClarifications(req.params.id);
+      res.json(clarifications);
+    } catch (error) {
+      console.error("Error fetching clarifications:", error);
+      res.status(500).json({ message: "Failed to fetch clarifications" });
+    }
+  });
+
+  app.patch('/api/clarifications/:id/answer', isAuthenticated, async (req: any, res) => {
+    try {
+      const clarification = await storage.answerClarification(req.params.id, req.body.answer);
+      res.json(clarification);
+    } catch (error) {
+      console.error("Error answering clarification:", error);
+      res.status(500).json({ message: "Failed to answer clarification" });
+    }
+  });
+
+  // Bid View Tracking
+  app.post('/api/bids/:id/view', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      await storage.trackBidView({
+        bidId: req.params.id,
+        viewedBy: userId,
+        viewDuration: req.body.viewDuration,
+        source: req.body.source,
+      });
+
+      await storage.incrementBidViewCount(req.params.id);
+
+      res.json({ message: "View tracked" });
+    } catch (error) {
+      console.error("Error tracking bid view:", error);
+      res.status(500).json({ message: "Failed to track bid view" });
+    }
+  });
+
+  app.post('/api/bids/compare', isAuthenticated, async (req: any, res) => {
+    try {
+      const { bidIds } = req.body;
+      if (!bidIds || !Array.isArray(bidIds)) {
+        return res.status(400).json({ message: "Invalid bidIds" });
+      }
+
+      await storage.incrementBidComparedCount(bidIds);
+      res.json({ message: "Comparison tracked" });
+    } catch (error) {
+      console.error("Error tracking comparison:", error);
+      res.status(500).json({ message: "Failed to track comparison" });
+    }
+  });
+
+  // Analytics endpoints for consultant and admin
+  app.get('/api/consultant/bid-analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Mock analytics data - implement with real aggregations
+      const analytics = {
+        totalBids: 0,
+        acceptedBids: 0,
+        declinedBids: 0,
+        pendingBids: 0,
+        withdrawnBids: 0,
+        totalViews: 0,
+        totalShortlisted: 0,
+        totalCompared: 0,
+        winRate: 0,
+        avgResponseTime: 0,
+        avgProposedBudget: 0,
+        competitivePosition: { avgRank: 0, totalCompetitors: 0 },
+        monthlyTrends: [],
+        categoryPerformance: [],
+      };
+
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching consultant analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  app.get('/api/admin/bid-analytics', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      // Mock analytics data - implement with real aggregations
+      const analytics = {
+        totalBids: 0,
+        totalActiveJobs: 0,
+        avgBidsPerJob: 0,
+        avgAcceptanceTime: 0,
+        platformWinRate: 0,
+        totalBidValue: 0,
+        bidsByType: { service: 0, hardware: 0, software: 0 },
+        bidsByStatus: { pending: 0, accepted: 0, declined: 0, withdrawn: 0 },
+        topConsultants: [],
+        topCategories: [],
+        monthlyStats: [],
+      };
+
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching admin analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // RFQ endpoints
+  app.post('/api/jobs/:jobId/rfq/invite', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const rfq = await storage.createRFQInvitation({
+        jobId: req.params.jobId,
+        clientId: userId,
+        consultantId: req.body.consultantId,
+        message: req.body.message,
+        deadline: req.body.deadline,
+        templateData: req.body.templateData,
+      });
+
+      res.status(201).json(rfq);
+    } catch (error) {
+      console.error("Error creating RFQ invitation:", error);
+      res.status(500).json({ message: "Failed to create RFQ invitation" });
+    }
+  });
+
+  app.get('/api/rfq/invitations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const invitations = await storage.getConsultantRFQInvitations(userId, req.query.status as string | undefined);
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error fetching RFQ invitations:", error);
+      res.status(500).json({ message: "Failed to fetch RFQ invitations" });
+    }
+  });
+
+  app.patch('/api/rfq/:id/respond', isAuthenticated, async (req: any, res) => {
+    try {
+      const rfq = await storage.respondToRFQ(req.params.id, req.body.bidId, req.body.status);
+      res.json(rfq);
+    } catch (error) {
+      console.error("Error responding to RFQ:", error);
+      res.status(500).json({ message: "Failed to respond to RFQ" });
     }
   });
 

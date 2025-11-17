@@ -9,6 +9,10 @@ import {
   vendorCategoryRequests,
   jobs,
   bids,
+  rfqInvitations,
+  bidShortlists,
+  bidClarifications,
+  bidViews,
   projects,
   payments,
   reviews,
@@ -50,6 +54,15 @@ import {
   type Job,
   type InsertJob,
   type Bid,
+  type InsertBid,
+  type RFQInvitation,
+  type InsertRFQInvitation,
+  type BidShortlist,
+  type InsertBidShortlist,
+  type BidClarification,
+  type InsertBidClarification,
+  type BidView,
+  type InsertBidView,
   type Category,
   type VendorCategoryRequest,
   type InsertVendorCategoryRequest,
@@ -270,6 +283,56 @@ export interface IStorage {
     limit?: number;
     offset?: number;
   }): Promise<{ jobs: (Job & { categoryPathLabel: string })[]; total: number }>;
+  
+  // Bid operations
+  createBid(bid: InsertBid): Promise<Bid>;
+  getBid(id: string): Promise<Bid | undefined>;
+  getJobBids(jobId: string, options?: {
+    status?: string;
+    minBudget?: number;
+    maxBudget?: number;
+    sortBy?: 'budget' | 'rating' | 'date' | 'timeline';
+    sortOrder?: 'asc' | 'desc';
+    limit?: number;
+    offset?: number;
+  }): Promise<{ bids: any[]; total: number }>;
+  getConsultantBids(consultantId: string, options?: { status?: string; limit?: number; offset?: number }): Promise<Bid[]>;
+  updateBid(id: string, consultantId: string, data: Partial<InsertBid>): Promise<Bid>;
+  withdrawBid(id: string, consultantId: string): Promise<Bid>;
+  acceptBid(id: string, clientId: string): Promise<Bid>;
+  declineBid(id: string, clientId: string, message?: string): Promise<Bid>;
+  getBidAnalytics(bidId: string): Promise<{
+    viewCount: number;
+    comparedCount: number;
+    isShortlisted: boolean;
+    clarificationCount: number;
+  }>;
+  markBidExpired(bidId: string): Promise<Bid>;
+  
+  // Bid Shortlist operations
+  addToShortlist(data: InsertBidShortlist): Promise<BidShortlist>;
+  removeFromShortlist(jobId: string, bidId: string, clientId: string): Promise<void>;
+  getShortlistedBids(jobId: string, clientId: string): Promise<BidShortlist[]>;
+  isShortlisted(jobId: string, bidId: string): Promise<boolean>;
+  
+  // Bid Clarification operations
+  createClarification(data: InsertBidClarification): Promise<BidClarification>;
+  getBidClarifications(bidId: string): Promise<BidClarification[]>;
+  answerClarification(id: string, answer: string): Promise<BidClarification>;
+  
+  // Bid View operations
+  trackBidView(data: InsertBidView): Promise<BidView>;
+  getBidViews(bidId: string): Promise<BidView[]>;
+  incrementBidViewCount(bidId: string): Promise<void>;
+  incrementBidComparedCount(bidIds: string[]): Promise<void>;
+  
+  // RFQ operations
+  createRFQInvitation(data: InsertRFQInvitation): Promise<RFQInvitation>;
+  getRFQInvitation(id: string): Promise<RFQInvitation | undefined>;
+  getConsultantRFQInvitations(consultantId: string, status?: string): Promise<RFQInvitation[]>;
+  getJobRFQInvitations(jobId: string): Promise<RFQInvitation[]>;
+  respondToRFQ(id: string, bidId: string, status: 'responded' | 'declined'): Promise<RFQInvitation>;
+  markRFQExpired(id: string): Promise<RFQInvitation>;
   
   searchConsultants(options?: {
     search?: string;
@@ -1455,30 +1518,397 @@ export class DatabaseStorage implements IStorage {
   }
 
   async listClientBids(userId: string, limit: number = 10): Promise<Bid[]> {
-    // Get bids on jobs posted by this client - select all bid fields explicitly
-    return await db
-      .select({
-        id: bids.id,
-        createdAt: bids.createdAt,
-        updatedAt: bids.updatedAt,
-        status: bids.status,
-        attachments: bids.attachments,
-        jobId: bids.jobId,
-        consultantId: bids.consultantId,
-        coverLetter: bids.coverLetter,
-        proposedBudget: bids.proposedBudget,
-        proposedDuration: bids.proposedDuration,
-        milestones: bids.milestones,
-        clientViewed: bids.clientViewed,
-      })
+    // Get bids on jobs posted by this client
+    const results = await db
+      .select({ bid: bids })
       .from(bids)
       .innerJoin(jobs, eq(bids.jobId, jobs.id))
       .where(eq(jobs.clientId, userId))
       .orderBy(desc(bids.createdAt))
       .limit(limit);
+    
+    return results.map(r => r.bid);
+  }
+
+  // Enhanced Bid operations
+  async createBid(bid: InsertBid): Promise<Bid> {
+    const [createdBid] = await db.insert(bids).values(bid).returning();
+    
+    // Increment job bid count
+    await db
+      .update(jobs)
+      .set({ 
+        bidCount: sql`${jobs.bidCount} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(jobs.id, bid.jobId));
+    
+    return createdBid;
+  }
+
+  async getBid(id: string): Promise<Bid | undefined> {
+    const [bid] = await db.select().from(bids).where(eq(bids.id, id));
+    return bid;
+  }
+
+  async getJobBids(jobId: string, options?: {
+    status?: string;
+    minBudget?: number;
+    maxBudget?: number;
+    sortBy?: 'budget' | 'rating' | 'date' | 'timeline';
+    sortOrder?: 'asc' | 'desc';
+    limit?: number;
+    offset?: number;
+  }): Promise<{ bids: any[]; total: number }> {
+    const {
+      status,
+      minBudget,
+      maxBudget,
+      sortBy = 'date',
+      sortOrder = 'desc',
+      limit = 20,
+      offset = 0
+    } = options || {};
+
+    // Build where conditions
+    const conditions = [eq(bids.jobId, jobId)];
+    if (status) conditions.push(eq(bids.status, status));
+    if (minBudget !== undefined) conditions.push(sql`${bids.proposedBudget} >= ${minBudget}`);
+    if (maxBudget !== undefined) conditions.push(sql`${bids.proposedBudget} <= ${maxBudget}`);
+
+    // Get total count
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(bids)
+      .where(and(...conditions));
+
+    // Determine sort column
+    let orderColumn;
+    switch (sortBy) {
+      case 'budget': orderColumn = bids.proposedBudget; break;
+      case 'date': orderColumn = bids.createdAt; break;
+      case 'timeline': orderColumn = bids.proposedDuration; break;
+      default: orderColumn = bids.createdAt;
+    }
+
+    // Get bids with consultant info
+    const bidsList = await db
+      .select({
+        bid: bids,
+        consultant: consultantProfiles,
+        user: users,
+      })
+      .from(bids)
+      .leftJoin(consultantProfiles, eq(bids.consultantId, consultantProfiles.userId))
+      .leftJoin(users, eq(bids.consultantId, users.id))
+      .where(and(...conditions))
+      .orderBy(sortOrder === 'desc' ? desc(orderColumn) : orderColumn)
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      bids: bidsList.map(row => ({
+        ...row.bid,
+        consultant: row.consultant,
+        user: row.user,
+      })),
+      total: count || 0
+    };
+  }
+
+  async getConsultantBids(consultantId: string, options?: { status?: string; limit?: number; offset?: number }): Promise<Bid[]> {
+    const { status, limit = 20, offset = 0 } = options || {};
+    
+    const conditions = [eq(bids.consultantId, consultantId)];
+    if (status) conditions.push(eq(bids.status, status));
+
+    return await db
+      .select()
+      .from(bids)
+      .where(and(...conditions))
+      .orderBy(desc(bids.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async updateBid(id: string, consultantId: string, data: Partial<InsertBid>): Promise<Bid> {
+    const [updated] = await db
+      .update(bids)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(bids.id, id), eq(bids.consultantId, consultantId)))
+      .returning();
+    
+    if (!updated) throw new Error('Bid not found or unauthorized');
+    return updated;
+  }
+
+  async withdrawBid(id: string, consultantId: string): Promise<Bid> {
+    const [updated] = await db
+      .update(bids)
+      .set({ status: 'withdrawn', updatedAt: new Date() })
+      .where(and(eq(bids.id, id), eq(bids.consultantId, consultantId)))
+      .returning();
+    
+    if (!updated) throw new Error('Bid not found or unauthorized');
+    return updated;
+  }
+
+  async acceptBid(id: string, clientId: string): Promise<Bid> {
+    // Get bid to verify job ownership
+    const [bid] = await db.select().from(bids).where(eq(bids.id, id));
+    if (!bid) throw new Error('Bid not found');
+
+    // Verify client owns the job
+    const [job] = await db.select().from(jobs).where(eq(jobs.id, bid.jobId));
+    if (!job || job.clientId !== clientId) throw new Error('Unauthorized');
+
+    // Update bid status
+    const [updated] = await db
+      .update(bids)
+      .set({ status: 'accepted', updatedAt: new Date() })
+      .where(eq(bids.id, id))
+      .returning();
+    
+    return updated;
+  }
+
+  async declineBid(id: string, clientId: string, message?: string): Promise<Bid> {
+    // Get bid to verify job ownership
+    const [bid] = await db.select().from(bids).where(eq(bids.id, id));
+    if (!bid) throw new Error('Bid not found');
+
+    // Verify client owns the job
+    const [job] = await db.select().from(jobs).where(eq(jobs.id, bid.jobId));
+    if (!job || job.clientId !== clientId) throw new Error('Unauthorized');
+
+    // Update bid status (could store decline message in future)
+    const [updated] = await db
+      .update(bids)
+      .set({ status: 'rejected', updatedAt: new Date() })
+      .where(eq(bids.id, id))
+      .returning();
+    
+    return updated;
+  }
+
+  async getBidAnalytics(bidId: string): Promise<{
+    viewCount: number;
+    comparedCount: number;
+    isShortlisted: boolean;
+    clarificationCount: number;
+  }> {
+    const [bid] = await db.select().from(bids).where(eq(bids.id, bidId));
+    if (!bid) throw new Error('Bid not found');
+
+    const [shortlistCheck] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(bidShortlists)
+      .where(eq(bidShortlists.bidId, bidId));
+
+    const [clarifications] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(bidClarifications)
+      .where(eq(bidClarifications.bidId, bidId));
+
+    return {
+      viewCount: bid.viewCount || 0,
+      comparedCount: bid.comparedCount || 0,
+      isShortlisted: (shortlistCheck?.count || 0) > 0,
+      clarificationCount: clarifications?.count || 0,
+    };
+  }
+
+  async markBidExpired(bidId: string): Promise<Bid> {
+    const [updated] = await db
+      .update(bids)
+      .set({ status: 'expired', updatedAt: new Date() })
+      .where(eq(bids.id, bidId))
+      .returning();
+    
+    if (!updated) throw new Error('Bid not found');
+    return updated;
+  }
+
+  // Bid Shortlist operations
+  async addToShortlist(data: InsertBidShortlist): Promise<BidShortlist> {
+    const [shortlist] = await db.insert(bidShortlists).values(data).returning();
+    
+    // Update bid status to shortlisted
+    await db
+      .update(bids)
+      .set({ status: 'shortlisted', updatedAt: new Date() })
+      .where(eq(bids.id, data.bidId));
+    
+    return shortlist;
+  }
+
+  async removeFromShortlist(jobId: string, bidId: string, clientId: string): Promise<void> {
+    await db
+      .delete(bidShortlists)
+      .where(
+        and(
+          eq(bidShortlists.jobId, jobId),
+          eq(bidShortlists.bidId, bidId),
+          eq(bidShortlists.clientId, clientId)
+        )
+      );
+    
+    // Revert bid status to pending if no other shortlists exist
+    const [otherShortlists] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(bidShortlists)
+      .where(eq(bidShortlists.bidId, bidId));
+    
+    if ((otherShortlists?.count || 0) === 0) {
+      await db
+        .update(bids)
+        .set({ status: 'pending', updatedAt: new Date() })
+        .where(eq(bids.id, bidId));
+    }
+  }
+
+  async getShortlistedBids(jobId: string, clientId: string): Promise<BidShortlist[]> {
+    return await db
+      .select()
+      .from(bidShortlists)
+      .where(and(eq(bidShortlists.jobId, jobId), eq(bidShortlists.clientId, clientId)));
+  }
+
+  async isShortlisted(jobId: string, bidId: string): Promise<boolean> {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(bidShortlists)
+      .where(and(eq(bidShortlists.jobId, jobId), eq(bidShortlists.bidId, bidId)));
+    
+    return (result?.count || 0) > 0;
+  }
+
+  // Bid Clarification operations
+  async createClarification(data: InsertBidClarification): Promise<BidClarification> {
+    const [clarification] = await db.insert(bidClarifications).values(data).returning();
+    return clarification;
+  }
+
+  async getBidClarifications(bidId: string): Promise<BidClarification[]> {
+    return await db
+      .select()
+      .from(bidClarifications)
+      .where(eq(bidClarifications.bidId, bidId))
+      .orderBy(bidClarifications.createdAt);
+  }
+
+  async answerClarification(id: string, answer: string): Promise<BidClarification> {
+    const [updated] = await db
+      .update(bidClarifications)
+      .set({ answer, answeredAt: new Date(), updatedAt: new Date() })
+      .where(eq(bidClarifications.id, id))
+      .returning();
+    
+    if (!updated) throw new Error('Clarification not found');
+    return updated;
+  }
+
+  // Bid View operations
+  async trackBidView(data: InsertBidView): Promise<BidView> {
+    const [view] = await db.insert(bidViews).values(data).returning();
+    return view;
+  }
+
+  async getBidViews(bidId: string): Promise<BidView[]> {
+    return await db
+      .select()
+      .from(bidViews)
+      .where(eq(bidViews.bidId, bidId))
+      .orderBy(desc(bidViews.createdAt));
+  }
+
+  async incrementBidViewCount(bidId: string): Promise<void> {
+    await db
+      .update(bids)
+      .set({ 
+        viewCount: sql`${bids.viewCount} + 1`,
+        clientViewed: true,
+        clientViewedAt: sql`COALESCE(${bids.clientViewedAt}, now())`,
+        updatedAt: new Date()
+      })
+      .where(eq(bids.id, bidId));
+  }
+
+  async incrementBidComparedCount(bidIds: string[]): Promise<void> {
+    if (bidIds.length === 0) return;
+    
+    await db
+      .update(bids)
+      .set({ 
+        comparedCount: sql`${bids.comparedCount} + 1`,
+        updatedAt: new Date()
+      })
+      .where(inArray(bids.id, bidIds));
+  }
+
+  // RFQ operations
+  async createRFQInvitation(data: InsertRFQInvitation): Promise<RFQInvitation> {
+    const [invitation] = await db.insert(rfqInvitations).values(data).returning();
+    return invitation;
+  }
+
+  async getRFQInvitation(id: string): Promise<RFQInvitation | undefined> {
+    const [invitation] = await db.select().from(rfqInvitations).where(eq(rfqInvitations.id, id));
+    return invitation;
+  }
+
+  async getConsultantRFQInvitations(consultantId: string, status?: string): Promise<RFQInvitation[]> {
+    const conditions = [eq(rfqInvitations.consultantId, consultantId)];
+    if (status) conditions.push(eq(rfqInvitations.status, status));
+
+    return await db
+      .select()
+      .from(rfqInvitations)
+      .where(and(...conditions))
+      .orderBy(desc(rfqInvitations.createdAt));
+  }
+
+  async getJobRFQInvitations(jobId: string): Promise<RFQInvitation[]> {
+    return await db
+      .select()
+      .from(rfqInvitations)
+      .where(eq(rfqInvitations.jobId, jobId))
+      .orderBy(desc(rfqInvitations.createdAt));
+  }
+
+  async respondToRFQ(id: string, bidId: string, status: 'responded' | 'declined'): Promise<RFQInvitation> {
+    const [updated] = await db
+      .update(rfqInvitations)
+      .set({ 
+        bidId: status === 'responded' ? bidId : null,
+        status,
+        respondedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(rfqInvitations.id, id))
+      .returning();
+    
+    if (!updated) throw new Error('RFQ invitation not found');
+    return updated;
+  }
+
+  async markRFQExpired(id: string): Promise<RFQInvitation> {
+    const [updated] = await db
+      .update(rfqInvitations)
+      .set({ status: 'expired', updatedAt: new Date() })
+      .where(eq(rfqInvitations.id, id))
+      .returning();
+    
+    if (!updated) throw new Error('RFQ invitation not found');
+    return updated;
   }
 
   // Job operations
+  async getJobById(id: string): Promise<Job | undefined> {
+    const [job] = await db.select().from(jobs).where(eq(jobs.id, id));
+    return job;
+  }
+
   async createJob(job: InsertJob): Promise<Job> {
     // Validate that category exists
     if (job.categoryId) {

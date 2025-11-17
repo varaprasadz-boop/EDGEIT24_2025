@@ -11,8 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Briefcase, DollarSign, Clock, Search, Filter, X, Shield } from "lucide-react";
 import { CategoryAccessRequestDialog } from "@/components/CategoryAccessRequestDialog";
+import { BidSubmissionDialog } from "@/components/BidSubmissionDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
-import type { Category } from "@shared/schema";
+import type { Category, Job as JobType } from "@shared/schema";
 
 interface CategoryNode {
   id: string;
@@ -67,6 +68,8 @@ export default function BrowseJobs() {
 
   const [showFilters, setShowFilters] = useState(true);
   const [showRequestDialog, setShowRequestDialog] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<JobType | null>(null);
+  const [showBidDialog, setShowBidDialog] = useState(false);
   
   const isConsultant = getSelectedRole() === 'consultant';
 
@@ -458,9 +461,18 @@ export default function BrowseJobs() {
                               </div>
                             </div>
 
-                            <Button className="w-full bg-primary text-primary-foreground" data-testid={`button-bid-${job.id}`}>
-                              Submit Bid
-                            </Button>
+                            {isConsultant && (
+                              <Button
+                                className="w-full bg-primary text-primary-foreground"
+                                onClick={() => {
+                                  setSelectedJob(job as unknown as JobType);
+                                  setShowBidDialog(true);
+                                }}
+                                data-testid={`button-bid-${job.id}`}
+                              >
+                                Submit Bid
+                              </Button>
+                            )}
                           </CardContent>
                         </Card>
                       ))}
@@ -517,6 +529,17 @@ export default function BrowseJobs() {
           onOpenChange={setShowRequestDialog}
           categoryId={selectedCategory.id}
           categoryName={selectedCategory.name}
+        />
+      )}
+
+      {selectedJob && (
+        <BidSubmissionDialog
+          job={selectedJob}
+          open={showBidDialog}
+          onClose={() => {
+            setShowBidDialog(false);
+            setSelectedJob(null);
+          }}
         />
       )}
     </div>

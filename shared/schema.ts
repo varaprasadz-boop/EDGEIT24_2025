@@ -416,29 +416,131 @@ export const jobStatusEnum = z.enum(['draft', 'open', 'inProgress', 'completed',
 export const JOB_STATUSES = jobStatusEnum.options;
 export type JobStatus = z.infer<typeof jobStatusEnum>;
 
+// Bid type enum
+export const bidTypeEnum = z.enum(['service', 'hardware', 'software']);
+export const BID_TYPES = bidTypeEnum.options;
+export type BidType = z.infer<typeof bidTypeEnum>;
+
 // Bids - Proposals from consultants
 export const bids = pgTable("bids", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   jobId: varchar("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
   consultantId: varchar("consultant_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Basic bid info
   coverLetter: text("cover_letter").notNull(),
   proposedBudget: decimal("proposed_budget", { precision: 10, scale: 2 }).notNull(),
   proposedDuration: text("proposed_duration"), // e.g., "2 weeks", "1 month"
   milestones: jsonb("milestones"), // Array of milestone objects
   attachments: text("attachments").array(),
-  status: text("status").notNull().default('pending'), // 'pending', 'shortlisted', 'accepted', 'rejected', 'withdrawn'
+  status: text("status").notNull().default('pending'), // 'pending', 'shortlisted', 'accepted', 'rejected', 'withdrawn', 'expired'
   clientViewed: boolean("client_viewed").default(false),
+  clientViewedAt: timestamp("client_viewed_at"),
+  
+  // Enhanced bid fields
+  bidType: text("bid_type").notNull().default('service'), // 'service', 'hardware', 'software'
+  proposalData: jsonb("proposal_data"), // Rich text proposal content
+  pricingBreakdown: jsonb("pricing_breakdown"), // Detailed pricing structure
+  teamComposition: jsonb("team_composition"), // Team members for service bids
+  deliveryTimeline: jsonb("delivery_timeline"), // Timeline with milestones
+  productDetails: jsonb("product_details"), // For hardware bids (specs, brand, warranty, certifications)
+  softwareLicensing: jsonb("software_licensing"), // For software bids (licensing model, SLA, support)
+  portfolioSamples: text("portfolio_samples").array(), // Portfolio item IDs
+  similarProjects: jsonb("similar_projects"), // Past project references
+  approachMethodology: text("approach_methodology"), // Technical approach description
+  questionsForClient: text("questions_for_client"), // Clarification questions
+  bidValidityDate: timestamp("bid_validity_date"), // Bid expiration date
+  pricingTemplateId: varchar("pricing_template_id"), // Link to consultant's pricing template
+  
+  // RFQ tracking
+  isRFQResponse: boolean("is_rfq_response").default(false), // Whether this is RFQ response
+  rfqInvitationId: varchar("rfq_invitation_id"), // Reference to RFQ invitation
+  
+  // Analytics
+  viewCount: integer("view_count").default(0),
+  comparedCount: integer("compared_count").default(0), // How many times included in comparison
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   jobIdIdx: index("bids_job_id_idx").on(table.jobId),
   consultantIdIdx: index("bids_consultant_id_idx").on(table.consultantId),
   statusIdx: index("bids_status_idx").on(table.status),
+  bidTypeIdx: index("bids_bid_type_idx").on(table.bidType),
+  rfqInvitationIdIdx: index("bids_rfq_invitation_id_idx").on(table.rfqInvitationId),
 }));
 
-export const bidStatusEnum = z.enum(['pending', 'shortlisted', 'accepted', 'rejected', 'withdrawn']);
+export const bidStatusEnum = z.enum(['pending', 'shortlisted', 'accepted', 'rejected', 'withdrawn', 'expired']);
 export const BID_STATUSES = bidStatusEnum.options;
 export type BidStatus = z.infer<typeof bidStatusEnum>;
+
+// RFQ Invitations - Client invites consultants to submit quotes
+export const rfqInvitations = pgTable("rfq_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  clientId: varchar("client_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  consultantId: varchar("consultant_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  message: text("message"), // Personalized invitation message
+  deadline: timestamp("deadline"), // Submission deadline
+  templateData: jsonb("template_data"), // Pre-filled data/requirements
+  status: text("status").notNull().default('pending'), // 'pending', 'responded', 'declined', 'expired'
+  respondedAt: timestamp("responded_at"),
+  bidId: varchar("bid_id").references(() => bids.id, { onDelete: "set null" }), // Link to submitted bid
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  jobIdIdx: index("rfq_invitations_job_id_idx").on(table.jobId),
+  clientIdIdx: index("rfq_invitations_client_id_idx").on(table.clientId),
+  consultantIdIdx: index("rfq_invitations_consultant_id_idx").on(table.consultantId),
+  statusIdx: index("rfq_invitations_status_idx").on(table.status),
+}));
+
+export const rfqStatusEnum = z.enum(['pending', 'responded', 'declined', 'expired']);
+export const RFQ_STATUSES = rfqStatusEnum.options;
+export type RFQStatus = z.infer<typeof rfqStatusEnum>;
+
+// Bid Shortlists - Client's shortlisted bids
+export const bidShortlists = pgTable("bid_shortlists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  bidId: varchar("bid_id").notNull().references(() => bids.id, { onDelete: "cascade" }),
+  clientId: varchar("client_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  notes: text("notes"), // Private notes about this bid
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueShortlist: uniqueIndex("bid_shortlists_job_bid_unique").on(table.jobId, table.bidId),
+  jobIdIdx: index("bid_shortlists_job_id_idx").on(table.jobId),
+  bidIdIdx: index("bid_shortlists_bid_id_idx").on(table.bidId),
+  clientIdIdx: index("bid_shortlists_client_id_idx").on(table.clientId),
+}));
+
+// Bid Clarifications - Q&A between client and consultant about a bid
+export const bidClarifications = pgTable("bid_clarifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bidId: varchar("bid_id").notNull().references(() => bids.id, { onDelete: "cascade" }),
+  askedBy: varchar("asked_by").notNull().references(() => users.id, { onDelete: "cascade" }), // Who asked (client or consultant)
+  question: text("question").notNull(),
+  answer: text("answer"), // Consultant's answer
+  answeredAt: timestamp("answered_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  bidIdIdx: index("bid_clarifications_bid_id_idx").on(table.bidId),
+  askedByIdx: index("bid_clarifications_asked_by_idx").on(table.askedBy),
+}));
+
+// Bid Views - Track when clients view bids (for analytics)
+export const bidViews = pgTable("bid_views", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bidId: varchar("bid_id").notNull().references(() => bids.id, { onDelete: "cascade" }),
+  viewedBy: varchar("viewed_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  viewDuration: integer("view_duration"), // Seconds spent viewing
+  source: text("source"), // 'list', 'comparison', 'direct_link'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  bidIdIdx: index("bid_views_bid_id_idx").on(table.bidId),
+  viewedByIdx: index("bid_views_viewed_by_idx").on(table.viewedBy),
+}));
 
 // Payment enums
 export const paymentStatusEnum = z.enum(['pending', 'processing', 'completed', 'failed', 'refunded']);
@@ -1328,7 +1430,46 @@ export const insertJobSchema = createInsertSchema(jobs).omit({
 export type InsertJob = z.infer<typeof insertJobSchema>;
 export type Job = typeof jobs.$inferSelect;
 
-// Bids
+// Bids - with strict defensive validation for arrays and numeric fields
+const bidPricingItemSchema = z.object({
+  item: z.string().min(1, "Item description required"),
+  quantity: z.coerce.number().positive("Quantity must be positive").finite("Quantity must be a valid number"),
+  unitPrice: z.coerce.number().positive("Unit price must be positive").finite("Unit price must be a valid number"),
+  total: z.coerce.number().positive("Total must be positive").finite("Total must be a valid number"),
+}).strict().superRefine((data, ctx) => {
+  if (!Number.isFinite(data.quantity) || !Number.isFinite(data.unitPrice) || !Number.isFinite(data.total)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "All numeric fields must be valid finite numbers (not NaN or Infinity)",
+    });
+  }
+  if (data.quantity <= 0 || data.unitPrice <= 0 || data.total <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "All numeric fields must be positive",
+    });
+  }
+});
+
+const bidMilestoneSchema = z.object({
+  description: z.string().min(1, "Milestone description required"),
+  dueDate: z.string().min(1, "Due date required"),
+  payment: z.coerce.number().positive("Payment must be positive").finite("Payment must be a valid number"),
+}).strict().superRefine((data, ctx) => {
+  if (!Number.isFinite(data.payment)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Payment must be a valid finite number (not NaN or Infinity)",
+    });
+  }
+  if (data.payment <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Payment must be positive",
+    });
+  }
+});
+
 export const insertBidSchema = createInsertSchema(bids).omit({
   id: true,
   clientViewed: true,
@@ -1336,11 +1477,56 @@ export const insertBidSchema = createInsertSchema(bids).omit({
   updatedAt: true,
 }).extend({
   coverLetter: z.string().min(100, "Cover letter must be at least 100 characters"),
-  proposedBudget: z.string().min(1, "Budget is required"),
+  proposedBudget: z.coerce.number().positive("Budget must be positive").finite("Budget must be a valid number"),
+  pricingBreakdown: z.array(bidPricingItemSchema).optional(),
+  milestones: z.array(bidMilestoneSchema).optional(),
 });
 
 export type InsertBid = z.infer<typeof insertBidSchema>;
 export type Bid = typeof bids.$inferSelect;
+
+// RFQ Invitations
+export const insertRFQInvitationSchema = createInsertSchema(rfqInvitations).omit({
+  id: true,
+  respondedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertRFQInvitation = z.infer<typeof insertRFQInvitationSchema>;
+export type RFQInvitation = typeof rfqInvitations.$inferSelect;
+
+// Bid Shortlists
+export const insertBidShortlistSchema = createInsertSchema(bidShortlists).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertBidShortlist = z.infer<typeof insertBidShortlistSchema>;
+export type BidShortlist = typeof bidShortlists.$inferSelect;
+
+// Bid Clarifications
+export const insertBidClarificationSchema = createInsertSchema(bidClarifications).omit({
+  id: true,
+  answer: true,
+  answeredAt: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  question: z.string().min(10, "Question must be at least 10 characters"),
+});
+
+export type InsertBidClarification = z.infer<typeof insertBidClarificationSchema>;
+export type BidClarification = typeof bidClarifications.$inferSelect;
+
+// Bid Views
+export const insertBidViewSchema = createInsertSchema(bidViews).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertBidView = z.infer<typeof insertBidViewSchema>;
+export type BidView = typeof bidViews.$inferSelect;
 
 // Projects
 export const insertProjectSchema = createInsertSchema(projects).omit({
