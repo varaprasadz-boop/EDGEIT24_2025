@@ -32,6 +32,16 @@ The frontend utilizes React with Vite, shadcn/ui, and Radix UI components, style
 **Enhanced Bidding & Proposal System:** Features comprehensive bid CRUD, bid lifecycle management, shortlisting, clarifications, view/comparison tracking, an RFQ system, and analytics. Supports category-specific bid types (service/hardware/software) with dynamic fields.
 **Contract & Project Execution System:** A full-featured system for contract creation, milestone management, deliverable tracking, team collaboration, payment processing (mocked), and activity logging. Includes multi-layer authorization and security patterns like project ownership verification and role-based access.
 
+**Delivery & Fulfillment System:** A comprehensive three-workflow system that automatically detects project types and provides appropriate delivery management tools:
+
+- **Service-Based Delivery (File Versioning):** Complete version control for digital deliverables with automatic version numbering, change notes tracking, download history, version comparison, and rollback capabilities. Consultants upload new versions while clients track all file iterations.
+
+- **Hardware Delivery (Shipping & Quality):** Full shipment lifecycle management including order creation, carrier tracking, status timeline with location updates, delivery confirmation with e-signatures, installation scheduling and completion tracking, quality inspection checklists with photo documentation, return/replacement workflows with automated approval processes, and warranty claim management with resolution tracking.
+
+- **Software Delivery (License & Subscription):** Enterprise-grade license management with automatic license key generation, device activation limits and tracking, subscription billing cycles (monthly/quarterly/annual), trial period management, automatic renewal handling, subscription cancellation with reason tracking, multi-device activation management, and license expiration monitoring.
+
+The system includes 9 database tables (deliverable_versions, deliverable_downloads, hardware_shipments, quality_inspections, returns_replacements, warranty_claims, software_licenses, software_subscriptions, software_activations) with 47 dedicated storage methods and 29 secure API endpoints. Projects automatically display the appropriate delivery workflow based on the job's category type (hardware_supply → Hardware, software_services → Software, all others → Service). The delivery tab is integrated into both consultant and client project detail pages with role-based permissions controlling workflow actions.
+
 ## External Dependencies
 
 ### Database

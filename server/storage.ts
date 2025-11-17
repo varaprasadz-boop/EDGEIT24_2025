@@ -18,6 +18,15 @@ import {
   projectDeliverables,
   projectTeamMembers,
   projectActivityLog,
+  deliverableVersions,
+  deliverableDownloads,
+  hardwareShipments,
+  qualityInspections,
+  returnsReplacements,
+  warrantyClaims,
+  softwareLicenses,
+  softwareSubscriptions,
+  softwareActivations,
   payments,
   reviews,
   kycDocuments,
@@ -77,6 +86,25 @@ import {
   type InsertProjectTeamMember,
   type ProjectActivityLog,
   type InsertProjectActivityLog,
+  type DeliverableVersion,
+  type InsertDeliverableVersion,
+  type DeliverableDownload,
+  type InsertDeliverableDownload,
+  type HardwareShipment,
+  type InsertHardwareShipment,
+  type ShipmentStatus,
+  type QualityInspection,
+  type InsertQualityInspection,
+  type ReturnReplacement,
+  type InsertReturnReplacement,
+  type WarrantyClaim,
+  type InsertWarrantyClaim,
+  type SoftwareLicense,
+  type InsertSoftwareLicense,
+  type SoftwareSubscription,
+  type InsertSoftwareSubscription,
+  type SoftwareActivation,
+  type InsertSoftwareActivation,
   type Category,
   type VendorCategoryRequest,
   type InsertVendorCategoryRequest,
@@ -562,6 +590,78 @@ export interface IStorage {
   // Project Activity Log operations
   logProjectActivity(activity: InsertProjectActivityLog): Promise<ProjectActivityLog>;
   getProjectActivityLog(projectId: string, filters?: { action?: string; limit?: number; offset?: number }): Promise<{ activities: ProjectActivityLog[]; total: number }>;
+  
+  // ============================================================================
+  // DELIVERY & FULFILLMENT SYSTEM OPERATIONS
+  // ============================================================================
+  
+  // 7.1 FOR SERVICES - FILE VERSIONING
+  // Deliverable Version operations
+  uploadDeliverableVersion(version: InsertDeliverableVersion): Promise<DeliverableVersion>;
+  getDeliverableVersions(deliverableId: string): Promise<DeliverableVersion[]>;
+  getDeliverableVersion(versionId: string): Promise<DeliverableVersion | undefined>;
+  getLatestVersion(deliverableId: string): Promise<DeliverableVersion | undefined>;
+  deleteDeliverableVersion(versionId: string): Promise<void>;
+  compareVersions(versionId1: string, versionId2: string): Promise<{ version1: DeliverableVersion; version2: DeliverableVersion }>;
+  setLatestVersion(deliverableId: string, versionId: string): Promise<void>;
+  
+  // Deliverable Download operations
+  trackDownload(download: InsertDeliverableDownload): Promise<DeliverableDownload>;
+  getDownloadHistory(deliverableId: string, filters?: { versionId?: string; userId?: string }): Promise<DeliverableDownload[]>;
+  
+  // 7.2 FOR HARDWARE - SHIPPING & QUALITY
+  // Hardware Shipment operations
+  createShipment(shipment: InsertHardwareShipment): Promise<HardwareShipment>;
+  getShipment(shipmentId: string): Promise<HardwareShipment | undefined>;
+  getProjectShipments(projectId: string): Promise<HardwareShipment[]>;
+  updateShipmentStatus(shipmentId: string, status: ShipmentStatus, notes?: string, location?: string): Promise<HardwareShipment>;
+  getShipmentTimeline(shipmentId: string): Promise<any[]>; // Returns status history
+  confirmDelivery(shipmentId: string, receivedBy: string, signatureUrl?: string, notes?: string): Promise<HardwareShipment>;
+  scheduleInstallation(shipmentId: string, scheduledAt: Date): Promise<HardwareShipment>;
+  completeInstallation(shipmentId: string, installedBy: string, notes?: string): Promise<HardwareShipment>;
+  
+  // Quality Inspection operations
+  createQualityInspection(inspection: InsertQualityInspection): Promise<QualityInspection>;
+  getShipmentInspections(shipmentId: string): Promise<QualityInspection[]>;
+  updateInspectionStatus(inspectionId: string, status: string, approvedBy?: string): Promise<QualityInspection>;
+  getQualityInspection(inspectionId: string): Promise<QualityInspection | undefined>;
+  
+  // Return/Replacement operations
+  createReturnRequest(returnRequest: InsertReturnReplacement): Promise<ReturnReplacement>;
+  getShipmentReturns(shipmentId: string): Promise<ReturnReplacement[]>;
+  updateReturnStatus(returnId: string, status: string, resolution?: string, notes?: string): Promise<ReturnReplacement>;
+  approveReturn(returnId: string, approvedBy: string): Promise<ReturnReplacement>;
+  processRefund(returnId: string, amount: number, processedBy: string): Promise<ReturnReplacement>;
+  
+  // Warranty Claim operations
+  createWarrantyClaim(claim: InsertWarrantyClaim): Promise<WarrantyClaim>;
+  getShipmentWarrantyClaims(shipmentId: string): Promise<WarrantyClaim[]>;
+  getUserWarrantyClaims(userId: string): Promise<WarrantyClaim[]>;
+  updateWarrantyClaimStatus(claimId: string, status: string, reviewedBy?: string, notes?: string): Promise<WarrantyClaim>;
+  resolveWarrantyClaim(claimId: string, resolutionType: string, details: string): Promise<WarrantyClaim>;
+  
+  // 7.3 FOR SOFTWARE - LICENSE & SUBSCRIPTION
+  // Software License operations
+  generateLicense(license: InsertSoftwareLicense): Promise<SoftwareLicense>;
+  getLicense(licenseId: string): Promise<SoftwareLicense | undefined>;
+  getProjectLicenses(projectId: string): Promise<SoftwareLicense[]>;
+  getUserLicenses(userId: string): Promise<SoftwareLicense[]>;
+  deactivateLicense(licenseId: string, deactivatedBy: string, reason?: string): Promise<SoftwareLicense>;
+  extendLicense(licenseId: string, newExpiryDate: Date): Promise<SoftwareLicense>;
+  
+  // Software Subscription operations
+  createSubscription(subscription: InsertSoftwareSubscription): Promise<SoftwareSubscription>;
+  getLicenseSubscription(licenseId: string): Promise<SoftwareSubscription | undefined>;
+  updateSubscriptionStatus(subscriptionId: string, status: string): Promise<SoftwareSubscription>;
+  renewSubscription(subscriptionId: string): Promise<SoftwareSubscription>;
+  cancelSubscription(subscriptionId: string, reason?: string): Promise<SoftwareSubscription>;
+  
+  // Software Activation operations
+  activateLicense(activation: InsertSoftwareActivation): Promise<SoftwareActivation>;
+  getLicenseActivations(licenseId: string): Promise<SoftwareActivation[]>;
+  deactivateDevice(activationId: string, deactivatedBy: string, reason?: string): Promise<SoftwareActivation>;
+  updateActivationUsage(activationId: string): Promise<SoftwareActivation>;
+  getActiveDevices(licenseId: string): Promise<SoftwareActivation[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3862,6 +3962,719 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions));
     
     return { activities, total: Number(count) };
+  }
+
+  // ============================================================================
+  // DELIVERY & FULFILLMENT SYSTEM IMPLEMENTATIONS
+  // ============================================================================
+
+  // 7.1 FOR SERVICES - FILE VERSIONING
+
+  async uploadDeliverableVersion(version: InsertDeliverableVersion): Promise<DeliverableVersion> {
+    // Mark all previous versions as not latest
+    await db
+      .update(deliverableVersions)
+      .set({ isLatest: false })
+      .where(eq(deliverableVersions.deliverableId, version.deliverableId));
+    
+    // Insert new version
+    const [newVersion] = await db
+      .insert(deliverableVersions)
+      .values({ ...version, isLatest: true })
+      .returning();
+    
+    return newVersion;
+  }
+
+  async getDeliverableVersions(deliverableId: string): Promise<DeliverableVersion[]> {
+    return await db
+      .select()
+      .from(deliverableVersions)
+      .where(eq(deliverableVersions.deliverableId, deliverableId))
+      .orderBy(desc(deliverableVersions.versionNumber));
+  }
+
+  async getDeliverableVersion(versionId: string): Promise<DeliverableVersion | undefined> {
+    const [version] = await db
+      .select()
+      .from(deliverableVersions)
+      .where(eq(deliverableVersions.id, versionId));
+    return version;
+  }
+
+  async getLatestVersion(deliverableId: string): Promise<DeliverableVersion | undefined> {
+    const [version] = await db
+      .select()
+      .from(deliverableVersions)
+      .where(
+        and(
+          eq(deliverableVersions.deliverableId, deliverableId),
+          eq(deliverableVersions.isLatest, true)
+        )
+      );
+    return version;
+  }
+
+  async deleteDeliverableVersion(versionId: string): Promise<void> {
+    await db
+      .delete(deliverableVersions)
+      .where(eq(deliverableVersions.id, versionId));
+  }
+
+  async compareVersions(
+    versionId1: string,
+    versionId2: string
+  ): Promise<{ version1: DeliverableVersion; version2: DeliverableVersion }> {
+    const version1 = await this.getDeliverableVersion(versionId1);
+    const version2 = await this.getDeliverableVersion(versionId2);
+    
+    if (!version1 || !version2) {
+      throw new Error('One or both versions not found');
+    }
+    
+    return { version1, version2 };
+  }
+
+  async setLatestVersion(deliverableId: string, versionId: string): Promise<void> {
+    // Mark all versions as not latest
+    await db
+      .update(deliverableVersions)
+      .set({ isLatest: false })
+      .where(eq(deliverableVersions.deliverableId, deliverableId));
+    
+    // Mark specified version as latest
+    await db
+      .update(deliverableVersions)
+      .set({ isLatest: true })
+      .where(eq(deliverableVersions.id, versionId));
+  }
+
+  async trackDownload(download: InsertDeliverableDownload): Promise<DeliverableDownload> {
+    const [record] = await db
+      .insert(deliverableDownloads)
+      .values(download)
+      .returning();
+    return record;
+  }
+
+  async getDownloadHistory(
+    deliverableId: string,
+    filters?: { versionId?: string; userId?: string }
+  ): Promise<DeliverableDownload[]> {
+    const conditions = [eq(deliverableDownloads.deliverableId, deliverableId)];
+    
+    if (filters?.versionId) {
+      conditions.push(eq(deliverableDownloads.versionId, filters.versionId));
+    }
+    if (filters?.userId) {
+      conditions.push(eq(deliverableDownloads.downloadedBy, filters.userId));
+    }
+    
+    return await db
+      .select()
+      .from(deliverableDownloads)
+      .where(and(...conditions))
+      .orderBy(desc(deliverableDownloads.downloadedAt));
+  }
+
+  // 7.2 FOR HARDWARE - SHIPPING & QUALITY
+
+  async createShipment(shipment: InsertHardwareShipment): Promise<HardwareShipment> {
+    // Generate order number if not provided
+    const orderNumber = shipment.orderNumber || `HW-ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    
+    // Create initial status history
+    const statusHistory = [{
+      status: shipment.status || 'order_confirmed',
+      timestamp: new Date().toISOString(),
+      notes: 'Order created',
+      location: ''
+    }];
+    
+    const [newShipment] = await db
+      .insert(hardwareShipments)
+      .values({ ...shipment, orderNumber, statusHistory })
+      .returning();
+    
+    return newShipment;
+  }
+
+  async getShipment(shipmentId: string): Promise<HardwareShipment | undefined> {
+    const [shipment] = await db
+      .select()
+      .from(hardwareShipments)
+      .where(eq(hardwareShipments.id, shipmentId));
+    return shipment;
+  }
+
+  async getProjectShipments(projectId: string): Promise<HardwareShipment[]> {
+    return await db
+      .select()
+      .from(hardwareShipments)
+      .where(eq(hardwareShipments.projectId, projectId))
+      .orderBy(desc(hardwareShipments.createdAt));
+  }
+
+  async updateShipmentStatus(
+    shipmentId: string,
+    status: ShipmentStatus,
+    notes?: string,
+    location?: string
+  ): Promise<HardwareShipment> {
+    const shipment = await this.getShipment(shipmentId);
+    if (!shipment) {
+      throw new Error('Shipment not found');
+    }
+    
+    // Add to status history
+    const statusEntry = {
+      status,
+      timestamp: new Date().toISOString(),
+      notes: notes || '',
+      location: location || ''
+    };
+    
+    const updatedHistory = [...(shipment.statusHistory as any[] || []), statusEntry];
+    
+    const [updated] = await db
+      .update(hardwareShipments)
+      .set({
+        status,
+        statusHistory: updatedHistory,
+        updatedAt: new Date()
+      })
+      .where(eq(hardwareShipments.id, shipmentId))
+      .returning();
+    
+    return updated;
+  }
+
+  async getShipmentTimeline(shipmentId: string): Promise<any[]> {
+    const shipment = await this.getShipment(shipmentId);
+    return (shipment?.statusHistory as any[]) || [];
+  }
+
+  async confirmDelivery(
+    shipmentId: string,
+    receivedBy: string,
+    signatureUrl?: string,
+    notes?: string
+  ): Promise<HardwareShipment> {
+    const [updated] = await db
+      .update(hardwareShipments)
+      .set({
+        status: 'delivered',
+        deliveredAt: new Date(),
+        receivedBy,
+        signatureUrl,
+        deliveryNotes: notes,
+        actualDelivery: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(hardwareShipments.id, shipmentId))
+      .returning();
+    
+    // Update status history
+    await this.updateShipmentStatus(shipmentId, 'delivered', notes || 'Delivery confirmed', '');
+    
+    return updated;
+  }
+
+  async scheduleInstallation(shipmentId: string, scheduledAt: Date): Promise<HardwareShipment> {
+    const [updated] = await db
+      .update(hardwareShipments)
+      .set({
+        installationScheduledAt: scheduledAt,
+        updatedAt: new Date()
+      })
+      .where(eq(hardwareShipments.id, shipmentId))
+      .returning();
+    
+    return updated;
+  }
+
+  async completeInstallation(
+    shipmentId: string,
+    installedBy: string,
+    notes?: string
+  ): Promise<HardwareShipment> {
+    const [updated] = await db
+      .update(hardwareShipments)
+      .set({
+        status: 'installed',
+        installedAt: new Date(),
+        installedBy,
+        installationNotes: notes,
+        updatedAt: new Date()
+      })
+      .where(eq(hardwareShipments.id, shipmentId))
+      .returning();
+    
+    await this.updateShipmentStatus(shipmentId, 'installed', notes || 'Installation completed', '');
+    
+    return updated;
+  }
+
+  async createQualityInspection(inspection: InsertQualityInspection): Promise<QualityInspection> {
+    const [newInspection] = await db
+      .insert(qualityInspections)
+      .values(inspection)
+      .returning();
+    return newInspection;
+  }
+
+  async getShipmentInspections(shipmentId: string): Promise<QualityInspection[]> {
+    return await db
+      .select()
+      .from(qualityInspections)
+      .where(eq(qualityInspections.shipmentId, shipmentId))
+      .orderBy(desc(qualityInspections.inspectionDate));
+  }
+
+  async updateInspectionStatus(
+    inspectionId: string,
+    status: string,
+    approvedBy?: string
+  ): Promise<QualityInspection> {
+    const [updated] = await db
+      .update(qualityInspections)
+      .set({
+        overallStatus: status,
+        approvedBy,
+        approvedAt: approvedBy ? new Date() : undefined,
+        updatedAt: new Date()
+      })
+      .where(eq(qualityInspections.id, inspectionId))
+      .returning();
+    
+    return updated;
+  }
+
+  async getQualityInspection(inspectionId: string): Promise<QualityInspection | undefined> {
+    const [inspection] = await db
+      .select()
+      .from(qualityInspections)
+      .where(eq(qualityInspections.id, inspectionId));
+    return inspection;
+  }
+
+  async createReturnRequest(returnRequest: InsertReturnReplacement): Promise<ReturnReplacement> {
+    const [newReturn] = await db
+      .insert(returnsReplacements)
+      .values(returnRequest)
+      .returning();
+    return newReturn;
+  }
+
+  async getShipmentReturns(shipmentId: string): Promise<ReturnReplacement[]> {
+    return await db
+      .select()
+      .from(returnsReplacements)
+      .where(eq(returnsReplacements.shipmentId, shipmentId))
+      .orderBy(desc(returnsReplacements.createdAt));
+  }
+
+  async updateReturnStatus(
+    returnId: string,
+    status: string,
+    resolution?: string,
+    notes?: string
+  ): Promise<ReturnReplacement> {
+    const [updated] = await db
+      .update(returnsReplacements)
+      .set({
+        status,
+        resolution,
+        resolutionNotes: notes,
+        updatedAt: new Date()
+      })
+      .where(eq(returnsReplacements.id, returnId))
+      .returning();
+    
+    return updated;
+  }
+
+  async approveReturn(returnId: string, approvedBy: string): Promise<ReturnReplacement> {
+    const [updated] = await db
+      .update(returnsReplacements)
+      .set({
+        status: 'approved',
+        resolvedBy: approvedBy,
+        resolvedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(returnsReplacements.id, returnId))
+      .returning();
+    
+    return updated;
+  }
+
+  async processRefund(
+    returnId: string,
+    amount: number,
+    processedBy: string
+  ): Promise<ReturnReplacement> {
+    const [updated] = await db
+      .update(returnsReplacements)
+      .set({
+        status: 'completed',
+        resolution: 'refunded',
+        refundAmount: amount.toString(),
+        refundedAt: new Date(),
+        resolvedBy: processedBy,
+        resolvedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(returnsReplacements.id, returnId))
+      .returning();
+    
+    return updated;
+  }
+
+  async createWarrantyClaim(claim: InsertWarrantyClaim): Promise<WarrantyClaim> {
+    // Generate claim number if not provided
+    const claimNumber = claim.claimNumber || `WC-${new Date().getFullYear()}-${Date.now().toString().substr(-6)}`;
+    
+    const [newClaim] = await db
+      .insert(warrantyClaims)
+      .values({ ...claim, claimNumber })
+      .returning();
+    
+    return newClaim;
+  }
+
+  async getShipmentWarrantyClaims(shipmentId: string): Promise<WarrantyClaim[]> {
+    return await db
+      .select()
+      .from(warrantyClaims)
+      .where(eq(warrantyClaims.shipmentId, shipmentId))
+      .orderBy(desc(warrantyClaims.createdAt));
+  }
+
+  async getUserWarrantyClaims(userId: string): Promise<WarrantyClaim[]> {
+    return await db
+      .select()
+      .from(warrantyClaims)
+      .where(eq(warrantyClaims.claimantId, userId))
+      .orderBy(desc(warrantyClaims.createdAt));
+  }
+
+  async updateWarrantyClaimStatus(
+    claimId: string,
+    status: string,
+    reviewedBy?: string,
+    notes?: string
+  ): Promise<WarrantyClaim> {
+    const [updated] = await db
+      .update(warrantyClaims)
+      .set({
+        status,
+        reviewedBy,
+        reviewedAt: reviewedBy ? new Date() : undefined,
+        reviewNotes: notes,
+        updatedAt: new Date()
+      })
+      .where(eq(warrantyClaims.id, claimId))
+      .returning();
+    
+    return updated;
+  }
+
+  async resolveWarrantyClaim(
+    claimId: string,
+    resolutionType: string,
+    details: string
+  ): Promise<WarrantyClaim> {
+    const [updated] = await db
+      .update(warrantyClaims)
+      .set({
+        status: 'completed',
+        resolutionType,
+        resolutionDetails: details,
+        completedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(warrantyClaims.id, claimId))
+      .returning();
+    
+    return updated;
+  }
+
+  // 7.3 FOR SOFTWARE - LICENSE & SUBSCRIPTION
+
+  async generateLicense(license: InsertSoftwareLicense): Promise<SoftwareLicense> {
+    // Generate license key if not provided
+    const licenseKey = license.licenseKey || 
+      `${Math.random().toString(36).substr(2, 4).toUpperCase()}-` +
+      `${Math.random().toString(36).substr(2, 4).toUpperCase()}-` +
+      `${Math.random().toString(36).substr(2, 4).toUpperCase()}-` +
+      `${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+    
+    const [newLicense] = await db
+      .insert(softwareLicenses)
+      .values({ ...license, licenseKey })
+      .returning();
+    
+    return newLicense;
+  }
+
+  async getLicense(licenseId: string): Promise<SoftwareLicense | undefined> {
+    const [license] = await db
+      .select()
+      .from(softwareLicenses)
+      .where(eq(softwareLicenses.id, licenseId));
+    return license;
+  }
+
+  async getProjectLicenses(projectId: string): Promise<SoftwareLicense[]> {
+    return await db
+      .select()
+      .from(softwareLicenses)
+      .where(eq(softwareLicenses.projectId, projectId))
+      .orderBy(desc(softwareLicenses.issuedAt));
+  }
+
+  async getUserLicenses(userId: string): Promise<SoftwareLicense[]> {
+    return await db
+      .select()
+      .from(softwareLicenses)
+      .where(eq(softwareLicenses.issuedTo, userId))
+      .orderBy(desc(softwareLicenses.issuedAt));
+  }
+
+  async deactivateLicense(
+    licenseId: string,
+    deactivatedBy: string,
+    reason?: string
+  ): Promise<SoftwareLicense> {
+    const [updated] = await db
+      .update(softwareLicenses)
+      .set({
+        isActive: false,
+        deactivatedAt: new Date(),
+        deactivatedBy,
+        deactivationReason: reason,
+        updatedAt: new Date()
+      })
+      .where(eq(softwareLicenses.id, licenseId))
+      .returning();
+    
+    return updated;
+  }
+
+  async extendLicense(licenseId: string, newExpiryDate: Date): Promise<SoftwareLicense> {
+    const [updated] = await db
+      .update(softwareLicenses)
+      .set({
+        expiresAt: newExpiryDate,
+        updatedAt: new Date()
+      })
+      .where(eq(softwareLicenses.id, licenseId))
+      .returning();
+    
+    return updated;
+  }
+
+  async createSubscription(subscription: InsertSoftwareSubscription): Promise<SoftwareSubscription> {
+    const [newSubscription] = await db
+      .insert(softwareSubscriptions)
+      .values(subscription)
+      .returning();
+    return newSubscription;
+  }
+
+  async getLicenseSubscription(licenseId: string): Promise<SoftwareSubscription | undefined> {
+    const [subscription] = await db
+      .select()
+      .from(softwareSubscriptions)
+      .where(eq(softwareSubscriptions.licenseId, licenseId));
+    return subscription;
+  }
+
+  async updateSubscriptionStatus(
+    subscriptionId: string,
+    status: string
+  ): Promise<SoftwareSubscription> {
+    const [updated] = await db
+      .update(softwareSubscriptions)
+      .set({
+        status,
+        updatedAt: new Date()
+      })
+      .where(eq(softwareSubscriptions.id, subscriptionId))
+      .returning();
+    
+    return updated;
+  }
+
+  async renewSubscription(subscriptionId: string): Promise<SoftwareSubscription> {
+    const subscription = await db
+      .select()
+      .from(softwareSubscriptions)
+      .where(eq(softwareSubscriptions.id, subscriptionId))
+      .then(rows => rows[0]);
+    
+    if (!subscription) {
+      throw new Error('Subscription not found');
+    }
+    
+    // Calculate new period dates based on billing cycle
+    const currentEnd = new Date(subscription.currentPeriodEnd);
+    let newEnd: Date;
+    
+    switch (subscription.billingCycle) {
+      case 'monthly':
+        newEnd = new Date(currentEnd.setMonth(currentEnd.getMonth() + 1));
+        break;
+      case 'quarterly':
+        newEnd = new Date(currentEnd.setMonth(currentEnd.getMonth() + 3));
+        break;
+      case 'annual':
+        newEnd = new Date(currentEnd.setFullYear(currentEnd.getFullYear() + 1));
+        break;
+      default:
+        newEnd = new Date(currentEnd.setMonth(currentEnd.getMonth() + 1));
+    }
+    
+    const [updated] = await db
+      .update(softwareSubscriptions)
+      .set({
+        currentPeriodStart: subscription.currentPeriodEnd,
+        currentPeriodEnd: newEnd,
+        nextBillingDate: newEnd,
+        renewalCount: (subscription.renewalCount || 0) + 1,
+        lastPaymentAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(softwareSubscriptions.id, subscriptionId))
+      .returning();
+    
+    return updated;
+  }
+
+  async cancelSubscription(
+    subscriptionId: string,
+    reason?: string
+  ): Promise<SoftwareSubscription> {
+    const [updated] = await db
+      .update(softwareSubscriptions)
+      .set({
+        status: 'cancelled',
+        cancelledAt: new Date(),
+        cancellationReason: reason,
+        autoRenew: false,
+        updatedAt: new Date()
+      })
+      .where(eq(softwareSubscriptions.id, subscriptionId))
+      .returning();
+    
+    return updated;
+  }
+
+  async activateLicense(activation: InsertSoftwareActivation): Promise<SoftwareActivation> {
+    // Check activation limits
+    const license = await this.getLicense(activation.licenseId);
+    if (!license) {
+      throw new Error('License not found');
+    }
+    
+    if (license.maxActivations !== -1 && 
+        (license.currentActivations || 0) >= (license.maxActivations || 0)) {
+      throw new Error('Maximum activations reached');
+    }
+    
+    const [newActivation] = await db
+      .insert(softwareActivations)
+      .values(activation)
+      .returning();
+    
+    // Update license activation count
+    await db
+      .update(softwareLicenses)
+      .set({
+        currentActivations: (license.currentActivations || 0) + 1,
+        updatedAt: new Date()
+      })
+      .where(eq(softwareLicenses.id, activation.licenseId));
+    
+    return newActivation;
+  }
+
+  async getLicenseActivations(licenseId: string): Promise<SoftwareActivation[]> {
+    return await db
+      .select()
+      .from(softwareActivations)
+      .where(eq(softwareActivations.licenseId, licenseId))
+      .orderBy(desc(softwareActivations.activatedAt));
+  }
+
+  async deactivateDevice(
+    activationId: string,
+    deactivatedBy: string,
+    reason?: string
+  ): Promise<SoftwareActivation> {
+    const activation = await db
+      .select()
+      .from(softwareActivations)
+      .where(eq(softwareActivations.id, activationId))
+      .then(rows => rows[0]);
+    
+    if (!activation) {
+      throw new Error('Activation not found');
+    }
+    
+    const [updated] = await db
+      .update(softwareActivations)
+      .set({
+        isActive: false,
+        deactivatedAt: new Date(),
+        deactivatedBy,
+        deactivationReason: reason,
+        updatedAt: new Date()
+      })
+      .where(eq(softwareActivations.id, activationId))
+      .returning();
+    
+    // Decrement license activation count
+    const license = await this.getLicense(activation.licenseId);
+    if (license) {
+      await db
+        .update(softwareLicenses)
+        .set({
+          currentActivations: Math.max(0, (license.currentActivations || 0) - 1),
+          updatedAt: new Date()
+        })
+        .where(eq(softwareLicenses.id, activation.licenseId));
+    }
+    
+    return updated;
+  }
+
+  async updateActivationUsage(activationId: string): Promise<SoftwareActivation> {
+    const [updated] = await db
+      .update(softwareActivations)
+      .set({
+        lastUsedAt: new Date(),
+        usageCount: sql`${softwareActivations.usageCount} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(softwareActivations.id, activationId))
+      .returning();
+    
+    return updated;
+  }
+
+  async getActiveDevices(licenseId: string): Promise<SoftwareActivation[]> {
+    return await db
+      .select()
+      .from(softwareActivations)
+      .where(
+        and(
+          eq(softwareActivations.licenseId, licenseId),
+          eq(softwareActivations.isActive, true)
+        )
+      )
+      .orderBy(desc(softwareActivations.lastUsedAt));
   }
 }
 

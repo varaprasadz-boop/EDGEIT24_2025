@@ -1934,12 +1934,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getProjectActivityLog(project.id, { limit: 50 }),
       ]);
 
+      // Determine delivery type from project's category
+      let deliveryType: 'service' | 'hardware' | 'software' | null = null;
+      if (project.bidId) {
+        const bid = await storage.getBid(project.bidId);
+        if (bid) {
+          const job = await storage.getJobById(bid.jobId);
+          if (job && job.categoryId) {
+            const [category] = await db
+              .select()
+              .from(categories)
+              .where(eq(categories.id, job.categoryId));
+            
+            if (category && category.categoryType) {
+              if (category.categoryType === 'hardware_supply') {
+                deliveryType = 'hardware';
+              } else if (category.categoryType === 'software_services') {
+                deliveryType = 'software';
+              } else {
+                deliveryType = 'service'; // Default for other types
+              }
+            }
+          }
+        }
+      }
+
       res.json({
         ...project,
         teamMembers,
         deliverables,
         comments,
         activityLog: activityLog.activities,
+        deliveryType, // Add delivery type to response
+        categoryType: deliveryType, // For backward compatibility
       });
     } catch (error) {
       console.error("Error fetching project:", error);
@@ -2443,6 +2470,1040 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching activity log:", error);
       res.status(500).json({ message: "Failed to fetch activity log" });
+    }
+  });
+
+  // ============================================================================
+  // DELIVERY & FULFILLMENT SYSTEM ROUTES
+  // ============================================================================
+
+  // 1. SERVICE DELIVERY - FILE VERSIONING ROUTES
+
+  app.post('/api/deliverables/:id/versions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'consultant') {
+        return res.status(403).json({ message: "Unauthorized: Only consultants can upload versions" });
+      }
+
+      const deliverable = await storage.getDeliverableById(req.params.id);
+      if (!deliverable) {
+        return res.status(404).json({ message: "Deliverable not found" });
+      }
+
+      const project = await storage.getProjectById(deliverable.projectId);
+      if (!project || project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only upload versions to your own deliverables" });
+      }
+
+      const { fileUrl, changeNotes, fileSize, fileType } = req.body;
+      const latestVersion = await storage.getLatestVersion(req.params.id);
+      const versionNumber = (latestVersion?.versionNumber || 0) + 1;
+
+      const version = await storage.uploadDeliverableVersion({
+        deliverableId: req.params.id,
+        versionNumber,
+        fileUrl,
+        changeNotes,
+        fileSize: fileSize || '0',
+        fileType: fileType || 'application/octet-stream',
+        uploadedBy: userId,
+      });
+
+      await storage.logProjectActivity({
+        projectId: deliverable.projectId,
+        userId,
+        action: 'deliverable_version_uploaded',
+        details: { deliverableId: req.params.id, versionNumber, fileUrl },
+      });
+
+      res.status(201).json(version);
+    } catch (error) {
+      console.error("Error uploading version:", error);
+      res.status(500).json({ message: "Failed to upload version" });
+    }
+  });
+
+  app.get('/api/deliverables/:id/versions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const deliverable = await storage.getDeliverableById(req.params.id);
+      if (!deliverable) {
+        return res.status(404).json({ message: "Deliverable not found" });
+      }
+
+      const project = await storage.getProjectById(deliverable.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId && project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const versions = await storage.getDeliverableVersions(req.params.id);
+      res.json(versions);
+    } catch (error) {
+      console.error("Error fetching versions:", error);
+      res.status(500).json({ message: "Failed to fetch versions" });
+    }
+  });
+
+  app.get('/api/deliverables/:id/versions/:versionId/download', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const deliverable = await storage.getDeliverableById(req.params.id);
+      if (!deliverable) {
+        return res.status(404).json({ message: "Deliverable not found" });
+      }
+
+      const project = await storage.getProjectById(deliverable.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId && project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const version = await storage.getDeliverableVersion(req.params.versionId);
+      if (!version) {
+        return res.status(404).json({ message: "Version not found" });
+      }
+
+      await storage.trackDownload({
+        deliverableId: req.params.id,
+        versionId: req.params.versionId,
+        downloadedBy: userId,
+        ipAddress: req.ip || 'unknown',
+      });
+
+      res.json({ fileUrl: version.fileUrl, version: version.versionNumber });
+    } catch (error) {
+      console.error("Error downloading version:", error);
+      res.status(500).json({ message: "Failed to download version" });
+    }
+  });
+
+  app.get('/api/deliverables/:id/versions/compare', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const { v1, v2 } = req.query;
+      if (!v1 || !v2) {
+        return res.status(400).json({ message: "Both version IDs required" });
+      }
+
+      const deliverable = await storage.getDeliverableById(req.params.id);
+      if (!deliverable) {
+        return res.status(404).json({ message: "Deliverable not found" });
+      }
+
+      const project = await storage.getProjectById(deliverable.projectId);
+      if (!project || (project.clientId !== userId && project.consultantId !== userId)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const comparison = await storage.compareVersions(v1 as string, v2 as string);
+      res.json(comparison);
+    } catch (error) {
+      console.error("Error comparing versions:", error);
+      res.status(500).json({ message: "Failed to compare versions" });
+    }
+  });
+
+  app.delete('/api/deliverables/:id/versions/:versionId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'consultant') {
+        return res.status(403).json({ message: "Unauthorized: Only consultants can delete versions" });
+      }
+
+      const deliverable = await storage.getDeliverableById(req.params.id);
+      if (!deliverable) {
+        return res.status(404).json({ message: "Deliverable not found" });
+      }
+
+      const project = await storage.getProjectById(deliverable.projectId);
+      if (!project || project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const version = await storage.getDeliverableVersion(req.params.versionId);
+      if (!version || version.isLatest) {
+        return res.status(400).json({ message: "Cannot delete the latest version" });
+      }
+
+      await storage.deleteDeliverableVersion(req.params.versionId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting version:", error);
+      res.status(500).json({ message: "Failed to delete version" });
+    }
+  });
+
+  app.get('/api/deliverables/:id/downloads', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const deliverable = await storage.getDeliverableById(req.params.id);
+      if (!deliverable) {
+        return res.status(404).json({ message: "Deliverable not found" });
+      }
+
+      const project = await storage.getProjectById(deliverable.projectId);
+      if (!project || (project.clientId !== userId && project.consultantId !== userId)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { versionId, userId: filterUserId } = req.query;
+      const downloads = await storage.getDownloadHistory(req.params.id, {
+        versionId: versionId as string | undefined,
+        userId: filterUserId as string | undefined,
+      });
+
+      res.json(downloads);
+    } catch (error) {
+      console.error("Error fetching download history:", error);
+      res.status(500).json({ message: "Failed to fetch download history" });
+    }
+  });
+
+  app.patch('/api/deliverables/:id/versions/:versionId/set-latest', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'consultant') {
+        return res.status(403).json({ message: "Unauthorized: Only consultants can set latest version" });
+      }
+
+      const deliverable = await storage.getDeliverableById(req.params.id);
+      if (!deliverable) {
+        return res.status(404).json({ message: "Deliverable not found" });
+      }
+
+      const project = await storage.getProjectById(deliverable.projectId);
+      if (!project || project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      await storage.setLatestVersion(req.params.id, req.params.versionId);
+      res.json({ message: "Latest version updated successfully" });
+    } catch (error) {
+      console.error("Error setting latest version:", error);
+      res.status(500).json({ message: "Failed to set latest version" });
+    }
+  });
+
+  // 2. HARDWARE DELIVERY - SHIPPING & QUALITY ROUTES
+
+  app.post('/api/projects/:id/shipments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'consultant') {
+        return res.status(403).json({ message: "Unauthorized: Only consultants can create shipments" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { deliverableId, items, shippingAddress, carrier, estimatedDelivery } = req.body;
+
+      const shipment = await storage.createShipment({
+        projectId: req.params.id,
+        deliverableId,
+        items: items || [],
+        shippingAddress,
+        carrier: carrier || 'Standard',
+        status: 'order_confirmed',
+        estimatedDelivery: estimatedDelivery ? new Date(estimatedDelivery) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+
+      await storage.logProjectActivity({
+        projectId: req.params.id,
+        userId,
+        action: 'shipment_created',
+        details: { shipmentId: shipment.id, orderNumber: shipment.orderNumber },
+      });
+
+      res.status(201).json(shipment);
+    } catch (error) {
+      console.error("Error creating shipment:", error);
+      res.status(500).json({ message: "Failed to create shipment" });
+    }
+  });
+
+  app.get('/api/projects/:id/shipments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId && project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const shipments = await storage.getProjectShipments(req.params.id);
+      res.json(shipments);
+    } catch (error) {
+      console.error("Error fetching shipments:", error);
+      res.status(500).json({ message: "Failed to fetch shipments" });
+    }
+  });
+
+  app.get('/api/shipments/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const shipment = await storage.getShipment(req.params.id);
+      if (!shipment) {
+        return res.status(404).json({ message: "Shipment not found" });
+      }
+
+      const project = await storage.getProjectById(shipment.projectId);
+      if (!project || (project.clientId !== userId && project.consultantId !== userId)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      res.json(shipment);
+    } catch (error) {
+      console.error("Error fetching shipment:", error);
+      res.status(500).json({ message: "Failed to fetch shipment" });
+    }
+  });
+
+  app.patch('/api/shipments/:id/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'consultant') {
+        return res.status(403).json({ message: "Unauthorized: Only consultants can update shipment status" });
+      }
+
+      const shipment = await storage.getShipment(req.params.id);
+      if (!shipment) {
+        return res.status(404).json({ message: "Shipment not found" });
+      }
+
+      const project = await storage.getProjectById(shipment.projectId);
+      if (!project || project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { status, notes, location } = req.body;
+      const updated = await storage.updateShipmentStatus(req.params.id, status, notes, location);
+
+      await storage.logProjectActivity({
+        projectId: shipment.projectId,
+        userId,
+        action: 'shipment_status_updated',
+        details: { shipmentId: req.params.id, status, notes },
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating shipment status:", error);
+      res.status(500).json({ message: "Failed to update shipment status" });
+    }
+  });
+
+  app.post('/api/shipments/:id/confirm-delivery', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'client') {
+        return res.status(403).json({ message: "Unauthorized: Only clients can confirm delivery" });
+      }
+
+      const shipment = await storage.getShipment(req.params.id);
+      if (!shipment) {
+        return res.status(404).json({ message: "Shipment not found" });
+      }
+
+      const project = await storage.getProjectById(shipment.projectId);
+      if (!project || project.clientId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { signatureUrl, notes } = req.body;
+      const updated = await storage.confirmDelivery(req.params.id, userId, signatureUrl, notes);
+
+      await storage.logProjectActivity({
+        projectId: shipment.projectId,
+        userId,
+        action: 'delivery_confirmed',
+        details: { shipmentId: req.params.id, notes },
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error confirming delivery:", error);
+      res.status(500).json({ message: "Failed to confirm delivery" });
+    }
+  });
+
+  app.post('/api/shipments/:id/schedule-installation', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const shipment = await storage.getShipment(req.params.id);
+      if (!shipment) {
+        return res.status(404).json({ message: "Shipment not found" });
+      }
+
+      const project = await storage.getProjectById(shipment.projectId);
+      if (!project || (project.clientId !== userId && project.consultantId !== userId)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { scheduledAt } = req.body;
+      if (!scheduledAt) {
+        return res.status(400).json({ message: "Installation date required" });
+      }
+
+      const updated = await storage.scheduleInstallation(req.params.id, new Date(scheduledAt));
+      res.json(updated);
+    } catch (error) {
+      console.error("Error scheduling installation:", error);
+      res.status(500).json({ message: "Failed to schedule installation" });
+    }
+  });
+
+  app.post('/api/shipments/:id/complete-installation', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'consultant') {
+        return res.status(403).json({ message: "Unauthorized: Only consultants can complete installation" });
+      }
+
+      const shipment = await storage.getShipment(req.params.id);
+      if (!shipment) {
+        return res.status(404).json({ message: "Shipment not found" });
+      }
+
+      const project = await storage.getProjectById(shipment.projectId);
+      if (!project || project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { notes } = req.body;
+      const updated = await storage.completeInstallation(req.params.id, userId, notes);
+
+      await storage.logProjectActivity({
+        projectId: shipment.projectId,
+        userId,
+        action: 'installation_completed',
+        details: { shipmentId: req.params.id, notes },
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error completing installation:", error);
+      res.status(500).json({ message: "Failed to complete installation" });
+    }
+  });
+
+  app.post('/api/shipments/:id/quality-inspections', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const shipment = await storage.getShipment(req.params.id);
+      if (!shipment) {
+        return res.status(404).json({ message: "Shipment not found" });
+      }
+
+      const project = await storage.getProjectById(shipment.projectId);
+      if (!project || (project.clientId !== userId && project.consultantId !== userId)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { checklistItems, overallStatus, photos, notes } = req.body;
+
+      const inspection = await storage.createQualityInspection({
+        shipmentId: req.params.id,
+        inspectorId: userId,
+        inspectionDate: new Date(),
+        checklistItems: checklistItems || [],
+        overallStatus: overallStatus || 'pending',
+        photos: photos || [],
+        notes,
+      });
+
+      res.status(201).json(inspection);
+    } catch (error) {
+      console.error("Error creating inspection:", error);
+      res.status(500).json({ message: "Failed to create quality inspection" });
+    }
+  });
+
+  app.get('/api/shipments/:id/quality-inspections', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const shipment = await storage.getShipment(req.params.id);
+      if (!shipment) {
+        return res.status(404).json({ message: "Shipment not found" });
+      }
+
+      const project = await storage.getProjectById(shipment.projectId);
+      if (!project || (project.clientId !== userId && project.consultantId !== userId)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const inspections = await storage.getShipmentInspections(req.params.id);
+      res.json(inspections);
+    } catch (error) {
+      console.error("Error fetching inspections:", error);
+      res.status(500).json({ message: "Failed to fetch quality inspections" });
+    }
+  });
+
+  app.post('/api/shipments/:id/returns', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'client') {
+        return res.status(403).json({ message: "Unauthorized: Only clients can request returns" });
+      }
+
+      const shipment = await storage.getShipment(req.params.id);
+      if (!shipment) {
+        return res.status(404).json({ message: "Shipment not found" });
+      }
+
+      const project = await storage.getProjectById(shipment.projectId);
+      if (!project || project.clientId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { reason, type, description, photos } = req.body;
+
+      const returnRequest = await storage.createReturnRequest({
+        shipmentId: req.params.id,
+        requestedBy: userId,
+        reason: reason || 'other',
+        type: type || 'replacement',
+        description,
+        status: 'pending',
+        photos: photos || [],
+      });
+
+      await storage.logProjectActivity({
+        projectId: shipment.projectId,
+        userId,
+        action: 'return_requested',
+        details: { shipmentId: req.params.id, returnId: returnRequest.id, type },
+      });
+
+      res.status(201).json(returnRequest);
+    } catch (error) {
+      console.error("Error creating return request:", error);
+      res.status(500).json({ message: "Failed to create return request" });
+    }
+  });
+
+  app.get('/api/shipments/:id/returns', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const shipment = await storage.getShipment(req.params.id);
+      if (!shipment) {
+        return res.status(404).json({ message: "Shipment not found" });
+      }
+
+      const project = await storage.getProjectById(shipment.projectId);
+      if (!project || (project.clientId !== userId && project.consultantId !== userId)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const returns = await storage.getShipmentReturns(req.params.id);
+      res.json(returns);
+    } catch (error) {
+      console.error("Error fetching returns:", error);
+      res.status(500).json({ message: "Failed to fetch return requests" });
+    }
+  });
+
+  app.post('/api/shipments/:id/warranty-claims', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'client') {
+        return res.status(403).json({ message: "Unauthorized: Only clients can file warranty claims" });
+      }
+
+      const shipment = await storage.getShipment(req.params.id);
+      if (!shipment) {
+        return res.status(404).json({ message: "Shipment not found" });
+      }
+
+      const project = await storage.getProjectById(shipment.projectId);
+      if (!project || project.clientId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { issue, description, photos, warrantyPeriod } = req.body;
+
+      const claim = await storage.createWarrantyClaim({
+        shipmentId: req.params.id,
+        claimantId: userId,
+        issue,
+        description,
+        status: 'submitted',
+        photos: photos || [],
+        warrantyPeriod: warrantyPeriod || '1 year',
+      });
+
+      await storage.logProjectActivity({
+        projectId: shipment.projectId,
+        userId,
+        action: 'warranty_claim_filed',
+        details: { shipmentId: req.params.id, claimId: claim.id, issue },
+      });
+
+      res.status(201).json(claim);
+    } catch (error) {
+      console.error("Error creating warranty claim:", error);
+      res.status(500).json({ message: "Failed to create warranty claim" });
+    }
+  });
+
+  // 3. SOFTWARE DELIVERY - LICENSE & SUBSCRIPTION ROUTES
+
+  app.post('/api/projects/:id/licenses', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'consultant') {
+        return res.status(403).json({ message: "Unauthorized: Only consultants can generate licenses" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { deliverableId, licenseType, maxActivations, expiresAt, productName } = req.body;
+
+      const license = await storage.generateLicense({
+        projectId: req.params.id,
+        deliverableId,
+        issuedTo: project.clientId,
+        issuedBy: userId,
+        licenseType: licenseType || 'full',
+        productName: productName || 'Software Product',
+        maxActivations: maxActivations || -1,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+      });
+
+      await storage.logProjectActivity({
+        projectId: req.params.id,
+        userId,
+        action: 'license_generated',
+        details: { licenseId: license.id, licenseKey: license.licenseKey },
+      });
+
+      res.status(201).json(license);
+    } catch (error) {
+      console.error("Error generating license:", error);
+      res.status(500).json({ message: "Failed to generate license" });
+    }
+  });
+
+  app.get('/api/projects/:id/licenses', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId && project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const licenses = await storage.getProjectLicenses(req.params.id);
+      res.json(licenses);
+    } catch (error) {
+      console.error("Error fetching licenses:", error);
+      res.status(500).json({ message: "Failed to fetch licenses" });
+    }
+  });
+
+  app.get('/api/licenses/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const license = await storage.getLicense(req.params.id);
+      if (!license) {
+        return res.status(404).json({ message: "License not found" });
+      }
+
+      const project = await storage.getProjectById(license.projectId);
+      if (!project || (project.clientId !== userId && project.consultantId !== userId)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const activations = await storage.getLicenseActivations(req.params.id);
+      const subscription = await storage.getLicenseSubscription(req.params.id);
+
+      res.json({ ...license, activations, subscription });
+    } catch (error) {
+      console.error("Error fetching license:", error);
+      res.status(500).json({ message: "Failed to fetch license" });
+    }
+  });
+
+  app.post('/api/licenses/:id/activate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const license = await storage.getLicense(req.params.id);
+      if (!license) {
+        return res.status(404).json({ message: "License not found" });
+      }
+
+      if (license.issuedTo !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only activate your own licenses" });
+      }
+
+      if (!license.isActive) {
+        return res.status(400).json({ message: "License is not active" });
+      }
+
+      const { deviceId, deviceName, os, hardware } = req.body;
+
+      const activation = await storage.activateLicense({
+        licenseId: req.params.id,
+        deviceId: deviceId || 'unknown',
+        deviceName: deviceName || 'Unknown Device',
+        os,
+        hardware,
+        activatedBy: userId,
+      });
+
+      res.status(201).json(activation);
+    } catch (error) {
+      console.error("Error activating license:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to activate license" });
+    }
+  });
+
+  app.post('/api/licenses/:id/deactivate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'consultant') {
+        return res.status(403).json({ message: "Unauthorized: Only consultants can deactivate licenses" });
+      }
+
+      const license = await storage.getLicense(req.params.id);
+      if (!license) {
+        return res.status(404).json({ message: "License not found" });
+      }
+
+      const project = await storage.getProjectById(license.projectId);
+      if (!project || project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { reason } = req.body;
+      const updated = await storage.deactivateLicense(req.params.id, userId, reason);
+
+      await storage.logProjectActivity({
+        projectId: license.projectId,
+        userId,
+        action: 'license_deactivated',
+        details: { licenseId: req.params.id, reason },
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error deactivating license:", error);
+      res.status(500).json({ message: "Failed to deactivate license" });
+    }
+  });
+
+  app.post('/api/licenses/:id/subscriptions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'consultant') {
+        return res.status(403).json({ message: "Unauthorized: Only consultants can create subscriptions" });
+      }
+
+      const license = await storage.getLicense(req.params.id);
+      if (!license) {
+        return res.status(404).json({ message: "License not found" });
+      }
+
+      const project = await storage.getProjectById(license.projectId);
+      if (!project || project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { subscriptionPlan, billingCycle, amount } = req.body;
+
+      const now = new Date();
+      const periodEnd = new Date(now);
+      if (billingCycle === 'monthly') periodEnd.setMonth(periodEnd.getMonth() + 1);
+      else if (billingCycle === 'quarterly') periodEnd.setMonth(periodEnd.getMonth() + 3);
+      else if (billingCycle === 'annual') periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+      else periodEnd.setMonth(periodEnd.getMonth() + 1);
+
+      const subscription = await storage.createSubscription({
+        licenseId: req.params.id,
+        subscriptionPlan: subscriptionPlan || 'Standard',
+        billingCycle: billingCycle || 'monthly',
+        amount: amount || '0',
+        status: 'active',
+        currentPeriodStart: now,
+        currentPeriodEnd: periodEnd,
+        nextBillingDate: periodEnd,
+      });
+
+      res.status(201).json(subscription);
+    } catch (error) {
+      console.error("Error creating subscription:", error);
+      res.status(500).json({ message: "Failed to create subscription" });
+    }
+  });
+
+  app.post('/api/subscriptions/:id/renew', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const subscription = await db
+        .select()
+        .from(softwareSubscriptions)
+        .where(eq(softwareSubscriptions.id, req.params.id))
+        .then(rows => rows[0]);
+
+      if (!subscription) {
+        return res.status(404).json({ message: "Subscription not found" });
+      }
+
+      const license = await storage.getLicense(subscription.licenseId);
+      if (!license) {
+        return res.status(404).json({ message: "License not found" });
+      }
+
+      if (license.issuedTo !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only renew your own subscriptions" });
+      }
+
+      const renewed = await storage.renewSubscription(req.params.id);
+      res.json(renewed);
+    } catch (error) {
+      console.error("Error renewing subscription:", error);
+      res.status(500).json({ message: "Failed to renew subscription" });
+    }
+  });
+
+  app.post('/api/subscriptions/:id/cancel', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const subscription = await db
+        .select()
+        .from(softwareSubscriptions)
+        .where(eq(softwareSubscriptions.id, req.params.id))
+        .then(rows => rows[0]);
+
+      if (!subscription) {
+        return res.status(404).json({ message: "Subscription not found" });
+      }
+
+      const license = await storage.getLicense(subscription.licenseId);
+      if (!license) {
+        return res.status(404).json({ message: "License not found" });
+      }
+
+      if (license.issuedTo !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only cancel your own subscriptions" });
+      }
+
+      const { reason } = req.body;
+      const cancelled = await storage.cancelSubscription(req.params.id, reason);
+
+      res.json(cancelled);
+    } catch (error) {
+      console.error("Error cancelling subscription:", error);
+      res.status(500).json({ message: "Failed to cancel subscription" });
+    }
+  });
+
+  app.post('/api/activations/:id/deactivate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const activation = await db
+        .select()
+        .from(softwareActivations)
+        .where(eq(softwareActivations.id, req.params.id))
+        .then(rows => rows[0]);
+
+      if (!activation) {
+        return res.status(404).json({ message: "Activation not found" });
+      }
+
+      const license = await storage.getLicense(activation.licenseId);
+      if (!license) {
+        return res.status(404).json({ message: "License not found" });
+      }
+
+      if (license.issuedTo !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { reason } = req.body;
+      const deactivated = await storage.deactivateDevice(req.params.id, userId, reason);
+
+      res.json(deactivated);
+    } catch (error) {
+      console.error("Error deactivating device:", error);
+      res.status(500).json({ message: "Failed to deactivate device" });
+    }
+  });
+
+  app.get('/api/licenses/:id/activations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const license = await storage.getLicense(req.params.id);
+      if (!license) {
+        return res.status(404).json({ message: "License not found" });
+      }
+
+      const project = await storage.getProjectById(license.projectId);
+      if (!project || (project.clientId !== userId && project.consultantId !== userId)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const activations = await storage.getLicenseActivations(req.params.id);
+      res.json(activations);
+    } catch (error) {
+      console.error("Error fetching activations:", error);
+      res.status(500).json({ message: "Failed to fetch activations" });
     }
   });
 

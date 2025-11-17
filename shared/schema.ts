@@ -685,6 +685,309 @@ export const projectActivityLog = pgTable("project_activity_log", {
   timestampIdx: index("project_activity_log_timestamp_idx").on(table.timestamp),
 }));
 
+// ============================================================================
+// DELIVERY & FULFILLMENT SYSTEM TABLES
+// ============================================================================
+
+// 7.1 FOR SERVICES - FILE VERSIONING SYSTEM
+
+// Deliverable Versions - Track all versions of service deliverables
+export const deliverableVersions = pgTable("deliverable_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  deliverableId: varchar("deliverable_id").notNull().references(() => projectDeliverables.id, { onDelete: "cascade" }),
+  versionNumber: integer("version_number").notNull(), // 1, 2, 3, etc.
+  fileUrl: text("file_url").notNull(), // File storage URL
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size"), // in bytes
+  fileType: varchar("file_type"), // MIME type
+  versionNotes: text("version_notes"), // Change description
+  uploadedBy: varchar("uploaded_by").notNull().references(() => users.id),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  isLatest: boolean("is_latest").default(true), // Flag for current version
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  deliverableIdIdx: index("deliverable_versions_deliverable_id_idx").on(table.deliverableId),
+  versionIdx: index("deliverable_versions_version_idx").on(table.versionNumber),
+  latestIdx: index("deliverable_versions_latest_idx").on(table.isLatest),
+  uniqueDeliverableVersion: uniqueIndex("unique_deliverable_version").on(table.deliverableId, table.versionNumber),
+}));
+
+// Deliverable Downloads - Track who downloaded which version
+export const deliverableDownloads = pgTable("deliverable_downloads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  versionId: varchar("version_id").notNull().references(() => deliverableVersions.id, { onDelete: "cascade" }),
+  deliverableId: varchar("deliverable_id").notNull().references(() => projectDeliverables.id, { onDelete: "cascade" }),
+  downloadedBy: varchar("downloaded_by").notNull().references(() => users.id),
+  ipAddress: varchar("ip_address"), // For security audit
+  userAgent: text("user_agent"), // Browser/device info
+  downloadedAt: timestamp("downloaded_at").defaultNow().notNull(),
+}, (table) => ({
+  versionIdIdx: index("deliverable_downloads_version_id_idx").on(table.versionId),
+  deliverableIdIdx: index("deliverable_downloads_deliverable_id_idx").on(table.deliverableId),
+  downloadedByIdx: index("deliverable_downloads_downloaded_by_idx").on(table.downloadedBy),
+  timestampIdx: index("deliverable_downloads_timestamp_idx").on(table.downloadedAt),
+}));
+
+// 7.2 FOR HARDWARE - SHIPPING & QUALITY CONTROL
+
+// Hardware Shipments - Track physical product delivery
+export const hardwareShipments = pgTable("hardware_shipments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  deliverableId: varchar("deliverable_id").references(() => projectDeliverables.id, { onDelete: "set null" }),
+  orderNumber: varchar("order_number").unique(), // HW-ORDER-XXXXXX
+  // Shipping details
+  carrierName: varchar("carrier_name"), // DHL, Aramex, SMSA, etc.
+  trackingNumber: varchar("tracking_number"),
+  shippingMethod: varchar("shipping_method"), // 'standard', 'express', 'overnight'
+  // Addresses
+  shippingAddress: jsonb("shipping_address").notNull(), // { street, city, state, country, postalCode, phone, contactName }
+  billingAddress: jsonb("billing_address"), // Same structure as shipping
+  // Status tracking
+  status: text("status").notNull().default('order_confirmed'), 
+  // 'order_confirmed', 'preparing_shipment', 'shipped', 'in_transit', 'out_for_delivery', 'delivered', 'installed', 'failed_delivery'
+  statusHistory: jsonb("status_history").array(), // [{ status, timestamp, notes, location }]
+  // Delivery confirmation
+  deliveredAt: timestamp("delivered_at"),
+  receivedBy: varchar("received_by"), // Name of person who received
+  signatureUrl: text("signature_url"), // Mock signature image URL
+  deliveryNotes: text("delivery_notes"),
+  // Installation (if applicable)
+  requiresInstallation: boolean("requires_installation").default(false),
+  installationScheduledAt: timestamp("installation_scheduled_at"),
+  installedAt: timestamp("installed_at"),
+  installedBy: varchar("installed_by"), // Technician name/ID
+  installationNotes: text("installation_notes"),
+  // Product details
+  productDetails: jsonb("product_details"), // { name, model, quantity, serialNumbers[], warranty }
+  estimatedDelivery: timestamp("estimated_delivery"),
+  actualDelivery: timestamp("actual_delivery"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  projectIdIdx: index("hardware_shipments_project_id_idx").on(table.projectId),
+  statusIdx: index("hardware_shipments_status_idx").on(table.status),
+  trackingIdx: index("hardware_shipments_tracking_idx").on(table.trackingNumber),
+}));
+
+// Quality Inspections - Pre-delivery quality checks
+export const qualityInspections = pgTable("quality_inspections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  shipmentId: varchar("shipment_id").notNull().references(() => hardwareShipments.id, { onDelete: "cascade" }),
+  inspectionType: varchar("inspection_type").notNull(), // 'pre_shipment', 'upon_delivery', 'installation'
+  inspectedBy: varchar("inspected_by").notNull().references(() => users.id),
+  inspectionDate: timestamp("inspection_date").defaultNow().notNull(),
+  // Checklist items
+  checklist: jsonb("checklist").notNull(), // [{ item: string, status: 'pass'|'fail', notes: string }]
+  overallStatus: text("overall_status").notNull().default('pending'), // 'pending', 'pass', 'fail', 'conditional_pass'
+  failureReasons: text("failure_reasons").array(), // List of failed items
+  correctiveActions: text("corrective_actions"), // What needs to be fixed
+  // Photos/documentation
+  photoUrls: text("photo_urls").array(), // Inspection photos
+  documentUrls: text("document_urls").array(), // Reports, certificates
+  notes: text("notes"),
+  // Approval
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  shipmentIdIdx: index("quality_inspections_shipment_id_idx").on(table.shipmentId),
+  statusIdx: index("quality_inspections_status_idx").on(table.overallStatus),
+  inspectionTypeIdx: index("quality_inspections_type_idx").on(table.inspectionType),
+}));
+
+// Returns and Replacements - Handle product returns
+export const returnsReplacements = pgTable("returns_replacements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  shipmentId: varchar("shipment_id").notNull().references(() => hardwareShipments.id, { onDelete: "cascade" }),
+  requestType: varchar("request_type").notNull(), // 'return', 'replacement', 'repair'
+  reason: text("reason").notNull(), // 'defective', 'damaged', 'wrong_item', 'not_as_described', 'other'
+  description: text("description").notNull(),
+  requestedBy: varchar("requested_by").notNull().references(() => users.id),
+  status: text("status").notNull().default('pending'), // 'pending', 'approved', 'rejected', 'in_progress', 'completed', 'cancelled'
+  // Return shipping
+  returnTrackingNumber: varchar("return_tracking_number"),
+  returnCarrier: varchar("return_carrier"),
+  returnShippedAt: timestamp("return_shipped_at"),
+  returnReceivedAt: timestamp("return_received_at"),
+  // Replacement details
+  replacementShipmentId: varchar("replacement_shipment_id").references(() => hardwareShipments.id),
+  replacementStatus: text("replacement_status"), // 'pending', 'shipped', 'delivered'
+  // Resolution
+  resolution: text("resolution"), // 'refunded', 'replaced', 'repaired', 'rejected'
+  resolutionNotes: text("resolution_notes"),
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  // Documentation
+  photoUrls: text("photo_urls").array(), // Photos of issue
+  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }),
+  refundedAt: timestamp("refunded_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  shipmentIdIdx: index("returns_replacements_shipment_id_idx").on(table.shipmentId),
+  statusIdx: index("returns_replacements_status_idx").on(table.status),
+  requestTypeIdx: index("returns_replacements_type_idx").on(table.requestType),
+}));
+
+// Warranty Claims - Handle warranty requests
+export const warrantyClaims = pgTable("warranty_claims", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  shipmentId: varchar("shipment_id").notNull().references(() => hardwareShipments.id, { onDelete: "cascade" }),
+  claimNumber: varchar("claim_number").unique(), // WC-YYYY-XXXXXX
+  productSerialNumber: varchar("product_serial_number"),
+  issueDescription: text("issue_description").notNull(),
+  issueType: varchar("issue_type").notNull(), // 'hardware_failure', 'software_issue', 'performance', 'other'
+  claimantId: varchar("claimant_id").notNull().references(() => users.id),
+  status: text("status").notNull().default('submitted'), 
+  // 'submitted', 'under_review', 'approved', 'rejected', 'in_repair', 'completed', 'cancelled'
+  // Warranty validation
+  warrantyValidUntil: timestamp("warranty_valid_until"),
+  warrantyType: varchar("warranty_type"), // 'manufacturer', 'extended', 'service_contract'
+  isWarrantyValid: boolean("is_warranty_valid"),
+  // Claim processing
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  // Resolution
+  resolutionType: varchar("resolution_type"), // 'repair', 'replace', 'refund', 'rejected'
+  resolutionDetails: text("resolution_details"),
+  estimatedCompletionDate: timestamp("estimated_completion_date"),
+  completedAt: timestamp("completed_at"),
+  // Documentation
+  photoUrls: text("photo_urls").array(),
+  receiptUrl: text("receipt_url"), // Proof of purchase
+  diagnosticReportUrl: text("diagnostic_report_url"),
+  repairCost: decimal("repair_cost", { precision: 10, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  shipmentIdIdx: index("warranty_claims_shipment_id_idx").on(table.shipmentId),
+  statusIdx: index("warranty_claims_status_idx").on(table.status),
+  claimantIdIdx: index("warranty_claims_claimant_id_idx").on(table.claimantId),
+}));
+
+// 7.3 FOR SOFTWARE - LICENSE & SUBSCRIPTION MANAGEMENT
+
+// Software Licenses - License key management
+export const softwareLicenses = pgTable("software_licenses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  deliverableId: varchar("deliverable_id").references(() => projectDeliverables.id, { onDelete: "set null" }),
+  licenseKey: varchar("license_key").notNull().unique(), // Generated license key
+  licenseType: varchar("license_type").notNull(), // 'perpetual', 'subscription', 'trial', 'node_locked', 'floating'
+  productName: text("product_name").notNull(),
+  productVersion: varchar("product_version"),
+  // Activation limits
+  maxActivations: integer("max_activations").default(1), // -1 for unlimited
+  currentActivations: integer("current_activations").default(0),
+  // Validity
+  issuedTo: varchar("issued_to").notNull().references(() => users.id), // Client user
+  issuedBy: varchar("issued_by").notNull().references(() => users.id), // Consultant
+  issuedAt: timestamp("issued_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"), // null for perpetual licenses
+  isActive: boolean("is_active").default(true),
+  // Trial management
+  isTrial: boolean("is_trial").default(false),
+  trialStartedAt: timestamp("trial_started_at"),
+  trialEndsAt: timestamp("trial_ends_at"),
+  convertedToFullAt: timestamp("converted_to_full_at"),
+  // Access credentials (for cloud/SaaS)
+  accessUrl: text("access_url"), // Login URL for cloud services
+  username: varchar("username"),
+  initialPassword: varchar("initial_password"), // Encrypted/hashed
+  // Features and limits
+  features: jsonb("features"), // { feature1: true, feature2: false, maxUsers: 10 }
+  usageLimits: jsonb("usage_limits"), // { maxStorage: 100GB, maxApiCalls: 1000/day }
+  // Maintenance and support
+  maintenanceIncluded: boolean("maintenance_included").default(false),
+  maintenanceExpiresAt: timestamp("maintenance_expires_at"),
+  supportLevel: varchar("support_level"), // 'basic', 'standard', 'premium', 'enterprise'
+  // Deactivation
+  deactivatedAt: timestamp("deactivated_at"),
+  deactivatedBy: varchar("deactivated_by").references(() => users.id),
+  deactivationReason: text("deactivation_reason"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  projectIdIdx: index("software_licenses_project_id_idx").on(table.projectId),
+  issuedToIdx: index("software_licenses_issued_to_idx").on(table.issuedTo),
+  licenseTypeIdx: index("software_licenses_type_idx").on(table.licenseType),
+  activeIdx: index("software_licenses_active_idx").on(table.isActive),
+  expiresIdx: index("software_licenses_expires_idx").on(table.expiresAt),
+}));
+
+// Software Subscriptions - Recurring subscription management
+export const softwareSubscriptions = pgTable("software_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  licenseId: varchar("license_id").notNull().references(() => softwareLicenses.id, { onDelete: "cascade" }),
+  subscriptionPlan: varchar("subscription_plan").notNull(), // 'monthly', 'quarterly', 'annual', 'biennial'
+  billingCycle: varchar("billing_cycle").notNull(), // 'monthly', 'yearly'
+  pricePerCycle: decimal("price_per_cycle", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").default('SAR'),
+  // Subscription lifecycle
+  status: text("status").notNull().default('active'), // 'active', 'cancelled', 'expired', 'suspended', 'grace_period'
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  currentPeriodStart: timestamp("current_period_start").notNull(),
+  currentPeriodEnd: timestamp("current_period_end").notNull(),
+  nextBillingDate: timestamp("next_billing_date"),
+  cancelledAt: timestamp("cancelled_at"),
+  cancellationReason: text("cancellation_reason"),
+  // Auto-renewal
+  autoRenew: boolean("auto_renew").default(true),
+  renewalCount: integer("renewal_count").default(0),
+  // Upgrade/downgrade
+  previousPlan: varchar("previous_plan"),
+  upgradedAt: timestamp("upgraded_at"),
+  downgradedAt: timestamp("downgraded_at"),
+  // Grace period (for failed payments)
+  gracePeriodEndsAt: timestamp("grace_period_ends_at"),
+  // Payment tracking (references to payment system)
+  lastPaymentAt: timestamp("last_payment_at"),
+  lastPaymentAmount: decimal("last_payment_amount", { precision: 10, scale: 2 }),
+  nextPaymentAmount: decimal("next_payment_amount", { precision: 10, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  licenseIdIdx: index("software_subscriptions_license_id_idx").on(table.licenseId),
+  statusIdx: index("software_subscriptions_status_idx").on(table.status),
+  billingDateIdx: index("software_subscriptions_billing_date_idx").on(table.nextBillingDate),
+}));
+
+// Software Activations - Track device/instance activations
+export const softwareActivations = pgTable("software_activations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  licenseId: varchar("license_id").notNull().references(() => softwareLicenses.id, { onDelete: "cascade" }),
+  // Device/instance identification
+  deviceId: varchar("device_id").notNull(), // Unique device identifier (hardware ID, MAC, etc.)
+  deviceName: varchar("device_name"), // User-friendly device name
+  deviceType: varchar("device_type"), // 'desktop', 'laptop', 'server', 'mobile', 'vm'
+  osInfo: jsonb("os_info"), // { platform: 'windows', version: '11', arch: 'x64' }
+  // Activation details
+  activatedBy: varchar("activated_by").notNull().references(() => users.id),
+  activatedAt: timestamp("activated_at").defaultNow().notNull(),
+  isActive: boolean("is_active").default(true),
+  // Usage tracking
+  lastUsedAt: timestamp("last_used_at"),
+  usageCount: integer("usage_count").default(0),
+  // Network info (for security)
+  ipAddress: varchar("ip_address"),
+  location: jsonb("location"), // { country, city, coordinates }
+  // Deactivation
+  deactivatedAt: timestamp("deactivated_at"),
+  deactivatedBy: varchar("deactivated_by").references(() => users.id),
+  deactivationReason: text("deactivation_reason"), // 'user_requested', 'device_replaced', 'license_expired', 'violation'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  licenseIdIdx: index("software_activations_license_id_idx").on(table.licenseId),
+  deviceIdIdx: index("software_activations_device_id_idx").on(table.deviceId),
+  activeIdx: index("software_activations_active_idx").on(table.isActive),
+  uniqueLicenseDevice: uniqueIndex("unique_license_device").on(table.licenseId, table.deviceId),
+}));
+
 // Quote Requests - Client requests for quotes from consultants' service packages
 export const quoteRequests = pgTable("quote_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2385,3 +2688,198 @@ export const insertSavedSearchSchema = createInsertSchema(savedSearches).omit({
 });
 export type InsertSavedSearch = z.infer<typeof insertSavedSearchSchema>;
 export type SavedSearch = typeof savedSearches.$inferSelect;
+
+// ============================================================================
+// DELIVERY & FULFILLMENT SYSTEM - ZOD VALIDATORS AND TYPES
+// ============================================================================
+
+// 7.1 FOR SERVICES - FILE VERSIONING
+
+// Deliverable Versions
+export const insertDeliverableVersionSchema = createInsertSchema(deliverableVersions).omit({
+  id: true,
+  createdAt: true,
+  uploadedAt: true,
+}).extend({
+  fileUrl: z.string().min(1, "File URL is required"),
+  fileName: z.string().min(1, "File name is required"),
+  versionNumber: z.number().int().positive("Version number must be positive"),
+  versionNotes: z.string().optional(),
+});
+export type InsertDeliverableVersion = z.infer<typeof insertDeliverableVersionSchema>;
+export type DeliverableVersion = typeof deliverableVersions.$inferSelect;
+
+// Deliverable Downloads
+export const insertDeliverableDownloadSchema = createInsertSchema(deliverableDownloads).omit({
+  id: true,
+  downloadedAt: true,
+});
+export type InsertDeliverableDownload = z.infer<typeof insertDeliverableDownloadSchema>;
+export type DeliverableDownload = typeof deliverableDownloads.$inferSelect;
+
+// 7.2 FOR HARDWARE - SHIPPING & QUALITY
+
+// Hardware Shipments
+export const shipmentStatusEnum = z.enum([
+  'order_confirmed',
+  'preparing_shipment',
+  'shipped',
+  'in_transit',
+  'out_for_delivery',
+  'delivered',
+  'installed',
+  'failed_delivery'
+]);
+export const SHIPMENT_STATUSES = shipmentStatusEnum.options;
+export type ShipmentStatus = z.infer<typeof shipmentStatusEnum>;
+
+export const shippingAddressSchema = z.object({
+  street: z.string().min(1, "Street address is required"),
+  city: z.string().min(1, "City is required"),
+  state: z.string().optional(),
+  country: z.string().min(1, "Country is required"),
+  postalCode: z.string().min(1, "Postal code is required"),
+  phone: z.string().min(1, "Contact phone is required"),
+  contactName: z.string().min(1, "Contact name is required"),
+});
+export type ShippingAddress = z.infer<typeof shippingAddressSchema>;
+
+export const insertHardwareShipmentSchema = createInsertSchema(hardwareShipments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  shippingAddress: shippingAddressSchema,
+  status: shipmentStatusEnum.default('order_confirmed'),
+});
+export type InsertHardwareShipment = z.infer<typeof insertHardwareShipmentSchema>;
+export type HardwareShipment = typeof hardwareShipments.$inferSelect;
+
+// Quality Inspections
+export const inspectionStatusEnum = z.enum(['pending', 'pass', 'fail', 'conditional_pass']);
+export const inspectionTypeEnum = z.enum(['pre_shipment', 'upon_delivery', 'installation']);
+export const INSPECTION_STATUSES = inspectionStatusEnum.options;
+export const INSPECTION_TYPES = inspectionTypeEnum.options;
+
+export const checklistItemSchema = z.object({
+  item: z.string().min(1, "Checklist item is required"),
+  status: z.enum(['pass', 'fail']),
+  notes: z.string().optional(),
+});
+
+export const insertQualityInspectionSchema = createInsertSchema(qualityInspections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  inspectionDate: true,
+}).extend({
+  checklist: z.array(checklistItemSchema).min(1, "At least one checklist item required"),
+  overallStatus: inspectionStatusEnum.default('pending'),
+  inspectionType: inspectionTypeEnum,
+});
+export type InsertQualityInspection = z.infer<typeof insertQualityInspectionSchema>;
+export type QualityInspection = typeof qualityInspections.$inferSelect;
+
+// Returns and Replacements
+export const returnRequestTypeEnum = z.enum(['return', 'replacement', 'repair']);
+export const returnReasonEnum = z.enum(['defective', 'damaged', 'wrong_item', 'not_as_described', 'other']);
+export const returnStatusEnum = z.enum(['pending', 'approved', 'rejected', 'in_progress', 'completed', 'cancelled']);
+export const RETURN_REQUEST_TYPES = returnRequestTypeEnum.options;
+export const RETURN_REASONS = returnReasonEnum.options;
+export const RETURN_STATUSES = returnStatusEnum.options;
+
+export const insertReturnReplacementSchema = createInsertSchema(returnsReplacements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  requestType: returnRequestTypeEnum,
+  reason: returnReasonEnum,
+  description: z.string().min(10, "Please provide a detailed description"),
+  status: returnStatusEnum.default('pending'),
+});
+export type InsertReturnReplacement = z.infer<typeof insertReturnReplacementSchema>;
+export type ReturnReplacement = typeof returnsReplacements.$inferSelect;
+
+// Warranty Claims
+export const warrantyClaimStatusEnum = z.enum([
+  'submitted',
+  'under_review',
+  'approved',
+  'rejected',
+  'in_repair',
+  'completed',
+  'cancelled'
+]);
+export const warrantyIssueTypeEnum = z.enum(['hardware_failure', 'software_issue', 'performance', 'other']);
+export const WARRANTY_CLAIM_STATUSES = warrantyClaimStatusEnum.options;
+export const WARRANTY_ISSUE_TYPES = warrantyIssueTypeEnum.options;
+
+export const insertWarrantyClaimSchema = createInsertSchema(warrantyClaims).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  issueDescription: z.string().min(20, "Please provide a detailed issue description"),
+  issueType: warrantyIssueTypeEnum,
+  status: warrantyClaimStatusEnum.default('submitted'),
+});
+export type InsertWarrantyClaim = z.infer<typeof insertWarrantyClaimSchema>;
+export type WarrantyClaim = typeof warrantyClaims.$inferSelect;
+
+// 7.3 FOR SOFTWARE - LICENSE & SUBSCRIPTION
+
+// Software Licenses
+export const licenseTypeEnum = z.enum(['perpetual', 'subscription', 'trial', 'node_locked', 'floating']);
+export const supportLevelEnum = z.enum(['basic', 'standard', 'premium', 'enterprise']);
+export const LICENSE_TYPES = licenseTypeEnum.options;
+export const SUPPORT_LEVELS = supportLevelEnum.options;
+
+export const insertSoftwareLicenseSchema = createInsertSchema(softwareLicenses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  issuedAt: true,
+}).extend({
+  licenseKey: z.string().min(1, "License key is required").optional(), // Auto-generated if not provided
+  licenseType: licenseTypeEnum,
+  productName: z.string().min(1, "Product name is required"),
+  maxActivations: z.number().int().min(-1, "Max activations must be -1 (unlimited) or positive"),
+});
+export type InsertSoftwareLicense = z.infer<typeof insertSoftwareLicenseSchema>;
+export type SoftwareLicense = typeof softwareLicenses.$inferSelect;
+
+// Software Subscriptions
+export const subscriptionStatusEnum = z.enum(['active', 'cancelled', 'expired', 'suspended', 'grace_period']);
+export const billingCycleEnum = z.enum(['monthly', 'quarterly', 'annual', 'biennial']);
+export const SUBSCRIPTION_STATUSES = subscriptionStatusEnum.options;
+export const BILLING_CYCLES = billingCycleEnum.options;
+
+export const insertSoftwareSubscriptionSchema = createInsertSchema(softwareSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  subscriptionPlan: z.string().min(1, "Subscription plan is required"),
+  billingCycle: billingCycleEnum,
+  pricePerCycle: z.number().positive("Price must be positive"),
+  status: subscriptionStatusEnum.default('active'),
+});
+export type InsertSoftwareSubscription = z.infer<typeof insertSoftwareSubscriptionSchema>;
+export type SoftwareSubscription = typeof softwareSubscriptions.$inferSelect;
+
+// Software Activations
+export const deviceTypeEnum = z.enum(['desktop', 'laptop', 'server', 'mobile', 'vm']);
+export const DEVICE_TYPES = deviceTypeEnum.options;
+
+export const insertSoftwareActivationSchema = createInsertSchema(softwareActivations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  activatedAt: true,
+}).extend({
+  deviceId: z.string().min(1, "Device ID is required"),
+  deviceType: deviceTypeEnum.optional(),
+});
+export type InsertSoftwareActivation = z.infer<typeof insertSoftwareActivationSchema>;
+export type SoftwareActivation = typeof softwareActivations.$inferSelect;

@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ProjectStatusBadge } from "@/components/ProjectStatusBadge";
 import { ProjectProgressBar } from "@/components/ProjectProgressBar";
 import { MilestoneCard } from "@/components/MilestoneCard";
-import { ArrowLeft, Upload, MessageSquare, Users, FileText } from "lucide-react";
+import { ProjectDeliveryTab } from "@/components/delivery/ProjectDeliveryTab";
+import { ArrowLeft, Upload, MessageSquare, Users, FileText, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -124,10 +125,14 @@ export default function ConsultantProjectDetailsPage() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
           <TabsTrigger value="milestones" data-testid="tab-milestones">Milestones</TabsTrigger>
           <TabsTrigger value="deliverables" data-testid="tab-deliverables">Deliverables</TabsTrigger>
+          <TabsTrigger value="delivery" data-testid="tab-delivery">
+            <Package className="w-4 h-4 mr-2" />
+            Delivery
+          </TabsTrigger>
           <TabsTrigger value="activity" data-testid="tab-activity">Activity</TabsTrigger>
         </TabsList>
 
@@ -274,6 +279,10 @@ export default function ConsultantProjectDetailsPage() {
               </Card>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="delivery" className="space-y-4">
+          <ProjectDeliveryTab projectId={id!} project={project} userRole="consultant" />
         </TabsContent>
 
         <TabsContent value="activity" className="space-y-4">
