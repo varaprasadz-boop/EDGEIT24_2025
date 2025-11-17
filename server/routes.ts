@@ -7,9 +7,9 @@ import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { wsManager } from "./websocket";
 import { z } from "zod";
 import { registerPaymentRoutes } from "./routes/payments";
-import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema, insertTeamMemberSchema, insertBidSchema } from "@shared/schema";
+import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertReviewResponseSchema, insertReviewReportSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema, insertTeamMemberSchema, insertBidSchema } from "@shared/schema";
 import { db } from "./db";
-import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, teamMembers, contentPages, footerLinks, homePageSections, messageFiles, conversations, messages, meetingLinks, reviews, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema, insertCategorySchema } from "@shared/schema";
+import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, teamMembers, contentPages, footerLinks, homePageSections, messageFiles, conversations, messages, meetingLinks, reviews, reviewResponses, reviewReports, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema, insertCategorySchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
@@ -4393,14 +4393,328 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/reviews/:id/helpful', async (req: any, res) => {
+  app.post('/api/reviews/:id/helpful', isAuthenticated, async (req: any, res) => {
     try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
       const { id } = req.params;
-      await storage.markReviewHelpful(id);
+      await storage.markReviewHelpful(id, userId);
       res.status(204).send();
     } catch (error) {
       console.error("Error marking review helpful:", error);
       res.status(500).json({ message: "Failed to mark review helpful" });
+    }
+  });
+
+  app.delete('/api/reviews/:id/helpful', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const { id } = req.params;
+      await storage.unmarkReviewHelpful(id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error unmarking review helpful:", error);
+      res.status(500).json({ message: "Failed to unmark review helpful" });
+    }
+  });
+
+  // Get single review by ID
+  app.get('/api/reviews/detail/:id', async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const review = await storage.getReviewById(id);
+      
+      if (!review) {
+        return res.status(404).json({ message: "Review not found" });
+      }
+      
+      res.json(review);
+    } catch (error) {
+      console.error("Error fetching review:", error);
+      res.status(500).json({ message: "Failed to fetch review" });
+    }
+  });
+
+  // Update review (within 48 hours)
+  app.put('/api/reviews/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const { id } = req.params;
+      
+      // Validate update data
+      const validation = insertReviewSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid review data", errors: validation.error });
+      }
+      
+      // updateReview now enforces the 48-hour window and reviewer check internally
+      const updated = await storage.updateReview(id, userId, validation.data);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating review:", error);
+      // Error message from storage layer will be descriptive
+      res.status(403).json({ message: error instanceof Error ? error.message : "Failed to update review" });
+    }
+  });
+
+  // Delete review
+  app.delete('/api/reviews/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const { id } = req.params;
+      const review = await storage.getReviewById(id);
+      
+      if (!review) {
+        return res.status(404).json({ message: "Review not found" });
+      }
+      
+      // Only reviewer or admin can delete
+      if (review.reviewerId !== userId && !req.user?.isAdmin) {
+        return res.status(403).json({ message: "Cannot delete this review" });
+      }
+      
+      await storage.deleteReview(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting review:", error);
+      res.status(500).json({ message: "Failed to delete review" });
+    }
+  });
+
+  // Get reviews by project
+  app.get('/api/reviews/project/:projectId', async (req: any, res) => {
+    try {
+      const { projectId } = req.params;
+      const reviews = await storage.getReviewsByProject(projectId);
+      res.json(reviews);
+    } catch (error) {
+      console.error("Error fetching project reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  // Get client reviews (received and given)
+  app.get('/api/reviews/client/:clientId', async (req: any, res) => {
+    try {
+      const { clientId } = req.params;
+      const { type } = req.query;
+      
+      let reviews;
+      if (type === 'received') {
+        reviews = await storage.getClientReviewsReceived(clientId);
+      } else if (type === 'given') {
+        reviews = await storage.getClientReviewsGiven(clientId);
+      } else {
+        // Get both
+        const [received, given] = await Promise.all([
+          storage.getClientReviewsReceived(clientId),
+          storage.getClientReviewsGiven(clientId)
+        ]);
+        reviews = { received, given };
+      }
+      
+      res.json(reviews);
+    } catch (error) {
+      console.error("Error fetching client reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  // Review Response endpoints
+  app.post('/api/reviews/:id/response', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const { id: reviewId } = req.params;
+      const review = await storage.getReviewById(reviewId);
+      
+      if (!review) {
+        return res.status(404).json({ message: "Review not found" });
+      }
+      
+      // Only reviewee can respond
+      if (review.revieweeId !== userId) {
+        return res.status(403).json({ message: "Only the reviewee can respond to this review" });
+      }
+      
+      // Check if response already exists
+      const existingResponse = await storage.getReviewResponse(reviewId);
+      if (existingResponse) {
+        return res.status(400).json({ message: "Response already exists for this review" });
+      }
+      
+      // Validate response data
+      const validation = insertReviewResponseSchema.safeParse({
+        reviewId,
+        responderId: userId,
+        responseText: req.body.responseText
+      });
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid response data", errors: validation.error });
+      }
+      
+      const response = await storage.createReviewResponse(validation.data);
+      res.status(201).json(response);
+    } catch (error) {
+      console.error("Error creating review response:", error);
+      res.status(500).json({ message: "Failed to create response" });
+    }
+  });
+
+  app.get('/api/reviews/:id/response', async (req: any, res) => {
+    try {
+      const { id: reviewId } = req.params;
+      const response = await storage.getReviewResponse(reviewId);
+      
+      if (!response) {
+        return res.status(404).json({ message: "Response not found" });
+      }
+      
+      res.json(response);
+    } catch (error) {
+      console.error("Error fetching review response:", error);
+      res.status(500).json({ message: "Failed to fetch response" });
+    }
+  });
+
+  app.put('/api/reviews/:id/response', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const { id: reviewId } = req.params;
+      const response = await storage.getReviewResponse(reviewId);
+      
+      if (!response) {
+        return res.status(404).json({ message: "Response not found" });
+      }
+      
+      // Only responder can update
+      if (response.responderId !== userId) {
+        return res.status(403).json({ message: "Cannot update this response" });
+      }
+      
+      const updated = await storage.updateReviewResponse(response.id, req.body.responseText);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating review response:", error);
+      res.status(500).json({ message: "Failed to update response" });
+    }
+  });
+
+  // Review Report endpoints
+  app.post('/api/reviews/:id/report', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const { id: reviewId } = req.params;
+      const review = await storage.getReviewById(reviewId);
+      
+      if (!review) {
+        return res.status(404).json({ message: "Review not found" });
+      }
+      
+      // Cannot report your own review
+      if (review.reviewerId === userId) {
+        return res.status(400).json({ message: "Cannot report your own review" });
+      }
+      
+      // Validate report data
+      const validation = insertReviewReportSchema.safeParse({
+        reviewId,
+        reporterId: userId,
+        reason: req.body.reason,
+        description: req.body.description,
+        status: 'pending'
+      });
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid report data", errors: validation.error });
+      }
+      
+      const report = await storage.createReviewReport(validation.data);
+      res.status(201).json(report);
+    } catch (error) {
+      console.error("Error creating review report:", error);
+      res.status(500).json({ message: "Failed to create report" });
+    }
+  });
+
+  // Admin review report endpoints
+  app.get('/api/admin/review-reports', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { status, reviewId } = req.query;
+      const reports = await storage.getReviewReports({
+        status: status as string,
+        reviewId: reviewId as string
+      });
+      
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching review reports:", error);
+      res.status(500).json({ message: "Failed to fetch reports" });
+    }
+  });
+
+  app.get('/api/admin/review-reports/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const report = await storage.getReviewReportById(id);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+      
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching review report:", error);
+      res.status(500).json({ message: "Failed to fetch report" });
+    }
+  });
+
+  app.put('/api/admin/review-reports/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const { id } = req.params;
+      const { status, adminNotes } = req.body;
+      
+      if (!['reviewed', 'dismissed', 'resolved'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      const updated = await storage.resolveReviewReport(id, status, userId, adminNotes);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error resolving review report:", error);
+      res.status(500).json({ message: "Failed to resolve report" });
     }
   });
 

@@ -38,6 +38,8 @@ import {
   paymentPreferences,
   payments,
   reviews,
+  reviewResponses,
+  reviewReports,
   kycDocuments,
   educationRecords,
   bankInformation,
@@ -137,6 +139,10 @@ import {
   type InsertVendorCategoryRequest,
   type Review,
   type InsertReview,
+  type ReviewResponse,
+  type InsertReviewResponse,
+  type ReviewReport,
+  type InsertReviewReport,
   type KycDocument,
   type InsertKycDocument,
   type EducationRecord,
@@ -312,10 +318,30 @@ export interface IStorage {
   deletePricingTemplate(id: string): Promise<void>;
   
   // Review operations
-  getReviews(consultantId: string, options?: { limit?: number; offset?: number }): Promise<Review[]>;
+  getReviews(consultantId: string, options?: { limit?: number; offset?: number; rating?: number; isPublic?: boolean }): Promise<Review[]>;
   createReview(review: InsertReview): Promise<Review>;
-  markReviewHelpful(reviewId: string): Promise<void>;
+  updateReview(id: string, userId: string, data: Partial<InsertReview>): Promise<Review>;
+  deleteReview(id: string): Promise<void>;
+  getReviewById(id: string): Promise<Review | undefined>;
+  getReviewsByProject(projectId: string): Promise<Review[]>;
+  getClientReviewsReceived(clientId: string): Promise<Review[]>;
+  getClientReviewsGiven(clientId: string): Promise<Review[]>;
+  canEditReview(reviewId: string, userId: string): Promise<boolean>;
+  markReviewHelpful(reviewId: string, userId: string): Promise<void>;
+  unmarkReviewHelpful(reviewId: string, userId: string): Promise<void>;
   getReviewStats(consultantId: string): Promise<{ averageRating: number; totalReviews: number; ratingBreakdown: Record<number, number> }>;
+  
+  // Review Response operations
+  createReviewResponse(response: InsertReviewResponse): Promise<ReviewResponse>;
+  getReviewResponse(reviewId: string): Promise<ReviewResponse | undefined>;
+  updateReviewResponse(id: string, responseText: string): Promise<ReviewResponse>;
+  deleteReviewResponse(id: string): Promise<void>;
+  
+  // Review Report operations
+  createReviewReport(report: InsertReviewReport): Promise<ReviewReport>;
+  getReviewReports(filters?: { status?: string; reviewId?: string }): Promise<ReviewReport[]>;
+  getReviewReportById(id: string): Promise<ReviewReport | undefined>;
+  resolveReviewReport(id: string, status: string, reviewedBy: string, adminNotes?: string): Promise<ReviewReport>;
   
   // Project operations
   getClientProjects(clientId: string, options?: { limit?: number }): Promise<any[]>;
@@ -1548,44 +1574,277 @@ export class DatabaseStorage implements IStorage {
 
   async createReview(review: InsertReview): Promise<Review> {
     return await db.transaction(async (tx) => {
-      // Create the review
+      // Calculate 48-hour edit window
+      const now = new Date();
+      const canEditUntil = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+      
+      // Create the review with edit window
       const [created] = await tx
         .insert(reviews)
-        .values(review)
+        .values({
+          ...review,
+          canEditUntil,
+          updatedAt: now,
+        })
         .returning();
 
-      // Update consultant profile stats
-      const consultant = await tx
-        .select()
-        .from(consultantProfiles)
-        .where(eq(consultantProfiles.userId, review.revieweeId))
-        .limit(1);
+      // Update consultant profile stats if reviewType is for consultant
+      if (review.reviewType === 'for_consultant') {
+        const consultant = await tx
+          .select()
+          .from(consultantProfiles)
+          .where(eq(consultantProfiles.userId, review.revieweeId))
+          .limit(1);
 
-      if (consultant.length > 0) {
-        const currentTotalReviews = consultant[0].totalReviews || 0;
-        const currentRating = parseFloat(consultant[0].rating || '0');
-        const newTotalReviews = currentTotalReviews + 1;
-        const newRating = ((currentRating * currentTotalReviews) + review.rating) / newTotalReviews;
+        if (consultant.length > 0) {
+          const currentTotalReviews = consultant[0].totalReviews || 0;
+          const currentRating = parseFloat(consultant[0].rating || '0');
+          const newTotalReviews = currentTotalReviews + 1;
+          const newRating = ((currentRating * currentTotalReviews) + review.rating) / newTotalReviews;
 
-        await tx
-          .update(consultantProfiles)
-          .set({
-            rating: newRating.toFixed(2),
-            totalReviews: newTotalReviews,
-            updatedAt: new Date()
-          })
-          .where(eq(consultantProfiles.userId, review.revieweeId));
+          await tx
+            .update(consultantProfiles)
+            .set({
+              rating: newRating.toFixed(2),
+              totalReviews: newTotalReviews,
+              updatedAt: new Date()
+            })
+            .where(eq(consultantProfiles.userId, review.revieweeId));
+        }
       }
 
       return created;
     });
   }
 
-  async markReviewHelpful(reviewId: string): Promise<void> {
+  async updateReview(id: string, userId: string, data: Partial<InsertReview>): Promise<Review> {
+    // First check if user can edit this review
+    const canEdit = await this.canEditReview(id, userId);
+    if (!canEdit) {
+      throw new Error('Cannot edit this review (48-hour window expired or not your review)');
+    }
+    
+    const [updated] = await db
+      .update(reviews)
+      .set({
+        ...data,
+        editedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(reviews.id, id))
+      .returning();
+    
+    if (!updated) {
+      throw new Error('Review not found');
+    }
+    
+    return updated;
+  }
+
+  async deleteReview(id: string): Promise<void> {
+    await db.delete(reviews).where(eq(reviews.id, id));
+  }
+
+  async getReviewById(id: string): Promise<Review | undefined> {
+    const [review] = await db
+      .select()
+      .from(reviews)
+      .where(eq(reviews.id, id))
+      .limit(1);
+    
+    return review;
+  }
+
+  async getReviewsByProject(projectId: string): Promise<Review[]> {
+    return await db
+      .select()
+      .from(reviews)
+      .where(eq(reviews.projectId, projectId))
+      .orderBy(desc(reviews.createdAt));
+  }
+
+  async getClientReviewsReceived(clientId: string): Promise<Review[]> {
+    return await db
+      .select()
+      .from(reviews)
+      .where(
+        and(
+          eq(reviews.revieweeId, clientId),
+          eq(reviews.reviewType, 'for_client')
+        )
+      )
+      .orderBy(desc(reviews.createdAt));
+  }
+
+  async getClientReviewsGiven(clientId: string): Promise<Review[]> {
+    return await db
+      .select()
+      .from(reviews)
+      .where(eq(reviews.reviewerId, clientId))
+      .orderBy(desc(reviews.createdAt));
+  }
+
+  async canEditReview(reviewId: string, userId: string): Promise<boolean> {
+    const [review] = await db
+      .select()
+      .from(reviews)
+      .where(eq(reviews.id, reviewId))
+      .limit(1);
+    
+    if (!review) return false;
+    if (review.reviewerId !== userId) return false;
+    if (!review.canEditUntil) return false;
+    
+    return new Date() < new Date(review.canEditUntil);
+  }
+
+  async markReviewHelpful(reviewId: string, userId: string): Promise<void> {
+    const [review] = await db
+      .select()
+      .from(reviews)
+      .where(eq(reviews.id, reviewId))
+      .limit(1);
+    
+    if (!review) throw new Error('Review not found');
+    
+    const helpfulBy = review.helpfulBy || [];
+    if (helpfulBy.includes(userId)) {
+      return; // Already marked helpful by this user
+    }
+    
     await db
       .update(reviews)
-      .set({ helpful: sql`${reviews.helpful} + 1` })
+      .set({ 
+        helpful: sql`${reviews.helpful} + 1`,
+        helpfulBy: [...helpfulBy, userId]
+      })
       .where(eq(reviews.id, reviewId));
+  }
+
+  async unmarkReviewHelpful(reviewId: string, userId: string): Promise<void> {
+    const [review] = await db
+      .select()
+      .from(reviews)
+      .where(eq(reviews.id, reviewId))
+      .limit(1);
+    
+    if (!review) throw new Error('Review not found');
+    
+    const helpfulBy = review.helpfulBy || [];
+    if (!helpfulBy.includes(userId)) {
+      return; // Not marked helpful by this user
+    }
+    
+    await db
+      .update(reviews)
+      .set({ 
+        helpful: sql`${reviews.helpful} - 1`,
+        helpfulBy: helpfulBy.filter((id: string) => id !== userId)
+      })
+      .where(eq(reviews.id, reviewId));
+  }
+
+  // Review Response operations
+  async createReviewResponse(response: InsertReviewResponse): Promise<ReviewResponse> {
+    const [created] = await db
+      .insert(reviewResponses)
+      .values(response)
+      .returning();
+    
+    return created;
+  }
+
+  async getReviewResponse(reviewId: string): Promise<ReviewResponse | undefined> {
+    const [response] = await db
+      .select()
+      .from(reviewResponses)
+      .where(eq(reviewResponses.reviewId, reviewId))
+      .limit(1);
+    
+    return response;
+  }
+
+  async updateReviewResponse(id: string, responseText: string): Promise<ReviewResponse> {
+    const [updated] = await db
+      .update(reviewResponses)
+      .set({ 
+        responseText,
+        updatedAt: new Date()
+      })
+      .where(eq(reviewResponses.id, id))
+      .returning();
+    
+    if (!updated) {
+      throw new Error('Review response not found');
+    }
+    
+    return updated;
+  }
+
+  async deleteReviewResponse(id: string): Promise<void> {
+    await db.delete(reviewResponses).where(eq(reviewResponses.id, id));
+  }
+
+  // Review Report operations
+  async createReviewReport(report: InsertReviewReport): Promise<ReviewReport> {
+    const [created] = await db
+      .insert(reviewReports)
+      .values(report)
+      .returning();
+    
+    return created;
+  }
+
+  async getReviewReports(filters?: { status?: string; reviewId?: string }): Promise<ReviewReport[]> {
+    let query = db.select().from(reviewReports);
+    
+    const conditions = [];
+    if (filters?.status) {
+      conditions.push(eq(reviewReports.status, filters.status));
+    }
+    if (filters?.reviewId) {
+      conditions.push(eq(reviewReports.reviewId, filters.reviewId));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    return await query.orderBy(desc(reviewReports.createdAt));
+  }
+
+  async getReviewReportById(id: string): Promise<ReviewReport | undefined> {
+    const [report] = await db
+      .select()
+      .from(reviewReports)
+      .where(eq(reviewReports.id, id))
+      .limit(1);
+    
+    return report;
+  }
+
+  async resolveReviewReport(
+    id: string, 
+    status: string, 
+    reviewedBy: string, 
+    adminNotes?: string
+  ): Promise<ReviewReport> {
+    const [updated] = await db
+      .update(reviewReports)
+      .set({
+        status,
+        reviewedBy,
+        reviewedAt: new Date(),
+        adminNotes: adminNotes || null
+      })
+      .where(eq(reviewReports.id, id))
+      .returning();
+    
+    if (!updated) {
+      throw new Error('Review report not found');
+    }
+    
+    return updated;
   }
 
   async getReviewStats(consultantId: string): Promise<{ averageRating: number; totalReviews: number; ratingBreakdown: Record<number, number> }> {

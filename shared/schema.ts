@@ -1052,18 +1052,90 @@ export const payments = pgTable("payments", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Reviews - Feedback after project completion
+// Reviews - Feedback after project completion (Two-way: Consultant ↔ Client)
 export const reviews = pgTable("reviews", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id),
   reviewerId: varchar("reviewer_id").notNull().references(() => users.id),
   revieweeId: varchar("reviewee_id").notNull().references(() => users.id),
+  reviewType: text("review_type").notNull(), // 'for_consultant' | 'for_client'
+  
+  // Overall rating
   rating: integer("rating").notNull(), // 1-5 stars
   comment: text("comment"),
+  
+  // Detailed ratings for consultants (vendor)
+  qualityRating: integer("quality_rating"), // 1-5 stars
+  communicationRating: integer("communication_rating"), // 1-5 stars
+  deadlineRating: integer("deadline_rating"), // 1-5 stars
+  professionalismRating: integer("professionalism_rating"), // 1-5 stars
+  valueRating: integer("value_rating"), // 1-5 stars
+  
+  // Detailed ratings for clients
+  communicationClarityRating: integer("communication_clarity_rating"), // 1-5 stars
+  requirementsClarityRating: integer("requirements_clarity_rating"), // 1-5 stars
+  paymentPromptnessRating: integer("payment_promptness_rating"), // 1-5 stars
+  clientProfessionalismRating: integer("client_professionalism_rating"), // 1-5 stars
+  
+  // Additional fields
+  wouldWorkAgain: boolean("would_work_again").default(true), // Would work with this person again?
+  isPublic: boolean("is_public").default(true).notNull(), // Public or private review
+  isVerified: boolean("is_verified").default(false).notNull(), // Verified project completion (admin sets to true)
+  attachments: jsonb("attachments"), // Array of file URLs/metadata
+  
+  // Legacy field for backward compatibility
   categories: jsonb("categories"), // { communication: 5, quality: 4, timeliness: 5 }
+  
+  // Engagement metrics
   helpful: integer("helpful").default(0), // How many found this review helpful
+  helpfulBy: text("helpful_by").array().default(sql`ARRAY[]::text[]`), // User IDs who marked helpful
+  
+  // Edit tracking
+  editedAt: timestamp("edited_at"),
+  canEditUntil: timestamp("can_edit_until"), // 48 hours after creation
+  
+  // Timestamps
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  projectIdIdx: index("reviews_project_id_idx").on(table.projectId),
+  reviewerIdIdx: index("reviews_reviewer_id_idx").on(table.reviewerId),
+  revieweeIdIdx: index("reviews_reviewee_id_idx").on(table.revieweeId),
+  reviewTypeIdx: index("reviews_review_type_idx").on(table.reviewType),
+  isPublicIdx: index("reviews_is_public_idx").on(table.isPublic),
+  ratingIdx: index("reviews_rating_idx").on(table.rating),
+}));
+
+// Review Responses - One response per review from reviewee
+export const reviewResponses = pgTable("review_responses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reviewId: varchar("review_id").notNull().unique().references(() => reviews.id, { onDelete: "cascade" }),
+  responderId: varchar("responder_id").notNull().references(() => users.id),
+  responseText: text("response_text").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  reviewIdIdx: index("review_responses_review_id_idx").on(table.reviewId),
+  responderIdIdx: index("review_responses_responder_id_idx").on(table.responderId),
+}));
+
+// Review Reports - Flagged inappropriate reviews
+export const reviewReports = pgTable("review_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reviewId: varchar("review_id").notNull().references(() => reviews.id, { onDelete: "cascade" }),
+  reporterId: varchar("reporter_id").notNull().references(() => users.id),
+  reason: text("reason").notNull(), // 'spam', 'inappropriate', 'fake', 'offensive', 'other'
+  description: text("description"),
+  status: text("status").notNull().default('pending'), // 'pending', 'reviewed', 'dismissed', 'resolved'
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  adminNotes: text("admin_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  reviewIdIdx: index("review_reports_review_id_idx").on(table.reviewId),
+  reporterIdIdx: index("review_reports_reporter_id_idx").on(table.reporterId),
+  statusIdx: index("review_reports_status_idx").on(table.status),
+}));
 
 // Notifications - System and user notifications
 // Supports messaging notifications via type='new_message', 'message_reply', 'meeting_scheduled', etc.
@@ -2005,13 +2077,51 @@ export type Payment = typeof payments.$inferSelect;
 export const insertReviewSchema = createInsertSchema(reviews).omit({
   id: true,
   helpful: true,
+  helpfulBy: true,
+  editedAt: true,
+  canEditUntil: true,
   createdAt: true,
+  updatedAt: true,
 }).extend({
   rating: z.number().min(1).max(5, "Rating must be between 1 and 5"),
+  reviewType: z.enum(['for_consultant', 'for_client']),
+  qualityRating: z.number().min(1).max(5).optional(),
+  communicationRating: z.number().min(1).max(5).optional(),
+  deadlineRating: z.number().min(1).max(5).optional(),
+  professionalismRating: z.number().min(1).max(5).optional(),
+  valueRating: z.number().min(1).max(5).optional(),
+  communicationClarityRating: z.number().min(1).max(5).optional(),
+  requirementsClarityRating: z.number().min(1).max(5).optional(),
+  paymentPromptnessRating: z.number().min(1).max(5).optional(),
+  clientProfessionalismRating: z.number().min(1).max(5).optional(),
 });
 
 export type InsertReview = z.infer<typeof insertReviewSchema>;
 export type Review = typeof reviews.$inferSelect;
+
+// Review Responses
+export const insertReviewResponseSchema = createInsertSchema(reviewResponses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertReviewResponse = z.infer<typeof insertReviewResponseSchema>;
+export type ReviewResponse = typeof reviewResponses.$inferSelect;
+
+// Review Reports
+export const insertReviewReportSchema = createInsertSchema(reviewReports).omit({
+  id: true,
+  reviewedBy: true,
+  reviewedAt: true,
+  adminNotes: true,
+  createdAt: true,
+}).extend({
+  reason: z.enum(['spam', 'inappropriate', 'fake', 'offensive', 'other']),
+});
+
+export type InsertReviewReport = z.infer<typeof insertReviewReportSchema>;
+export type ReviewReport = typeof reviewReports.$inferSelect;
 
 // Notifications
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
