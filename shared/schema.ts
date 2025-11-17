@@ -1178,6 +1178,121 @@ export const verificationBadgeEnum = z.enum(['verified', 'premium', 'expert']);
 export const VERIFICATION_BADGES = verificationBadgeEnum.options;
 export type VerificationBadge = z.infer<typeof verificationBadgeEnum>;
 
+// Custom fields schema for dynamic category configuration with conditional validation
+const baseCustomFieldSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  nameAr: z.string().optional(),
+  type: z.enum(['text', 'number', 'select', 'multiselect', 'date', 'boolean', 'textarea', 'file']),
+  required: z.boolean().default(false),
+  placeholder: z.string().optional(),
+  placeholderAr: z.string().optional(),
+  helpText: z.string().optional(),
+  helpTextAr: z.string().optional(),
+  displayOrder: z.number().optional(),
+});
+
+export const customFieldSchema = z.discriminatedUnion("type", [
+  // Select/Multiselect - requires options
+  baseCustomFieldSchema.extend({
+    type: z.literal('select'),
+    options: z.array(z.object({
+      value: z.string(),
+      label: z.string(),
+      labelAr: z.string().optional(),
+    })).min(1, "Select field must have at least one option"),
+    validation: z.object({
+      message: z.string().optional(),
+    }).optional(),
+  }),
+  baseCustomFieldSchema.extend({
+    type: z.literal('multiselect'),
+    options: z.array(z.object({
+      value: z.string(),
+      label: z.string(),
+      labelAr: z.string().optional(),
+    })).min(1, "Multiselect field must have at least one option"),
+    validation: z.object({
+      min: z.number().optional(),
+      max: z.number().optional(),
+      message: z.string().optional(),
+    }).optional(),
+  }),
+  // Text/Textarea - allows pattern validation
+  baseCustomFieldSchema.extend({
+    type: z.literal('text'),
+    options: z.undefined(),
+    validation: z.object({
+      min: z.number().optional(),
+      max: z.number().optional(),
+      pattern: z.string().optional(),
+      message: z.string().optional(),
+    }).optional(),
+  }),
+  baseCustomFieldSchema.extend({
+    type: z.literal('textarea'),
+    options: z.undefined(),
+    validation: z.object({
+      min: z.number().optional(),
+      max: z.number().optional(),
+      message: z.string().optional(),
+    }).optional(),
+  }),
+  // Number - allows min/max validation
+  baseCustomFieldSchema.extend({
+    type: z.literal('number'),
+    options: z.undefined(),
+    validation: z.object({
+      min: z.number().optional(),
+      max: z.number().optional(),
+      message: z.string().optional(),
+    }).optional(),
+  }),
+  // Date - allows min/max date validation
+  baseCustomFieldSchema.extend({
+    type: z.literal('date'),
+    options: z.undefined(),
+    validation: z.object({
+      min: z.string().optional(), // ISO date string
+      max: z.string().optional(), // ISO date string
+      message: z.string().optional(),
+    }).optional(),
+  }),
+  // Boolean - no special validation
+  baseCustomFieldSchema.extend({
+    type: z.literal('boolean'),
+    options: z.undefined(),
+    validation: z.object({
+      message: z.string().optional(),
+    }).optional(),
+  }),
+  // File - allows file type and size validation
+  baseCustomFieldSchema.extend({
+    type: z.literal('file'),
+    options: z.undefined(),
+    validation: z.object({
+      maxSize: z.number().optional(), // in bytes
+      allowedTypes: z.array(z.string()).optional(), // MIME types
+      message: z.string().optional(),
+    }).optional(),
+  }),
+]);
+
+export const deliveryOptionsSchema = z.object({
+  methods: z.array(z.string()).optional(),
+  estimatedDays: z.record(z.string()).optional(),
+  shippingFee: z.number().optional(),
+  freeShippingThreshold: z.number().optional(),
+});
+
+export const warrantyConfigSchema = z.object({
+  required: z.boolean().optional(),
+  defaultDuration: z.string().optional(),
+  options: z.array(z.string()).optional(),
+  terms: z.string().optional(),
+  termsAr: z.string().optional(),
+});
+
 export const insertCategorySchema = createInsertSchema(categories).omit({
   id: true,
   createdAt: true,
@@ -1186,10 +1301,17 @@ export const insertCategorySchema = createInsertSchema(categories).omit({
   level: z.number().min(0).max(2).default(0), // Enforce 3-level hierarchy (0, 1, 2)
   categoryType: categoryTypeEnum.optional(),
   requiresApproval: z.boolean().optional(),
+  customFields: z.array(customFieldSchema).optional(),
+  deliveryOptions: deliveryOptionsSchema.optional(),
+  warrantyConfig: warrantyConfigSchema.optional(),
+  complianceRequirements: z.array(z.string().min(1, "Compliance requirement cannot be empty")).optional(),
 });
 
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Category = typeof categories.$inferSelect;
+export type CustomField = z.infer<typeof customFieldSchema>;
+export type DeliveryOptions = z.infer<typeof deliveryOptionsSchema>;
+export type WarrantyConfig = z.infer<typeof warrantyConfigSchema>;
 
 // Jobs
 export const insertJobSchema = createInsertSchema(jobs).omit({

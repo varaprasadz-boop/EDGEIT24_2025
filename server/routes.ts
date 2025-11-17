@@ -8,7 +8,7 @@ import { wsManager } from "./websocket";
 import { z } from "zod";
 import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema, insertTeamMemberSchema } from "@shared/schema";
 import { db } from "./db";
-import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, teamMembers, contentPages, footerLinks, homePageSections, messageFiles, conversations, messages, meetingLinks, reviews, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema } from "@shared/schema";
+import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, teamMembers, contentPages, footerLinks, homePageSections, messageFiles, conversations, messages, meetingLinks, reviews, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema, insertCategorySchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
@@ -3988,7 +3988,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create category
   app.post('/api/admin/categories', isAuthenticated, isAdmin, hasPermission('categories:create'), async (req, res) => {
     try {
-      const { parentId, level, name, nameAr, slug, description, descriptionAr, heroTitle, heroTitleAr, heroDescription, heroDescriptionAr, icon, displayOrder, featured, active, visible } = req.body;
+      // Validate request body with Zod schema
+      const validationResult = insertCategorySchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: validationResult.error.errors 
+        });
+      }
+      
+      const { 
+        parentId, level, name, nameAr, slug, description, descriptionAr, 
+        heroTitle, heroTitleAr, heroDescription, heroDescriptionAr, 
+        icon, displayOrder, featured, active, visible,
+        // New dynamic category fields
+        categoryType, requiresApproval, customFields, deliveryOptions, warrantyConfig, complianceRequirements
+      } = validationResult.data;
       
       // Validate level (0-2 for 3-level hierarchy)
       if (level < 0 || level > 2) {
@@ -4021,9 +4036,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Category with this slug already exists" });
       }
       
-      // Create category
-      const [newCategory] = await db.insert(categories).values({
-        parentId: parentId || null,
+      // Create category - use validated data with explicit defaults only for required fields
+      const categoryData: any = {
         level,
         name,
         nameAr,
@@ -4035,11 +4049,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         heroDescription,
         heroDescriptionAr,
         icon,
-        displayOrder: displayOrder || 0,
-        featured: featured || false,
-        active: active !== false, // default true
-        visible: visible !== false, // default true
-      }).returning();
+        displayOrder: displayOrder ?? 0,
+        featured: featured ?? false,
+        active: active ?? true,
+        visible: visible ?? true,
+      };
+      
+      // Add optional fields only if present in validated data
+      if (parentId !== undefined) categoryData.parentId = parentId;
+      if (categoryType !== undefined) categoryData.categoryType = categoryType;
+      if (requiresApproval !== undefined) categoryData.requiresApproval = requiresApproval;
+      if (customFields !== undefined) categoryData.customFields = customFields;
+      if (deliveryOptions !== undefined) categoryData.deliveryOptions = deliveryOptions;
+      if (warrantyConfig !== undefined) categoryData.warrantyConfig = warrantyConfig;
+      if (complianceRequirements !== undefined) categoryData.complianceRequirements = complianceRequirements;
+      
+      const [newCategory] = await db.insert(categories).values(categoryData).returning();
       
       res.status(201).json(newCategory);
     } catch (error) {
@@ -4052,7 +4077,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/admin/categories/:id', isAuthenticated, isAdmin, hasPermission('categories:edit'), async (req, res) => {
     try {
       const { id } = req.params;
-      const { parentId, level, name, nameAr, slug, description, descriptionAr, heroTitle, heroTitleAr, heroDescription, heroDescriptionAr, icon, displayOrder, featured, active, visible } = req.body;
+      
+      // Validate request body with Zod schema (partial for updates)
+      const partialSchema = insertCategorySchema.partial();
+      const validationResult = partialSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: validationResult.error.errors 
+        });
+      }
+      
+      const { 
+        parentId, level, name, nameAr, slug, description, descriptionAr, 
+        heroTitle, heroTitleAr, heroDescription, heroDescriptionAr, 
+        icon, displayOrder, featured, active, visible,
+        // New dynamic category fields
+        categoryType, requiresApproval, customFields, deliveryOptions, warrantyConfig, complianceRequirements
+      } = validationResult.data;
       
       // Get existing category
       const existing = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
@@ -4094,26 +4136,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Update category
-      const [updated] = await db.update(categories).set({
-        parentId: parentId !== undefined ? parentId : existing[0].parentId,
-        level: level !== undefined ? level : existing[0].level,
-        name: name || existing[0].name,
-        nameAr: nameAr !== undefined ? nameAr : existing[0].nameAr,
-        slug: slug || existing[0].slug,
-        description: description !== undefined ? description : existing[0].description,
-        descriptionAr: descriptionAr !== undefined ? descriptionAr : existing[0].descriptionAr,
-        heroTitle: heroTitle !== undefined ? heroTitle : existing[0].heroTitle,
-        heroTitleAr: heroTitleAr !== undefined ? heroTitleAr : existing[0].heroTitleAr,
-        heroDescription: heroDescription !== undefined ? heroDescription : existing[0].heroDescription,
-        heroDescriptionAr: heroDescriptionAr !== undefined ? heroDescriptionAr : existing[0].heroDescriptionAr,
-        icon: icon !== undefined ? icon : existing[0].icon,
-        displayOrder: displayOrder !== undefined ? displayOrder : existing[0].displayOrder,
-        featured: featured !== undefined ? featured : existing[0].featured,
-        active: active !== undefined ? active : existing[0].active,
-        visible: visible !== undefined ? visible : existing[0].visible,
-        updatedAt: new Date(),
-      }).where(eq(categories.id, id)).returning();
+      // Build update object with only present fields to avoid overwriting with defaults
+      const updateData: any = { updatedAt: new Date() };
+      
+      // Only include fields that were actually provided in the request
+      if (parentId !== undefined) updateData.parentId = parentId;
+      if (level !== undefined) updateData.level = level;
+      if (name !== undefined) updateData.name = name;
+      if (nameAr !== undefined) updateData.nameAr = nameAr;
+      if (slug !== undefined) updateData.slug = slug;
+      if (description !== undefined) updateData.description = description;
+      if (descriptionAr !== undefined) updateData.descriptionAr = descriptionAr;
+      if (heroTitle !== undefined) updateData.heroTitle = heroTitle;
+      if (heroTitleAr !== undefined) updateData.heroTitleAr = heroTitleAr;
+      if (heroDescription !== undefined) updateData.heroDescription = heroDescription;
+      if (heroDescriptionAr !== undefined) updateData.heroDescriptionAr = heroDescriptionAr;
+      if (icon !== undefined) updateData.icon = icon;
+      if (displayOrder !== undefined) updateData.displayOrder = displayOrder;
+      if (featured !== undefined) updateData.featured = featured;
+      if (active !== undefined) updateData.active = active;
+      if (visible !== undefined) updateData.visible = visible;
+      // Dynamic category fields
+      if (categoryType !== undefined) updateData.categoryType = categoryType;
+      if (requiresApproval !== undefined) updateData.requiresApproval = requiresApproval;
+      if (customFields !== undefined) updateData.customFields = customFields;
+      if (deliveryOptions !== undefined) updateData.deliveryOptions = deliveryOptions;
+      if (warrantyConfig !== undefined) updateData.warrantyConfig = warrantyConfig;
+      if (complianceRequirements !== undefined) updateData.complianceRequirements = complianceRequirements;
+      
+      const [updated] = await db.update(categories).set(updateData).where(eq(categories.id, id)).returning();
       
       res.json(updated);
     } catch (error) {
