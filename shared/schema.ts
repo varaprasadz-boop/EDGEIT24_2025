@@ -1137,17 +1137,45 @@ export const reviewReports = pgTable("review_reports", {
   statusIdx: index("review_reports_status_idx").on(table.status),
 }));
 
+// Notification Type Constants
+export const NOTIFICATION_TYPES = {
+  // CRITICAL - Business operations
+  BID_RECEIVED: 'bid_received',
+  BID_STATUS_UPDATE: 'bid_status_update',
+  BID_AWARDED: 'bid_awarded',
+  BID_REJECTED: 'bid_rejected',
+  PAYMENT_DEPOSITED: 'payment_deposited',
+  PAYMENT_RELEASED: 'payment_released',
+  PROJECT_STATUS_CHANGE: 'project_status_change',
+  MILESTONE_COMPLETED: 'milestone_completed',
+  DELIVERABLE_SUBMITTED: 'deliverable_submitted',
+  INVOICE_GENERATED: 'invoice_generated',
+  VENDOR_INVITED: 'vendor_invited',
+  VERIFICATION_STATUS: 'verification_status',
+  CATEGORY_APPROVAL: 'category_approval',
+  
+  // IMPORTANT - Value-add features
+  NEW_MESSAGE: 'new_message',
+  REVIEW_RECEIVED: 'review_received',
+  REVIEW_RESPONSE: 'review_response',
+  DEADLINE_REMINDER: 'deadline_reminder',
+  REFUND_PROCESSED: 'refund_processed',
+  TEAM_MEMBER_ACTIVITY: 'team_member_activity',
+} as const;
+
+export type NotificationType = typeof NOTIFICATION_TYPES[keyof typeof NOTIFICATION_TYPES];
+
 // Notifications - System and user notifications
 // Supports messaging notifications via type='new_message', 'message_reply', 'meeting_scheduled', etc.
 // relatedConversationId and relatedMessageId provide direct FK links for messaging notifications
 export const notifications = pgTable("notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  type: text("type").notNull(), // 'bid_received', 'bid_accepted', 'new_message', 'message_reply', 'meeting_scheduled', 'payment', 'review', etc.
+  type: text("type").notNull(), // See NOTIFICATION_TYPES constant
   title: text("title").notNull(),
   message: text("message").notNull(),
   link: text("link"), // URL to navigate to
-  metadata: jsonb("metadata"), // Additional context (e.g., { senderId, meetingId })
+  metadata: jsonb("metadata"), // Additional context (e.g., { senderId, meetingId, bidId, projectId })
   relatedConversationId: varchar("related_conversation_id").references(() => conversations.id, { onDelete: "cascade" }), // FK for messaging notifications
   relatedMessageId: varchar("related_message_id").references(() => messages.id, { onDelete: "cascade" }), // FK for message-specific notifications
   read: boolean("read").default(false),
@@ -1162,14 +1190,21 @@ export const notifications = pgTable("notifications", {
   messageIdx: index("notifications_message_idx").on(table.relatedMessageId), // For message-specific queries
 }));
 
-// Notification Preferences - Global notification settings per user
+// Notification Preferences - Granular per-type notification settings per user
 export const notificationPreferences = pgTable("notification_preferences", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Global toggles
   emailNotificationsEnabled: boolean("email_notifications_enabled").default(true).notNull(),
   inAppNotificationsEnabled: boolean("in_app_notifications_enabled").default(true).notNull(),
-  // Array of notification types to receive (null means all types enabled)
-  enabledTypes: text("enabled_types").array(), // ['bid_received', 'payment', 'review', etc.] or null for all
+  
+  // Per-type controls for email (null = all enabled, empty array = all disabled, or specific types)
+  emailEnabledTypes: text("email_enabled_types").array(), // null means all types enabled for email
+  
+  // Per-type controls for in-app (null = all enabled, empty array = all disabled, or specific types)
+  inAppEnabledTypes: text("in_app_enabled_types").array(), // null means all types enabled for in-app
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({

@@ -6458,12 +6458,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let preferences = await storage.getNotificationPreferences(userId);
       
-      // If no preferences exist, create defaults
+      // If no preferences exist, create defaults (null = all types enabled)
       if (!preferences) {
         preferences = await storage.upsertNotificationPreferences(userId, {
           emailNotificationsEnabled: true,
           inAppNotificationsEnabled: true,
-          enabledTypes: null,
+          emailEnabledTypes: null, // null = all types enabled for email
+          inAppEnabledTypes: null, // null = all types enabled for in-app
         });
       }
 
@@ -6485,7 +6486,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updateSchema = z.object({
         emailNotificationsEnabled: z.boolean().optional(),
         inAppNotificationsEnabled: z.boolean().optional(),
-        enabledTypes: z.array(z.string()).nullable().optional(),
+        emailEnabledTypes: z.array(z.string()).nullable().optional(), // null = all enabled
+        inAppEnabledTypes: z.array(z.string()).nullable().optional(), // null = all enabled
       });
 
       const parsed = updateSchema.safeParse(req.body);

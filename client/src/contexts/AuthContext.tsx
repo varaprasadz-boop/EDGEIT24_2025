@@ -1,10 +1,16 @@
-import { createContext, useContext, ReactNode, useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { createContext, useContext, ReactNode, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { User, ClientProfile, ConsultantProfile } from "@shared/schema";
 
 interface AuthUser extends User {
   clientProfile?: ClientProfile;
   consultantProfile?: ConsultantProfile;
+}
+
+interface AuthResponse {
+  user?: AuthUser | null;
+  id?: string;
+  email?: string;
 }
 
 interface AuthContextValue {
@@ -32,7 +38,14 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const ACTIVE_ROLE_KEY = 'edgeit24_active_role';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { data, isLoading } = useQuery<AuthResponse>({
+    queryKey: ["/api/auth/user"],
+    retry: false,
+  });
+
+  const userOrNull = data?.user !== undefined ? data.user : (data?.id ? data as AuthUser : null);
+  const user = userOrNull || undefined;
+  const isAuthenticated = !!userOrNull;
   
   // State for active role with localStorage persistence
   const [selectedRole, setSelectedRole] = useState<'client' | 'consultant' | null>(() => {

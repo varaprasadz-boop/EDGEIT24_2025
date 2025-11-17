@@ -605,7 +605,7 @@ export interface IStorage {
   deleteSavedSearch(id: string): Promise<void>;
 
   // Notifications operations
-  createNotification(notification: InsertNotification): Promise<Notification>;
+  createNotification(notification: InsertNotification, options?: { sendEmail?: boolean; skipInAppRecord?: boolean }): Promise<Notification>;
   getNotification(notificationId: string): Promise<Notification | undefined>;
   getNotifications(userId: string, options?: { 
     limit?: number; 
@@ -3882,22 +3882,59 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Notifications operations
-  async createNotification(notification: InsertNotification): Promise<Notification> {
-    const [created] = await db.insert(notifications).values(notification).returning();
+  async createNotification(notification: InsertNotification, options?: { sendEmail?: boolean; skipInAppRecord?: boolean }): Promise<Notification> {
+    let created: Notification;
+
+    // Create in-app notification record unless explicitly skipped
+    if (!options?.skipInAppRecord) {
+      const [record] = await db.insert(notifications).values(notification).returning();
+      created = record;
+    } else {
+      // Create a temporary notification object for email-only (not persisted to database)
+      created = { 
+        ...notification, 
+        id: `email-only-${Date.now()}`, // Temporary ID for email-only notifications
+        read: false,
+        readAt: null,
+        createdAt: new Date()
+      } as Notification;
+    }
     
-    // Send email notification if user has email notifications enabled
-    try {
-      const preferences = await this.getNotificationPreferences(notification.userId);
-      if (preferences?.emailNotificationsEnabled) {
-        // Get user's email
+    // Send email notification if requested and preferences allow
+    if (options?.sendEmail) {
+      try {
+        let preferences = await this.getNotificationPreferences(notification.userId);
+        
+        // Create default preferences if none exist (defaults: all enabled)
+        if (!preferences) {
+          preferences = await this.upsertNotificationPreferences(notification.userId, {
+            emailNotificationsEnabled: true,
+            inAppNotificationsEnabled: true,
+            emailEnabledTypes: null, // null = all enabled
+            inAppEnabledTypes: null,
+          });
+        }
+
+        // Check global email toggle (only skip if explicitly disabled)
+        if (preferences.emailNotificationsEnabled === false) {
+          return created; // Email disabled globally
+        }
+
+        // Check per-type email preferences (null = all enabled, array = specific types)
+        const emailEnabledTypes = preferences.emailEnabledTypes;
+        if (emailEnabledTypes !== null && emailEnabledTypes !== undefined && !emailEnabledTypes.includes(notification.type)) {
+          return created; // This notification type not enabled for email
+        }
+
+        // Get user email and send
         const user = await this.getUser(notification.userId);
         if (user?.email) {
           await emailService.sendNotificationEmail(user.email, created);
         }
+      } catch (error) {
+        // Log error but don't fail notification creation if email fails
+        console.error('[Notification] Failed to send email notification:', error);
       }
-    } catch (error) {
-      // Log error but don't fail notification creation if email fails
-      console.error('[Notification] Failed to send email notification:', error);
     }
     
     return created;
@@ -4003,13 +4040,14 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return updated;
     } else {
-      // Create new preferences with defaults
+      // Create new preferences with defaults (null = all types enabled)
       const [created] = await db.insert(notificationPreferences)
         .values({
           userId,
           emailNotificationsEnabled: preferences.emailNotificationsEnabled ?? true,
           inAppNotificationsEnabled: preferences.inAppNotificationsEnabled ?? true,
-          enabledTypes: preferences.enabledTypes ?? null,
+          emailEnabledTypes: preferences.emailEnabledTypes ?? null, // null = all enabled
+          inAppEnabledTypes: preferences.inAppEnabledTypes ?? null, // null = all enabled
         })
         .returning();
       return created;
