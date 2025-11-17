@@ -23,6 +23,7 @@ import AdminHomeSections from "@/pages/admin/AdminHomeSections";
 import AdminMessages from "@/pages/AdminMessages";
 import AdminConversationViewer from "@/pages/AdminConversationViewer";
 import AdminSecurityDashboard from "@/pages/AdminSecurityDashboard";
+import AdminCategoryRequests from "@/pages/AdminCategoryRequests";
 
 export function AdminRouter() {
   const { user, isLoading } = useAuthContext();
@@ -66,6 +67,7 @@ export function AdminRouter() {
         <Route path="/admin/users" component={AdminUsers} />
         <Route path="/admin/profile-approvals" component={AdminProfileApprovals} />
         <Route path="/admin/categories" component={AdminCategories} />
+        <Route path="/admin/category-requests" component={AdminCategoryRequests} />
         <Route path="/admin/vendor-requests" component={AdminVendorRequests} />
         <Route path="/admin/requirements" component={AdminRequirements} />
         <Route path="/admin/bids" component={AdminBids} />

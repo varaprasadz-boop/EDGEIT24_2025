@@ -111,6 +111,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           testId: 'nav-categories',
         },
         {
+          title: 'Category Requests',
+          url: '/admin/category-requests',
+          icon: CheckCircle,
+          testId: 'nav-category-requests',
+        },
+        {
           title: t('sidebar.vendorRequests'),
           url: '/admin/vendor-requests',
           icon: UserCog,
