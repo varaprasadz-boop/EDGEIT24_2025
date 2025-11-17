@@ -6,6 +6,7 @@ import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { wsManager } from "./websocket";
 import { z } from "zod";
+import { registerPaymentRoutes } from "./routes/payments";
 import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema, insertTeamMemberSchema, insertBidSchema } from "@shared/schema";
 import { db } from "./db";
 import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, teamMembers, contentPages, footerLinks, homePageSections, messageFiles, conversations, messages, meetingLinks, reviews, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema, insertCategorySchema } from "@shared/schema";
@@ -6117,6 +6118,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
+
+  // Admin payment analytics
+  app.get('/api/admin/payments/analytics', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const analytics = await storage.getPaymentAnalytics();
+      
+      // Get refund statistics
+      const allRefunds = await storage.getAllRefundRequests();
+      const pendingRefunds = allRefunds.filter(r => r.status === 'pending').length;
+      const approvedRefunds = allRefunds.filter(r => r.status === 'approved').length;
+      const processedRefunds = allRefunds.filter(r => r.status === 'processed').length;
+
+      // Get invoice statistics
+      const allInvoices = await storage.getAllInvoices({});
+      const paidInvoices = allInvoices.filter(i => i.status === 'paid').length;
+      const overdueInvoices = await storage.getOverdueInvoices();
+
+      res.json({
+        ...analytics,
+        refunds: {
+          pending: pendingRefunds,
+          approved: approvedRefunds,
+          processed: processedRefunds,
+          total: allRefunds.length,
+        },
+        invoices: {
+          total: allInvoices.length,
+          paid: paidInvoices,
+          overdue: overdueInvoices.length,
+        },
+        currency: 'SAR'
+      });
+    } catch (error: any) {
+      console.error("Error getting payment analytics:", error);
+      res.status(500).json({ message: error.message || "Failed to get analytics" });
+    }
+  });
   
   // Get all users (with pagination and filters)
   app.get('/api/admin/users', isAuthenticated, isAdmin, hasPermission('users:view'), async (req, res) => {
@@ -9714,6 +9752,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error fetching client analytics:", error);
       res.status(500).json({ message: "Failed to fetch analytics" });
     }
+  });
+
+  // Register payment and escrow routes
+  registerPaymentRoutes(app, {
+    storage,
+    isAuthenticated,
+    requireEmailVerified,
+    getUserIdFromRequest,
+    isAdmin,
   });
 
   const httpServer = createServer(app);
