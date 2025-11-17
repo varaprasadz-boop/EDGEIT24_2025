@@ -6613,6 +6613,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test endpoint to create notifications (DEVELOPMENT ONLY)
+  // This endpoint is disabled in production for security reasons
+  if (process.env.NODE_ENV === 'development') {
+    app.post('/api/notifications/test-create', isAuthenticated, async (req: any, res) => {
+      try {
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+          return res.status(401).json({ message: "User not found" });
+        }
+
+        const { type, title, message, link } = req.body;
+        
+        if (!type || !title || !message) {
+          return res.status(400).json({ message: "Missing required fields: type, title, message" });
+        }
+
+        const notification = await storage.createNotification({
+          userId,
+          type,
+          title,
+          message,
+          link: link || undefined,
+        });
+
+        res.status(201).json(notification);
+      } catch (error) {
+        console.error('Error creating test notification:', error);
+        res.status(500).json({ message: "Failed to create notification" });
+      }
+    });
+  }
+
   // GET /api/notification-preferences - Get user's notification preferences
   app.get('/api/notification-preferences', isAuthenticated, async (req: any, res) => {
     try {
