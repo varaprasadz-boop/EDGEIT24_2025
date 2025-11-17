@@ -42,6 +42,10 @@ import ClientProjectDetailsPage from "@/pages/client/ClientProjectDetailsPage";
 import ClientInvoicesPage from "@/pages/client/ClientInvoicesPage";
 import ClientInvoiceDetailPage from "@/pages/client/ClientInvoiceDetailPage";
 import WalletPage from "@/pages/WalletPage";
+import FindProjectsPage from "@/pages/consultant/FindProjectsPage";
+import FindConsultantsPage from "@/pages/client/FindConsultantsPage";
+import VendorListsPage from "@/pages/client/VendorListsPage";
+import CompareConsultantsPage from "@/pages/client/CompareConsultantsPage";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -75,10 +79,14 @@ function Router() {
       <Route path="/consultant/invoices" component={ConsultantInvoicesPage} />
       <Route path="/consultant/invoices/create" component={CreateInvoicePage} />
       <Route path="/consultant/invoices/:id" component={InvoiceDetailPage} />
+      <Route path="/consultant/find-projects" component={FindProjectsPage} />
       <Route path="/client/projects" component={ClientProjectsPage} />
       <Route path="/client/projects/:id" component={ClientProjectDetailsPage} />
       <Route path="/client/invoices" component={ClientInvoicesPage} />
       <Route path="/client/invoices/:id" component={ClientInvoiceDetailPage} />
+      <Route path="/client/find-consultants" component={FindConsultantsPage} />
+      <Route path="/client/vendor-lists" component={VendorListsPage} />
+      <Route path="/client/compare-consultants" component={CompareConsultantsPage} />
       <Route path="/wallet" component={WalletPage} />
       <Route path="/services/:slug" component={CategoryLanding} />
       <Route path="/legal/:slug" component={LegalPage} />

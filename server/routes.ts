@@ -6189,6 +6189,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // PROJECT INVITATION & MATCHING ROUTES
+  // ============================================================================
+
+  app.post('/api/projects/:id/invite-consultant', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const inviteSchema = z.object({
+        consultantId: z.string().uuid(),
+        message: z.string().max(1000).optional(),
+      });
+
+      const parsed = inviteSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const project = await storage.getJobById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId) {
+        return res.status(403).json({ message: "Only the project owner can invite consultants" });
+      }
+
+      const consultant = await storage.getConsultantProfileByUserId(parsed.data.consultantId);
+      if (!consultant) {
+        return res.status(404).json({ message: "Consultant not found" });
+      }
+
+      await storage.createNotification({
+        userId: parsed.data.consultantId,
+        type: 'project_invitation',
+        title: `Invitation to bid on "${project.title}"`,
+        message: parsed.data.message || `You have been invited to submit a proposal for the project "${project.title}".`,
+        relatedEntityType: 'project',
+        relatedEntityId: project.id,
+        actionUrl: `/consultant/projects/${project.id}`,
+      });
+
+      res.status(201).json({ 
+        message: "Consultant invited successfully",
+        projectId: project.id,
+        consultantId: parsed.data.consultantId
+      });
+    } catch (error) {
+      console.error("Error inviting consultant:", error);
+      res.status(500).json({ message: "Failed to invite consultant" });
+    }
+  });
+
+  app.get('/api/projects/:id/suggested-consultants', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const project = await storage.getJobById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId) {
+        return res.status(403).json({ message: "Only the project owner can view suggestions" });
+      }
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+
+      const filters: any = {};
+      if (project.category) {
+        filters.category = project.category;
+      }
+      if (project.subcategory) {
+        filters.subcategory = project.subcategory;
+      }
+      if (project.requiredSkills && project.requiredSkills.length > 0) {
+        filters.skills = project.requiredSkills;
+      }
+      if (project.location) {
+        filters.location = project.location;
+      }
+
+      const searchResults = await storage.searchConsultants({
+        ...filters,
+        sort: 'rating',
+        limit,
+        offset: 0,
+      });
+
+      res.json({
+        consultants: searchResults.consultants,
+        total: searchResults.total,
+        projectId: project.id,
+        matchCriteria: {
+          category: project.category,
+          subcategory: project.subcategory,
+          skills: project.requiredSkills,
+          location: project.location,
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching suggested consultants:", error);
+      res.status(500).json({ message: "Failed to fetch suggested consultants" });
+    }
+  });
+
+  // ============================================================================
+  // CONSULTANT COMPARISON ROUTE
+  // ============================================================================
+
+  app.get('/api/consultants/compare', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const ids = req.query.ids ? (req.query.ids as string).split(',') : [];
+      if (ids.length === 0) {
+        return res.status(400).json({ message: "No consultant IDs provided" });
+      }
+
+      if (ids.length > 10) {
+        return res.status(400).json({ message: "Cannot compare more than 10 consultants" });
+      }
+
+      const consultants = await Promise.all(
+        ids.map(id => storage.getConsultantProfileByUserId(id))
+      );
+
+      const validConsultants = consultants.filter(c => c !== null);
+
+      res.json({ consultants: validConsultants });
+    } catch (error) {
+      console.error("Error comparing consultants:", error);
+      res.status(500).json({ message: "Failed to compare consultants" });
+    }
+  });
+
   // ===========================
   // NOTIFICATIONS ROUTES
   // ===========================
