@@ -1784,7 +1784,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const acceptedBid = await storage.acceptBid(req.params.id, userId);
-      res.json(acceptedBid);
+
+      // Auto-create project/contract after bid acceptance
+      const startDate = new Date();
+      const proposedDuration = bid.proposedDuration || '30 days';
+      const durationDays = parseInt(proposedDuration) || 30;
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + durationDays);
+
+      const project = await storage.createProject({
+        jobId: job.id,
+        clientId: job.clientId,
+        consultantId: bid.consultantId,
+        bidId: bid.id,
+        title: job.title,
+        description: job.description,
+        budget: bid.proposedBudget,
+        currency: 'SAR',
+        status: 'not_started',
+        startDate,
+        endDate,
+        milestones: bid.milestones || [],
+        overallProgress: 0,
+        scope: bid.proposalData ? (typeof bid.proposalData === 'object' && 'scope' in bid.proposalData ? (bid.proposalData as any).scope : null) : null,
+        paymentTerms: bid.proposalData ? (typeof bid.proposalData === 'object' && 'paymentTerms' in bid.proposalData ? (bid.proposalData as any).paymentTerms : null) : null,
+        warrantyTerms: bid.proposalData ? (typeof bid.proposalData === 'object' && 'warrantyPeriod' in bid.proposalData ? (bid.proposalData as any).warrantyPeriod : null) : null,
+        supportTerms: bid.proposalData ? (typeof bid.proposalData === 'object' && 'supportTerms' in bid.proposalData ? (bid.proposalData as any).supportTerms : null) : null,
+        ndaRequired: false,
+        cancellationPolicy: null,
+        contractVersion: 1,
+        signedAt: null,
+      });
+
+      res.json({ bid: acceptedBid, project });
     } catch (error) {
       console.error("Error accepting bid:", error);
       res.status(500).json({ message: "Failed to accept bid" });
@@ -1828,6 +1860,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching bid analytics:", error);
       res.status(500).json({ message: "Failed to fetch bid analytics" });
+    }
+  });
+
+  // Project/Contract Management endpoints
+  app.get('/api/projects/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Security: Only client or consultant can view project
+      if (project.clientId !== userId && project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only view your own projects" });
+      }
+
+      // Get additional project data
+      const [teamMembers, deliverables, comments, activityLog] = await Promise.all([
+        storage.getProjectTeamMembers(project.id),
+        storage.getProjectDeliverables(project.id),
+        storage.getProjectComments(project.id),
+        storage.getProjectActivityLog(project.id, { limit: 50 }),
+      ]);
+
+      res.json({
+        ...project,
+        teamMembers,
+        deliverables,
+        comments,
+        activityLog: activityLog.activities,
+      });
+    } catch (error) {
+      console.error("Error fetching project:", error);
+      res.status(500).json({ message: "Failed to fetch project" });
+    }
+  });
+
+  app.patch('/api/projects/:id/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const { status } = req.body;
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+
+      const validStatuses = ['not_started', 'in_progress', 'awaiting_review', 'revision_requested', 'completed', 'cancelled', 'on_hold', 'delayed'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status value" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Security: Only client or consultant can update project status
+      if (project.clientId !== userId && project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only update your own projects" });
+      }
+
+      const updatedProject = await storage.updateProjectStatus(req.params.id, status, userId);
+      res.json(updatedProject);
+    } catch (error) {
+      console.error("Error updating project status:", error);
+      res.status(500).json({ message: "Failed to update project status" });
     }
   });
 
