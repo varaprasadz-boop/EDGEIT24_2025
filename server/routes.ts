@@ -1991,6 +1991,461 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/projects/:id/milestones/:index', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'consultant') {
+        return res.status(403).json({ message: "Unauthorized: Only consultants can update milestones" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only update your own project milestones" });
+      }
+
+      const milestoneIndex = parseInt(req.params.index);
+      const { status, progress } = req.body;
+
+      const updatedProject = await storage.updateMilestoneStatus(req.params.id, milestoneIndex, status, progress);
+      res.json(updatedProject);
+    } catch (error) {
+      console.error("Error updating milestone:", error);
+      res.status(500).json({ message: "Failed to update milestone" });
+    }
+  });
+
+  app.patch('/api/projects/:id/extend', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'client') {
+        return res.status(403).json({ message: "Unauthorized: Only clients can extend project deadlines" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only extend your own projects" });
+      }
+
+      const { newEndDate, reason } = req.body;
+      if (!newEndDate || !reason) {
+        return res.status(400).json({ message: "New end date and reason are required" });
+      }
+
+      const updatedProject = await storage.extendProjectDeadline(req.params.id, new Date(newEndDate), reason, userId);
+      res.json(updatedProject);
+    } catch (error) {
+      console.error("Error extending deadline:", error);
+      res.status(500).json({ message: "Failed to extend deadline" });
+    }
+  });
+
+  app.post('/api/projects/:id/milestones/:index/comments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId && project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only comment on your own projects" });
+      }
+
+      const milestoneIndex = parseInt(req.params.index);
+      const { comment, attachments, mentions } = req.body;
+
+      const newComment = await storage.addMilestoneComment({
+        projectId: req.params.id,
+        milestoneIndex,
+        userId,
+        comment,
+        attachments: attachments || [],
+        mentions: mentions || [],
+        resolved: false,
+      });
+
+      res.status(201).json(newComment);
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      res.status(500).json({ message: "Failed to add comment" });
+    }
+  });
+
+  app.get('/api/projects/:id/comments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId && project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only view comments on your own projects" });
+      }
+
+      const milestoneIndex = req.query.milestoneIndex ? parseInt(req.query.milestoneIndex as string) : undefined;
+      const comments = await storage.getProjectComments(req.params.id, milestoneIndex);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+      res.status(500).json({ message: "Failed to fetch comments" });
+    }
+  });
+
+  app.patch('/api/projects/:id/comments/:commentId/resolve', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId && project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { resolved } = req.body;
+      const comment = resolved 
+        ? await storage.resolveComment(req.params.commentId, userId)
+        : await storage.unresolveComment(req.params.commentId);
+      
+      res.json(comment);
+    } catch (error) {
+      console.error("Error resolving comment:", error);
+      res.status(500).json({ message: "Failed to resolve comment" });
+    }
+  });
+
+  app.post('/api/projects/:id/team-members', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId && project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: Only project owner can add team members" });
+      }
+
+      const { memberId, role, assignedMilestones } = req.body;
+      const teamMember = await storage.addTeamMember({
+        projectId: req.params.id,
+        userId: memberId,
+        role,
+        assignedMilestones: assignedMilestones || [],
+        permissions: [],
+        addedBy: userId,
+      });
+
+      res.status(201).json(teamMember);
+    } catch (error) {
+      console.error("Error adding team member:", error);
+      res.status(500).json({ message: "Failed to add team member" });
+    }
+  });
+
+  app.delete('/api/projects/:id/team-members/:memberId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId && project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: Only project owner can remove team members" });
+      }
+
+      await storage.removeTeamMember(req.params.id, req.params.memberId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing team member:", error);
+      res.status(500).json({ message: "Failed to remove team member" });
+    }
+  });
+
+  app.post('/api/projects/:id/deliverables', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'consultant') {
+        return res.status(403).json({ message: "Unauthorized: Only consultants can submit deliverables" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only submit deliverables to your own projects" });
+      }
+
+      const { title, description, fileUrl, milestoneIndex, version } = req.body;
+      const deliverable = await storage.submitDeliverable({
+        projectId: req.params.id,
+        milestoneIndex: milestoneIndex || 0,
+        title,
+        description,
+        fileUrl: fileUrl || 'mock://file.pdf',
+        version: version || 1,
+        uploadedBy: userId,
+        status: 'pending',
+      });
+
+      res.status(201).json(deliverable);
+    } catch (error) {
+      console.error("Error submitting deliverable:", error);
+      res.status(500).json({ message: "Failed to submit deliverable" });
+    }
+  });
+
+  app.get('/api/projects/:id/deliverables', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId && project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const milestoneIndex = req.query.milestoneIndex ? parseInt(req.query.milestoneIndex as string) : undefined;
+      const deliverables = await storage.getProjectDeliverables(req.params.id, milestoneIndex);
+      res.json(deliverables);
+    } catch (error) {
+      console.error("Error fetching deliverables:", error);
+      res.status(500).json({ message: "Failed to fetch deliverables" });
+    }
+  });
+
+  app.patch('/api/projects/:id/deliverables/:deliverableId/approve', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'client') {
+        return res.status(403).json({ message: "Unauthorized: Only clients can approve deliverables" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId) {
+        return res.status(403).json({ message: "Unauthorized: You can only approve deliverables on your own projects" });
+      }
+
+      const deliverable = await storage.approveDeliverable(req.params.deliverableId, userId);
+      res.json(deliverable);
+    } catch (error) {
+      console.error("Error approving deliverable:", error);
+      res.status(500).json({ message: "Failed to approve deliverable" });
+    }
+  });
+
+  app.patch('/api/projects/:id/deliverables/:deliverableId/revision', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'client') {
+        return res.status(403).json({ message: "Unauthorized: Only clients can request revisions" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { reviewNotes } = req.body;
+      if (!reviewNotes) {
+        return res.status(400).json({ message: "Review notes are required" });
+      }
+
+      const deliverable = await storage.requestRevision(req.params.deliverableId, reviewNotes, userId);
+      res.json(deliverable);
+    } catch (error) {
+      console.error("Error requesting revision:", error);
+      res.status(500).json({ message: "Failed to request revision" });
+    }
+  });
+
+  app.post('/api/projects/:id/payment-requests', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'consultant') {
+        return res.status(403).json({ message: "Unauthorized: Only consultants can request payments" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { milestoneIndex, amount, description } = req.body;
+      
+      await storage.logProjectActivity({
+        projectId: req.params.id,
+        userId,
+        action: 'payment_requested',
+        details: { milestoneIndex, amount, description },
+      });
+
+      res.status(201).json({ 
+        message: "Payment request submitted (mocked)", 
+        milestoneIndex, 
+        amount, 
+        status: 'pending' 
+      });
+    } catch (error) {
+      console.error("Error requesting payment:", error);
+      res.status(500).json({ message: "Failed to request payment" });
+    }
+  });
+
+  app.post('/api/projects/:id/milestones/:index/release-payment', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'client') {
+        return res.status(403).json({ message: "Unauthorized: Only clients can release payments" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const milestoneIndex = parseInt(req.params.index);
+      const { amount } = req.body;
+
+      await storage.logProjectActivity({
+        projectId: req.params.id,
+        userId,
+        action: 'payment_released',
+        details: { milestoneIndex, amount },
+      });
+
+      res.json({ 
+        message: "Payment released (mocked)", 
+        milestoneIndex, 
+        amount, 
+        status: 'completed' 
+      });
+    } catch (error) {
+      console.error("Error releasing payment:", error);
+      res.status(500).json({ message: "Failed to release payment" });
+    }
+  });
+
+  app.get('/api/projects/:id/activity', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId && project.consultantId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { action, limit, offset } = req.query;
+      const activityLog = await storage.getProjectActivityLog(req.params.id, {
+        action: action as string | undefined,
+        limit: limit ? parseInt(limit as string) : 100,
+        offset: offset ? parseInt(offset as string) : 0,
+      });
+
+      res.json(activityLog);
+    } catch (error) {
+      console.error("Error fetching activity log:", error);
+      res.status(500).json({ message: "Failed to fetch activity log" });
+    }
+  });
+
   // Bid Shortlist endpoints
   app.post('/api/bids/:id/shortlist', isAuthenticated, async (req: any, res) => {
     try {

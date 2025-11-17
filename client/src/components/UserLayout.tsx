@@ -92,7 +92,7 @@ export function UserLayout({ children }: UserLayoutProps) {
       ],
     },
     {
-      label: "Jobs",
+      label: "Jobs & Projects",
       items: [
         {
           title: "Post New Job",
@@ -105,6 +105,12 @@ export function UserLayout({ children }: UserLayoutProps) {
           url: "/my-jobs",
           icon: Briefcase,
           testId: "nav-my-jobs",
+        },
+        {
+          title: "My Projects",
+          url: "/client/projects",
+          icon: FolderKanban,
+          testId: "nav-my-projects",
         },
         {
           title: "Browse Consultants",
@@ -174,7 +180,7 @@ export function UserLayout({ children }: UserLayoutProps) {
         },
         {
           title: "My Projects",
-          url: "/my-projects",
+          url: "/consultant/projects",
           icon: FolderKanban,
           testId: "nav-my-projects",
         },

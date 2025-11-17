@@ -32,6 +32,10 @@ import Portfolio from "@/pages/Portfolio";
 import UserSecurityDashboard from "@/pages/UserSecurityDashboard";
 import Setup2FA from "@/pages/Setup2FA";
 import Verify2FA from "@/pages/Verify2FA";
+import ConsultantProjectsPage from "@/pages/consultant/ConsultantProjectsPage";
+import ConsultantProjectDetailsPage from "@/pages/consultant/ConsultantProjectDetailsPage";
+import ClientProjectsPage from "@/pages/client/ClientProjectsPage";
+import ClientProjectDetailsPage from "@/pages/client/ClientProjectDetailsPage";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -60,6 +64,10 @@ function Router() {
       <Route path="/security" component={UserSecurityDashboard} />
       <Route path="/security/setup-2fa" component={Setup2FA} />
       <Route path="/messages/:conversationId?" component={Messages} />
+      <Route path="/consultant/projects" component={ConsultantProjectsPage} />
+      <Route path="/consultant/projects/:id" component={ConsultantProjectDetailsPage} />
+      <Route path="/client/projects" component={ClientProjectsPage} />
+      <Route path="/client/projects/:id" component={ClientProjectDetailsPage} />
       <Route path="/services/:slug" component={CategoryLanding} />
       <Route path="/legal/:slug" component={LegalPage} />
       <Route path="/mock-payment" component={MockPaymentGateway} />
