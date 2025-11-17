@@ -119,6 +119,7 @@ export default function AdminCategoryRequests() {
         description: "Category access granted with verification badge.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/category-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/category-requests", "admin"] });
       setIsDialogOpen(false);
       setSelectedRequest(null);
       setAdminNotes("");
@@ -154,6 +155,7 @@ export default function AdminCategoryRequests() {
         description: "Category access request has been rejected.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/category-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/category-requests", "admin"] });
       setIsDialogOpen(false);
       setSelectedRequest(null);
       setAdminNotes("");

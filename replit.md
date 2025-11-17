@@ -1,89 +1,37 @@
 # EDGEIT24 - B2B IT Marketplace
 
 ## Overview
-EDGEIT24 is a B2B marketplace platform connecting businesses with IT service vendors. It facilitates project posting, competitive bidding, and comprehensive project lifecycle management, including payment processing, deliverable tracking, and real-time communication. The platform aims to enhance efficiency and transparency in the B2B IT sector, positioning itself as a leading solution for IT service procurement with significant market potential.
+EDGEIT24 is a B2B marketplace platform designed to connect businesses with IT service vendors. It streamlines the process of posting projects, managing competitive bidding, and overseeing the entire project lifecycle, including payment processing, deliverable tracking, and real-time communication. The platform's core purpose is to enhance efficiency and transparency within the B2B IT sector, aiming to become a leading solution for IT service procurement with significant market potential.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend
-The frontend uses React, Vite, Wouter for routing, and TanStack React Query for state management. UI components are built with shadcn/ui and Radix UI, adhering to Material Design 3 ("New York" style) with light/dark modes (primary brand green and dark navy). It uses CSS variables, TailwindCSS, and strict TypeScript.
+### UI/UX Decisions
+The frontend utilizes React with Vite, employing shadcn/ui and Radix UI components that adhere to Material Design 3 ("New York" style). It supports both light and dark modes, featuring a primary brand green and dark navy color scheme.
 
-### Backend
-The backend is built with Express.js and TypeScript, using `tsx` for development and `esbuild` for production. It features an `IStorage` interface supporting MemStorage and PostgreSQL via Drizzle ORM. API routes are under `/api` with custom logging and consistent error handling.
+### Technical Implementations
+**Frontend:** Built with React, Vite, Wouter for routing, and TanStack React Query for state management. It enforces strict TypeScript and uses TailwindCSS for styling.
+**Backend:** Developed with Express.js and TypeScript, using `tsx` for development and `esbuild` for production. It features an `IStorage` interface with MemStorage and PostgreSQL via Drizzle ORM.
+**Authentication & Security:** Custom Email/Password authentication using `passport-local` and `bcrypt`, with PostgreSQL for session storage. Includes secure password reset, "Remember Me" functionality, login history, active session management, user activity logging, a security dashboard, and TOTP-based Two-Factor Authentication (2FA).
+**Database:** PostgreSQL with Neon serverless driver, accessed via Drizzle ORM for type-safe SQL. Schema definitions are co-located with Zod validators, and `drizzle-kit` manages migrations.
+**Engagement Model & Payment System:** Supports various engagement plans. A mock payment gateway is used for development, with robust security measures for payment processing and session integrity.
+**Admin Portal & CMS:** Supports i18n with RTL (English/Arabic). Provides management interfaces for profile approvals, categories, users, bids, payments, contracts, vendors, disputes, subscription plans, email templates, and settings. A bilingual CMS allows for managing legal and home page content with rich text editing and XSS sanitization.
 
-### Authentication & Security
-A custom Email/Password authentication system uses `passport-local` and `bcrypt`. Sessions are stored in PostgreSQL. It includes secure password reset, "Remember Me", login history, active session management, user activity logging, and a security dashboard. Two-Factor Authentication (2FA) via TOTP is implemented, along with an Admin Security Dashboard for analytics and activity log monitoring.
-
-### Engagement Model & Payment System
-Users select an engagement plan during registration. The system ensures robust security for payment processing, session integrity, and multi-layer validation against price manipulation. A mock payment gateway is used for development.
-
-### Database
-Drizzle ORM is used for type-safe SQL with PostgreSQL (Neon serverless driver). Schema definitions are co-located with Zod validators, and `drizzle-kit` manages migrations.
-
-**Dynamic Category System Schema Extensions:**
-- **categories table**: Added `categoryType` enum and `customFields` JSONB for flexible field definitions
-- **jobs table**: Added `customFieldData` JSONB to store category-specific job posting data
-- **vendorCategoryRequests table**: Complete workflow for category access requests with:
-  - Status tracking (pending, approved, rejected)
-  - Credentials storage (JSONB for documents/certifications)
-  - Verification badge management (verified, premium, expert)
-  - Capacity enforcement (maxConcurrentJobs, currentActiveJobs)
-  - Admin review notes and timestamps
-  - Unique constraint on (vendorId, categoryId, status) to prevent duplicates
-
-### Admin Portal & CMS
-The Admin Portal supports i18n with RTL (English/Arabic) and features an AdminLayout with a shadcn Sidebar and DataTable. It manages Profile Approvals, Categories, Users, Bids, Payments, Contracts, Vendors, Disputes, Subscription Plans, Email Templates, and Settings. A bilingual CMS allows administrators to manage legal pages and home page content with rich text editing and DOMPurify XSS sanitization.
-
-**Category Management Features:**
-- **CustomFieldsBuilder Component**: Visual builder for defining category-specific custom fields
-  - Field configuration: label, type, required, options (for select/multiselect)
-  - Bilingual field labels (English/Arabic)
-  - Real-time validation of field configurations
-- **CategoryFormDialog**: Comprehensive category creation/editing with:
-  - Parent category selection (enforces 3-level hierarchy)
-  - Category type selection (8 predefined IT service types)
-  - Custom fields builder integration
-  - Bilingual name/description inputs
-- **Category Access Request Management**: Admin approval workflow for consultant category access
-  - View pending/approved/rejected requests
-  - Issue verification badges and set capacity limits
-  - Track review history and admin notes
-
-### Core Features
-- **Dynamic 3-Level Category System with Custom Fields**: Comprehensive category management system featuring:
-  - **Unlimited IT-focused categories** with 3-level hierarchy (parent → child → grandchild)
-  - **8 Predefined Category Types**: human_services, software_services, hardware_supply, digital_marketing, infrastructure, cloud_services, cybersecurity, data_services
-  - **Category-Specific Custom Fields**: Each category type can define unique custom fields with full validation
-    - Discriminated union validation enforces type-specific field configurations
-    - Supported field types: text, textarea, number, select, multiselect, date, file
-    - Admin-configured via CustomFieldsBuilder component
-  - **Dynamic Job Posting**: PostJob page renders custom fields based on selected category
-    - DynamicFormFieldRenderer handles all field types with proper validation
-    - Custom field data stored in jobs.customFieldData (JSONB)
-    - Form automatically resets when category changes
-  - **Category Access Request Workflow**: Consultants request access to specialized categories
-    - API routes: POST /api/category-requests (submit), GET (list), PATCH approve/reject (admin)
-    - Role-based authorization (consultant profile required, admin approval required)
-    - Verification badges (verified, premium, expert) issued upon approval
-    - Capacity management (maxConcurrentJobs limits per category)
-    - Database unique constraint prevents duplicate pending requests
-  - Bilingual support (English/Arabic) for all category content
-  - Server-side validation enforces hierarchy and type constraints
-- **Dashboards & Profile Management**: Client and Consultant Dashboards display relevant information, supporting dual-role users. Profiles capture and allow editing of company/personal details, professional information, and financial data. Consultant profiles include verification badges, Quick Quote System, language proficiency, and Pricing Templates. Profile updates are managed via enforced state machines and partial updates with payload sanitization.
-- **Enhanced Profile Fields**: Client profiles include Business Type, Industry, Region, and Company Size. Consultant profiles include Business Information (Year Established, Employee Count, Business Registration Number, Operating Regions) and enhanced Service Packages (Add-ons, Revisions, Support Duration).
-- **Review System**: Clients can submit 1-5 star ratings, optional comments, and category ratings for consultants after project completion.
-- **Team Members Management**: Clients can invite and manage team members with role-based access control (owner, admin, member, viewer) and granular permissions. Includes CRUD operations, invitation tokens, and a rich UI.
-- **Advanced Search System**: Production-grade search for jobs and consultants with comprehensive filtering (text, category, budget/rate, skills, experience, status, etc.), pagination, and robust security architecture (Zod validation, SQL parameterization, UUID/enum injection prevention, DoS protection).
-- **Notifications System**: Comprehensive platform-wide notification system with database schema, user preferences (email, push, in-app), REST API for managing notifications, UI components, and email integration.
-- **Analytics Dashboard**: Role-based dashboards for consultants (earnings, projects, ratings, bid success), clients (spending, projects, bids received), and platform-wide metrics for admins.
-- **Document Management**: Centralized access to files from user conversations via a dedicated API and UI, leveraging existing messaging infrastructure with version tracking.
-- **Consultant Portfolio**: Showcase for consultants to display completed projects with titles, descriptions, client info, ratings, reviews, and completion dates.
-
-### Messaging & Collaboration
-A real-time messaging system supports one-on-one conversations, file attachments with version tracking, meeting scheduling, and admin moderation. It uses WebSockets for real-time delivery, includes read receipts, message threading, full-text search, and is secured with RBAC, soft deletes, and audit trails. Features include drag-and-drop file uploads, meeting scheduling with various platform options, and admin moderation capabilities (flag, hide, redact, warn). Performance optimizations include cursor-based infinite scroll, optimized database queries, WebSocket participant caching, and database-backed rate limiting.
+### Feature Specifications
+**Dynamic Category System:** A 3-level hierarchical category system with unlimited IT-focused categories and 8 predefined types (human_services, software_services, hardware_supply, digital_marketing, infrastructure, cloud_services, cybersecurity, data_services). Each category type can define custom fields with validation.
+**Dynamic Job Posting:** The "Post Job" page dynamically renders custom fields based on the selected category, storing data in `jobs.customFieldData` (JSONB).
+**Category Access Request Workflow:** Consultants can request access to specialized categories, which are then subject to admin approval. This includes status tracking, credential storage, verification badge management (verified, premium, expert), and capacity enforcement (`maxConcurrentJobs`).
+**Dashboards & Profile Management:** Role-based dashboards for clients and consultants. Profiles capture comprehensive company/personal details, professional information, and financial data. Consultant profiles include verification badges, a Quick Quote System, language proficiency, and Pricing Templates.
+**Review System:** Clients can submit 1-5 star ratings, comments, and category-specific ratings after project completion.
+**Team Members Management:** Clients can invite and manage team members with role-based access control and granular permissions.
+**Advanced Search System:** Production-grade search for jobs and consultants with extensive filtering, pagination, and robust security.
+**Notifications System:** Comprehensive platform-wide notification system with user preferences (email, push, in-app), REST API, and UI components.
+**Analytics Dashboard:** Role-based analytics for consultants, clients, and platform-wide metrics for admins.
+**Document Management:** Centralized access to files from user conversations with version tracking.
+**Consultant Portfolio:** Allows consultants to showcase completed projects with details, ratings, and reviews.
+**Messaging & Collaboration:** Real-time messaging with WebSockets, supporting one-on-one conversations, file attachments, meeting scheduling, read receipts, message threading, full-text search, and admin moderation. Includes RBAC, soft deletes, and audit trails.
 
 ## External Dependencies
 
@@ -117,9 +65,9 @@ A real-time messaging system supports one-on-one conversations, file attachments
 - date-fns
 - nanoid
 - DOMPurify
-- speakeasy (for 2FA)
-- react-day-picker (for meeting scheduling)
-- recharts (for admin analytics)
+- speakeasy
+- react-day-picker
+- recharts
 
 ### Session Management
 - connect-pg-simple
@@ -129,20 +77,43 @@ A real-time messaging system supports one-on-one conversations, file attachments
 
 ### WebSockets
 - ws
-
 ## Category Access Request Workflow
+
+### Implementation Status: ✅ COMPLETE (Phases 4.1-4.5)
+
+**Completed Components:**
+1. **Backend API** (Phase 4.1):
+   - POST /api/category-requests - Submit request (consultant role)
+   - GET /api/category-requests - List requests (role-based filtering)
+   - PATCH /api/category-requests/:id/approve - Admin approval
+   - PATCH /api/category-requests/:id/reject - Admin rejection
+   - Full security: role checks, ownership validation, duplicate prevention
+
+2. **Consultant UI** (Phases 4.2-4.4):
+   - CategoryAccessRequestDialog component for request submission
+   - CategoryRequestsList component showing request status with badges
+   - Integrated into consultant Dashboard.tsx
+   - Real-time status tracking with formatDistanceToNow
+
+3. **Admin Portal** (Phase 4.5):
+   - AdminCategoryRequests page with tabs (pending/approved/rejected)
+   - Approve with verification badge and capacity allocation
+   - Reject with required admin notes
+   - Integrated into admin navigation (/admin/category-requests)
 
 ### Consultant Flow
 1. **Access Request Submission** (requires approved consultant profile):
-   - Navigate to category management section
-   - Select specialized category to request access
-   - Provide credentials (documents, certifications, portfolio)
-   - Submit years of experience and reason for request
+   - Navigate to consultant dashboard
+   - View "My Category Access Requests" card
+   - Submit new request via CategoryAccessRequestDialog
+   - Provide years of experience and detailed reason
    - API: POST /api/category-requests (consultant role required)
 
 2. **Request Status Tracking**:
-   - View all submitted requests with status (pending/approved/rejected)
+   - View all submitted requests in dashboard card
+   - Status badges: Pending (Clock icon), Approved (CheckCircle), Rejected (XCircle)
    - Monitor admin review notes and feedback
+   - See verification badge and max concurrent jobs (if approved)
    - API: GET /api/category-requests (returns consultant's own requests only)
 
 3. **Upon Approval**:
@@ -153,20 +124,23 @@ A real-time messaging system supports one-on-one conversations, file attachments
 
 ### Admin Flow
 1. **Review Pending Requests**:
-   - View all pending category access requests
-   - Review submitted credentials and experience
+   - Navigate to Admin Portal → Category Requests
+   - View tabs: Pending, Approved, Rejected
+   - Review consultant details (name, email, experience, reason)
    - Check consultant's profile and history
-   - API: GET /api/category-requests?status=pending (admin role required)
+   - API: GET /api/category-requests?status=all (admin role required)
 
 2. **Approval Process**:
-   - Issue verification badge level (verified/premium/expert)
+   - Click "Approve" button on pending request
+   - Select verification badge level (verified/premium/expert)
    - Set concurrent job capacity limit (1-100)
-   - Add review notes for record-keeping
+   - Add optional review notes
    - API: PATCH /api/category-requests/:id/approve (admin role required)
    - Validations: consultant has approved profile, no duplicate approval, valid capacity
 
 3. **Rejection Process**:
-   - Document reason in admin notes
+   - Click "Reject" button on pending request
+   - Document reason in admin notes (required)
    - API: PATCH /api/category-requests/:id/reject (admin role required)
 
 ## Known Limitations & Deferred Tasks
@@ -174,19 +148,13 @@ A real-time messaging system supports one-on-one conversations, file attachments
 ### Current Limitations
 1. **Category Switching in PostJob**: Changing category mid-form clears all custom field data. This is an intentional UX tradeoff to ensure data consistency when different categories have incompatible custom fields. Future enhancement: preserve compatible fields across category switches.
 
-2. **Category Access Request UI (Phase 4.2-4.7 - Deferred)**:
-   - Lock icons on restricted categories in browse/search
-   - "Request Access" buttons on category cards
-   - Admin approval page in Admin Portal
-   - Verification badge displays on consultant profiles
-   - Capacity enforcement in job bidding flow
-   - Expiry date management for category access
-
-### Deferred Features
-- Phase 5: Delivery/Warranty/Compliance configuration UI
-- Phase 6: Enhanced browse with filters, analytics integration
+### Deferred Features (Phases 4.6-4.7, 5-6)
+- **Phase 4.6**: Verification badge displays on consultant profiles and search cards
+- **Phase 4.7**: Integration of "Request Access" buttons in PostJob and browse pages (currently accessible via dashboard)
+- **Phase 5**: Delivery/Warranty/Compliance configuration UI
+- **Phase 6**: Enhanced browse with filters, analytics integration
 - Category access expiry and re-verification workflow
-- Capacity enforcement in active job tracking
+- Capacity enforcement in active job tracking (currently approved but not enforced)
 
 ## Critical Source Files
 
@@ -202,6 +170,12 @@ A real-time messaging system supports one-on-one conversations, file attachments
   - Category Access Request routes (line ~3675-3852): POST/GET/PATCH endpoints
 
 ### Frontend Components
+- **Category Access Request**: `client/src/components/`
+  - CategoryAccessRequestDialog.tsx: Request submission dialog
+  - CategoryRequestsList.tsx: Dashboard widget showing request status
+- **Admin Portal**: `client/src/pages/AdminCategoryRequests.tsx`
+  - Tabs for pending/approved/rejected requests
+  - Approval dialog with badge and capacity settings
 - **Admin Category Management**: `client/src/components/admin/`
   - CustomFieldsBuilder.tsx: Visual builder for custom field definitions
   - CategoryFormDialog.tsx: Category creation/editing with type selection
