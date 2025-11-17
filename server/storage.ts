@@ -107,10 +107,17 @@ import {
   type SavedSearch,
   type InsertSavedSearch,
   savedSearches,
+  type Notification,
+  type InsertNotification,
+  notifications,
+  type NotificationPreferences,
+  type InsertNotificationPreferences,
+  notificationPreferences,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, sql, desc, inArray } from "drizzle-orm";
 import { nanoid } from 'nanoid';
+import { emailService } from './email';
 
 export interface DashboardStats {
   activeJobs: number;
@@ -2762,6 +2769,22 @@ export class DatabaseStorage implements IStorage {
   // Notifications operations
   async createNotification(notification: InsertNotification): Promise<Notification> {
     const [created] = await db.insert(notifications).values(notification).returning();
+    
+    // Send email notification if user has email notifications enabled
+    try {
+      const preferences = await this.getNotificationPreferences(notification.userId);
+      if (preferences?.emailNotificationsEnabled) {
+        // Get user's email
+        const user = await this.getUser(notification.userId);
+        if (user?.email) {
+          await emailService.sendNotificationEmail(user.email, created);
+        }
+      }
+    } catch (error) {
+      // Log error but don't fail notification creation if email fails
+      console.error('[Notification] Failed to send email notification:', error);
+    }
+    
     return created;
   }
 
