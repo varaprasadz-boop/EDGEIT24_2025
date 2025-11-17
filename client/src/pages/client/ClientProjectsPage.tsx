@@ -13,7 +13,9 @@ export default function ClientProjectsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { data: projectsData, isLoading } = useQuery({
-    queryKey: ['/api/projects', { status: statusFilter !== 'all' ? statusFilter : undefined }],
+    queryKey: statusFilter !== 'all' 
+      ? [`/api/projects?status=${statusFilter}`]
+      : ['/api/projects'],
   });
 
   const projects = projectsData?.projects || [];
