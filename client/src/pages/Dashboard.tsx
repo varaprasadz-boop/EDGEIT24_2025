@@ -30,6 +30,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { ReviewForm } from "@/components/ReviewForm";
+import { CategoryRequestsList } from "@/components/CategoryRequestsList";
 
 interface DashboardStats {
   activeJobs: number;
@@ -906,6 +907,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <CategoryRequestsList />
 
       <Dialog open={responseDialogOpen} onOpenChange={setResponseDialogOpen}>
         <DialogContent data-testid="dialog-quote-response">
