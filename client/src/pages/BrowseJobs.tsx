@@ -9,7 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Briefcase, DollarSign, Clock, Search, Filter, X } from "lucide-react";
+import { Briefcase, DollarSign, Clock, Search, Filter, X, Shield } from "lucide-react";
+import { CategoryAccessRequestDialog } from "@/components/CategoryAccessRequestDialog";
+import { useAuthContext } from "@/contexts/AuthContext";
+import type { Category } from "@shared/schema";
 
 interface CategoryNode {
   id: string;
@@ -48,6 +51,7 @@ interface SearchFilters {
 }
 
 export default function BrowseJobs() {
+  const { getSelectedRole } = useAuthContext();
   const [filters, setFilters] = useState<SearchFilters>({
     search: "",
     categoryId: null,
@@ -62,6 +66,9 @@ export default function BrowseJobs() {
   });
 
   const [showFilters, setShowFilters] = useState(true);
+  const [showRequestDialog, setShowRequestDialog] = useState(false);
+  
+  const isConsultant = getSelectedRole() === 'consultant';
 
   // Fetch category tree
   const { data: treeResponse } = useQuery<{ tree: CategoryNode[] }>({
@@ -69,6 +76,36 @@ export default function BrowseJobs() {
   });
 
   const categoryTree = treeResponse?.tree || [];
+
+  // Fetch consultant's accessible categories (if consultant)
+  const { data: consultantCategories } = useQuery<any[]>({
+    queryKey: ['/api/profile/consultant/categories'],
+    enabled: isConsultant,
+  });
+
+  // Helper to find category in tree by ID
+  const findCategoryById = (id: string): Category | null => {
+    const search = (nodes: CategoryNode[]): CategoryNode | null => {
+      for (const node of nodes) {
+        if (node.id === id) return node;
+        if (node.children) {
+          const found = search(node.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    return search(categoryTree) as Category | null;
+  };
+
+  // Get selected category details from tree
+  const selectedCategory = filters.categoryId ? findCategoryById(filters.categoryId) : null;
+
+  // Determine if consultant can request access to selected category
+  const canRequestAccess = isConsultant && 
+    filters.categoryId && 
+    selectedCategory?.requiresApproval && 
+    !consultantCategories?.some((cc: any) => cc.categoryId === filters.categoryId);
 
   // Fetch jobs using advanced search API
   const { data: searchResponse, isLoading } = useQuery<{ results: Job[]; total: number }>({
@@ -158,6 +195,16 @@ export default function BrowseJobs() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {canRequestAccess && (
+                  <Button
+                    variant="default"
+                    onClick={() => setShowRequestDialog(true)}
+                    data-testid="button-request-category-access"
+                  >
+                    <Shield className="h-4 w-4 mr-2" />
+                    Request Access
+                  </Button>
+                )}
                 <SavedSearches
                   searchType="job"
                   currentFilters={filters}
@@ -463,6 +510,15 @@ export default function BrowseJobs() {
           </div>
         </div>
       </main>
+
+      {canRequestAccess && selectedCategory && (
+        <CategoryAccessRequestDialog
+          open={showRequestDialog}
+          onOpenChange={setShowRequestDialog}
+          categoryId={selectedCategory.id}
+          categoryName={selectedCategory.name}
+        />
+      )}
     </div>
   );
 }

@@ -1734,7 +1734,7 @@ export class DatabaseStorage implements IStorage {
     verified?: boolean;
     limit?: number;
     offset?: number;
-  }): Promise<{ consultants: (ConsultantProfile & { categoryPathLabel: string; primaryCategoryId: string | null })[]; total: number }> {
+  }): Promise<{ consultants: (ConsultantProfile & { categoryPathLabel: string; primaryCategoryId: string | null; verificationBadge: string | null })[]; total: number }> {
     const {
       search,
       categoryId,
