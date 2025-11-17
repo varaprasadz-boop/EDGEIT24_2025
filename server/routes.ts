@@ -1864,6 +1864,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Project/Contract Management endpoints
+  app.get('/api/projects', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get user profile to determine role
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const { status, limit, offset } = req.query;
+      const filters = {
+        status: status as string | undefined,
+        limit: limit ? parseInt(limit as string) : 50,
+        offset: offset ? parseInt(offset as string) : 0,
+      };
+
+      let result;
+      if (user.role === 'consultant') {
+        result = await storage.getConsultantProjects(userId, filters);
+      } else if (user.role === 'client') {
+        result = await storage.getClientProjects(userId, filters);
+      } else {
+        return res.status(403).json({ message: "Invalid user role" });
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      res.status(500).json({ message: "Failed to fetch projects" });
+    }
+  });
+
   app.get('/api/projects/:id', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserIdFromRequest(req);
@@ -1871,14 +1907,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
 
+      // Security: Verify user exists and has valid role
+      const user = await storage.getUser(userId);
+      if (!user || (user.role !== 'client' && user.role !== 'consultant')) {
+        return res.status(403).json({ message: "Unauthorized: Invalid user or role" });
+      }
+
       const project = await storage.getProjectById(req.params.id);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
 
-      // Security: Only client or consultant can view project
-      if (project.clientId !== userId && project.consultantId !== userId) {
-        return res.status(403).json({ message: "Unauthorized: You can only view your own projects" });
+      // Security: Verify ownership - user must be client or consultant on this specific project
+      const isClient = user.role === 'client' && project.clientId === userId;
+      const isConsultant = user.role === 'consultant' && project.consultantId === userId;
+      
+      if (!isClient && !isConsultant) {
+        return res.status(403).json({ message: "Unauthorized: You can only view projects you own" });
       }
 
       // Get additional project data
@@ -1909,6 +1954,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
 
+      // Security: Verify user exists and has valid role
+      const user = await storage.getUser(userId);
+      if (!user || (user.role !== 'client' && user.role !== 'consultant')) {
+        return res.status(403).json({ message: "Unauthorized: Invalid user or role" });
+      }
+
       const { status } = req.body;
       if (!status) {
         return res.status(400).json({ message: "Status is required" });
@@ -1924,9 +1975,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Project not found" });
       }
 
-      // Security: Only client or consultant can update project status
-      if (project.clientId !== userId && project.consultantId !== userId) {
-        return res.status(403).json({ message: "Unauthorized: You can only update your own projects" });
+      // Security: Verify ownership - user must be client or consultant on this specific project
+      const isClient = user.role === 'client' && project.clientId === userId;
+      const isConsultant = user.role === 'consultant' && project.consultantId === userId;
+      
+      if (!isClient && !isConsultant) {
+        return res.status(403).json({ message: "Unauthorized: You can only update projects you own" });
       }
 
       const updatedProject = await storage.updateProjectStatus(req.params.id, status, userId);

@@ -31,6 +31,7 @@ The frontend uses React with Vite, shadcn/ui, and Radix UI components based on M
 **Consultant Portfolio:** Consultants showcase completed projects.
 **Messaging & Collaboration:** Real-time messaging with WebSockets, supporting one-on-one conversations, file attachments, meeting scheduling, read receipts, message threading, full-text search, and admin moderation. Includes RBAC, soft deletes, and audit trails.
 **Enhanced Bidding & Proposal System:** Includes comprehensive bid CRUD, bid lifecycle management, shortlisting, clarifications, view/comparison tracking, RFQ system, and analytics. Supports category-specific bid types (service/hardware/software) with dynamic fields.
+**Contract & Project Execution System (Phase 1 COMPLETE):** Auto-contract creation upon bid acceptance. Extended projects table with contract fields (scope, payment terms, warranty, support, NDA, cancellation policy, digital signatures). Created 4 new tables: milestone_comments, project_deliverables, project_team_members, project_activity_log. Comprehensive project management storage methods and API endpoints for project retrieval and status updates.
 
 ## External Dependencies
 
