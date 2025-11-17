@@ -256,6 +256,56 @@ export function buildInvoiceRouter(deps: RouteBuilderDeps) {
     }
   });
 
+  // POST /api/invoices/:id/pay - Pay invoice from wallet
+  router.post('/:id/pay', isAuthenticated, requireEmailVerified, async (req, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { id } = req.params;
+      const invoice = await storage.getInvoiceById(id);
+
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      // Only client can pay invoice
+      if (invoice.clientId !== userId) {
+        return res.status(403).json({ message: "Only the client can pay this invoice" });
+      }
+
+      if (invoice.status === 'paid') {
+        return res.status(400).json({ message: "Invoice is already paid" });
+      }
+
+      if (invoice.status === 'cancelled') {
+        return res.status(400).json({ message: "Cannot pay a cancelled invoice" });
+      }
+
+      // Check wallet balance
+      const wallet = await storage.getWalletAccount(userId);
+      if (!wallet || parseFloat(wallet.balance) < parseFloat(invoice.totalAmount)) {
+        return res.status(400).json({ message: "Insufficient wallet balance" });
+      }
+
+      // Process payment from wallet (deduct funds and record transaction)
+      await storage.withdrawFromWallet(userId, invoice.totalAmount, `Payment for invoice ${invoice.invoiceNumber}`);
+
+      // Mark invoice as paid
+      const paid = await storage.markInvoiceAsPaid(id);
+
+      res.json({ 
+        message: "Invoice paid successfully",
+        invoice: paid
+      });
+    } catch (error: any) {
+      console.error("Error paying invoice:", error);
+      res.status(500).json({ message: error.message || "Failed to pay invoice" });
+    }
+  });
+
   // POST /api/invoices/:id/send-email - Send invoice via email
   router.post('/:id/send-email', isAuthenticated, requireEmailVerified, async (req, res) => {
     try {

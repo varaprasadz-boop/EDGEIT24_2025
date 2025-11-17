@@ -34,8 +34,14 @@ import Setup2FA from "@/pages/Setup2FA";
 import Verify2FA from "@/pages/Verify2FA";
 import ConsultantProjectsPage from "@/pages/consultant/ConsultantProjectsPage";
 import ConsultantProjectDetailsPage from "@/pages/consultant/ConsultantProjectDetailsPage";
+import ConsultantInvoicesPage from "@/pages/consultant/ConsultantInvoicesPage";
+import CreateInvoicePage from "@/pages/consultant/CreateInvoicePage";
+import InvoiceDetailPage from "@/pages/consultant/InvoiceDetailPage";
 import ClientProjectsPage from "@/pages/client/ClientProjectsPage";
 import ClientProjectDetailsPage from "@/pages/client/ClientProjectDetailsPage";
+import ClientInvoicesPage from "@/pages/client/ClientInvoicesPage";
+import ClientInvoiceDetailPage from "@/pages/client/ClientInvoiceDetailPage";
+import WalletPage from "@/pages/WalletPage";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -66,8 +72,14 @@ function Router() {
       <Route path="/messages/:conversationId?" component={Messages} />
       <Route path="/consultant/projects" component={ConsultantProjectsPage} />
       <Route path="/consultant/projects/:id" component={ConsultantProjectDetailsPage} />
+      <Route path="/consultant/invoices" component={ConsultantInvoicesPage} />
+      <Route path="/consultant/invoices/create" component={CreateInvoicePage} />
+      <Route path="/consultant/invoices/:id" component={InvoiceDetailPage} />
       <Route path="/client/projects" component={ClientProjectsPage} />
       <Route path="/client/projects/:id" component={ClientProjectDetailsPage} />
+      <Route path="/client/invoices" component={ClientInvoicesPage} />
+      <Route path="/client/invoices/:id" component={ClientInvoiceDetailPage} />
+      <Route path="/wallet" component={WalletPage} />
       <Route path="/services/:slug" component={CategoryLanding} />
       <Route path="/legal/:slug" component={LegalPage} />
       <Route path="/mock-payment" component={MockPaymentGateway} />

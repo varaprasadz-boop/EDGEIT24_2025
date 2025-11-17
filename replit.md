@@ -58,6 +58,14 @@ The system includes 9 database tables (deliverable_versions, deliverable_downloa
 
 The system includes 5 database tables (escrow_transactions, invoices, wallet_transactions, wallet_balances, refund_requests) with 40 REST API endpoints covering escrow operations, invoice management, wallet transactions, refund processing, and payment analytics. All currency operations enforce SAR-only with 15% VAT. Invoice emails integrate with existing email infrastructure, ready for production email provider integration.
 
+**Frontend Implementation:** Complete payment system UI with role-based interfaces:
+- **Consultant Pages:** Invoice list (`/consultant/invoices`), invoice creation (`/consultant/invoices/create`), invoice detail with email sending (`/consultant/invoices/:id`)
+- **Client Pages:** Invoice list with overdue tracking (`/client/invoices`), invoice detail with payment functionality (`/client/invoices/:id`)
+- **Universal Wallet:** Balance display, deposit/withdrawal dialogs, transaction history with filtering and pagination (`/wallet`)
+- **Admin Pages:** Refund request management with approval/rejection workflow (`/admin/refunds`), comprehensive payment analytics dashboard (`/admin/payment-analytics`)
+
+All pages follow Material Design 3 guidelines with proper loading states, error handling, responsive layouts, and data-testid attributes for testing. Payment workflows integrated with existing authentication, toast notifications, and React Query for state management.
+
 ## External Dependencies
 
 ### Database

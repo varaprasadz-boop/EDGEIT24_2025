@@ -24,6 +24,8 @@ import AdminMessages from "@/pages/AdminMessages";
 import AdminConversationViewer from "@/pages/AdminConversationViewer";
 import AdminSecurityDashboard from "@/pages/AdminSecurityDashboard";
 import AdminCategoryRequests from "@/pages/AdminCategoryRequests";
+import AdminRefunds from "@/pages/AdminRefunds";
+import AdminPaymentAnalytics from "@/pages/AdminPaymentAnalytics";
 
 export function AdminRouter() {
   const { user, isLoading } = useAuthContext();
@@ -75,6 +77,8 @@ export function AdminRouter() {
         <Route path="/admin/messages" component={AdminMessages} />
         <Route path="/admin/security" component={AdminSecurityDashboard} />
         <Route path="/admin/payments" component={AdminPayments} />
+        <Route path="/admin/refunds" component={AdminRefunds} />
+        <Route path="/admin/payment-analytics" component={AdminPaymentAnalytics} />
         <Route path="/admin/contracts" component={AdminContracts} />
         <Route path="/admin/subscription-plans" component={AdminSubscriptionPlans} />
         <Route path="/admin/disputes" component={AdminDisputes} />
