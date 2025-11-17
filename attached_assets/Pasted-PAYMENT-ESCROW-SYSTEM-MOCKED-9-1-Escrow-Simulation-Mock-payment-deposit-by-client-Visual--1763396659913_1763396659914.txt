@@ -1,0 +1,129 @@
+PAYMENT & ESCROW SYSTEM (MOCKED)
+9.1 Escrow Simulation
+•	Mock payment deposit by client
+•	Visual representation of funds in escrow
+•	Payment milestones setup
+•	Payment status indicators:
+o	Pending deposit
+o	In escrow
+o	Released
+o	Refunded
+o	On hold
+o	Processing
+9.2 Enhanced Payment Actions
+Client Actions:
+•	Deposit funds (mock transaction)
+•	Release payment to vendor
+•	Partial payment release (for milestones)
+•	Request refund (with reason)
+•	Set up milestone payments
+•	View escrow balance
+•	Payment authorization
+•	Tax/GST entry (configurable per region)
+Vendor Actions:
+•	Request payment
+•	Request milestone payment
+•	View payment history
+•	Track pending payments
+•	View available balance
+•	Withdraw funds (mock)
+•	Set payment preferences
+•	Tax/GST configuration
+9.3 Invoice Management System
+•	Auto-generate invoices:
+o	Per milestone completion
+o	Per project completion
+o	Recurring invoices (for subscriptions)
+•	Invoice details:
+o	Invoice number (auto-generated)
+o	Invoice date
+o	Due date
+o	Client details
+o	Vendor details
+o	Itemized services/products
+o	Subtotal
+o	Tax/GST (configurable rate)
+o	Total amount
+o	Currency
+o	Payment terms
+o	Notes
+•	Download invoice as PDF
+•	Send invoice via email
+•	Invoice status (draft, sent, paid, overdue, cancelled)
+•	Invoice history
+•	Recurring invoice templates
+9.4 Tax & GST Management
+•	Configurable per user/region:
+o	Tax ID/GST number entry
+o	Tax rate configuration
+o	Tax exemption status
+o	Multiple tax types (VAT, GST, Sales Tax)
+•	Display tax breakdown in invoices
+•	Tax reports for compliance
+•	Regional tax rules
+9.5 Wallet System
+•	User wallet/credit balance:
+o	Add funds to wallet (mock)
+o	Use wallet balance for payments
+o	Auto-deduct from wallet
+o	Wallet transaction history
+o	Refunds credited to wallet
+o	Wallet balance alerts
+o	Minimum balance settings
+•	Vendor wallet:
+o	Receive payments to wallet
+o	Withdraw from wallet (mock)
+o	Wallet-to-wallet transfers (between projects)
+9.6 Refund Management
+•	Request refund with reason
+•	Admin review refund request
+•	Refund Logs:
+o	Refund request date
+o	Requester (client/vendor)
+o	Reason for refund
+o	Amount
+o	Admin approval/rejection
+o	Approval date
+o	Refund processed date
+o	Notes
+•	Partial refund option
+•	Refund to original payment method or wallet
+•	Refund status tracking
+•	Refund analytics
+9.7 Transaction History
+•	Complete payment history for all projects
+•	Transaction details:
+o	Date and time
+o	Amount
+o	Currency
+o	Project name
+o	Client/Vendor name
+o	Transaction type (deposit, release, refund, withdrawal)
+o	Status
+o	Payment method (mock)
+o	Reference number
+o	Invoice number
+o	Tax amount
+•	Download invoice (PDF generation - mock)
+•	Filter by date range, project, status, category, currency
+•	Export transactions (CSV/PDF)
+9.8 Payment Dashboard
+Vendor Dashboard:
+•	Total earnings (all-time, monthly, yearly)
+•	Pending payments
+•	Available balance
+•	In escrow amount
+•	Wallet balance
+•	Earnings chart by month/category/currency
+•	Average project value
+•	Payment success rate
+•	Tax collected
+Client Dashboard:
+•	Total spent (all-time, monthly, yearly)
+•	In escrow amount
+•	Wallet balance
+•	Payment history
+•	Spending chart by month/category/currency
+•	Average order value
+•	Projects by budget range
+•	Tax paid
