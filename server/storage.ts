@@ -219,6 +219,15 @@ import {
   type NotificationPreferences,
   type InsertNotificationPreferences,
   notificationPreferences,
+  type Dispute,
+  type InsertDispute,
+  disputes,
+  type DisputeEvidence,
+  type InsertDisputeEvidence,
+  disputeEvidence,
+  type DisputeMessage,
+  type InsertDisputeMessage,
+  disputeMessages,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, sql, desc, inArray } from "drizzle-orm";
@@ -646,6 +655,23 @@ export interface IStorage {
   // Notification Preferences operations
   getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
   upsertNotificationPreferences(userId: string, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences>;
+
+  // Dispute operations
+  createDispute(dispute: InsertDispute): Promise<Dispute>;
+  getDispute(disputeId: string): Promise<Dispute | undefined>;
+  getUserDisputes(userId: string, options?: { status?: string; limit?: number; offset?: number }): Promise<{ disputes: Dispute[]; total: number }>;
+  getProjectDisputes(projectId: string): Promise<Dispute[]>;
+  getAllDisputes(options?: { status?: string; disputeType?: string; limit?: number; offset?: number }): Promise<{ disputes: Dispute[]; total: number }>;
+  updateDisputeStatus(disputeId: string, status: string, resolution?: string, resolvedBy?: string): Promise<Dispute>;
+  
+  // Dispute Evidence operations
+  addDisputeEvidence(evidence: InsertDisputeEvidence): Promise<DisputeEvidence>;
+  getDisputeEvidence(disputeId: string): Promise<DisputeEvidence[]>;
+  deleteDisputeEvidence(evidenceId: string, userId: string): Promise<void>;
+  
+  // Dispute Message operations
+  addDisputeMessage(message: InsertDisputeMessage): Promise<DisputeMessage>;
+  getDisputeMessages(disputeId: string): Promise<DisputeMessage[]>;
 
   // Project/Contract operations
   createProject(project: InsertProject): Promise<Project>;
@@ -4932,6 +4958,151 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // Dispute operations
+  async createDispute(dispute: InsertDispute): Promise<Dispute> {
+    const [created] = await db.insert(disputes)
+      .values(dispute)
+      .returning();
+    return created;
+  }
+
+  async getDispute(disputeId: string): Promise<Dispute | undefined> {
+    const [dispute] = await db.select()
+      .from(disputes)
+      .where(eq(disputes.id, disputeId));
+    return dispute;
+  }
+
+  async getUserDisputes(userId: string, options?: { status?: string; limit?: number; offset?: number }): Promise<{ disputes: Dispute[]; total: number }> {
+    const { status, limit = 20, offset = 0 } = options || {};
+    
+    let query = db.select().from(disputes)
+      .where(eq(disputes.raisedBy, userId));
+    
+    if (status) {
+      query = query.where(and(
+        eq(disputes.raisedBy, userId),
+        eq(disputes.status, status)
+      ));
+    }
+    
+    const allDisputes = await query
+      .orderBy(desc(disputes.createdAt))
+      .limit(limit)
+      .offset(offset);
+    
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(disputes)
+      .where(status ? and(
+        eq(disputes.raisedBy, userId),
+        eq(disputes.status, status)
+      ) : eq(disputes.raisedBy, userId));
+    
+    return { 
+      disputes: allDisputes, 
+      total: countResult?.count || 0 
+    };
+  }
+
+  async getProjectDisputes(projectId: string): Promise<Dispute[]> {
+    const projectDisputes = await db.select()
+      .from(disputes)
+      .where(eq(disputes.projectId, projectId))
+      .orderBy(desc(disputes.createdAt));
+    return projectDisputes;
+  }
+
+  async getAllDisputes(options?: { status?: string; disputeType?: string; limit?: number; offset?: number }): Promise<{ disputes: Dispute[]; total: number }> {
+    const { status, disputeType, limit = 20, offset = 0 } = options || {};
+    
+    const conditions = [];
+    if (status) conditions.push(eq(disputes.status, status));
+    if (disputeType) conditions.push(eq(disputes.disputeType, disputeType));
+    
+    let query = db.select().from(disputes);
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    const allDisputes = await query
+      .orderBy(desc(disputes.createdAt))
+      .limit(limit)
+      .offset(offset);
+    
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(disputes)
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
+    
+    return { 
+      disputes: allDisputes, 
+      total: countResult?.count || 0 
+    };
+  }
+
+  async updateDisputeStatus(disputeId: string, status: string, resolution?: string, resolvedBy?: string): Promise<Dispute> {
+    const updateData: any = { status, updatedAt: new Date() };
+    
+    if (resolution !== undefined) {
+      updateData.resolution = resolution;
+    }
+    
+    if (resolvedBy) {
+      updateData.resolvedBy = resolvedBy;
+    }
+    
+    if (status === 'resolved' || status === 'closed') {
+      updateData.resolvedAt = new Date();
+    }
+    
+    const [updated] = await db.update(disputes)
+      .set(updateData)
+      .where(eq(disputes.id, disputeId))
+      .returning();
+    
+    return updated;
+  }
+
+  // Dispute Evidence operations
+  async addDisputeEvidence(evidence: InsertDisputeEvidence): Promise<DisputeEvidence> {
+    const [created] = await db.insert(disputeEvidence)
+      .values(evidence)
+      .returning();
+    return created;
+  }
+
+  async getDisputeEvidence(disputeId: string): Promise<DisputeEvidence[]> {
+    const evidence = await db.select()
+      .from(disputeEvidence)
+      .where(eq(disputeEvidence.disputeId, disputeId))
+      .orderBy(desc(disputeEvidence.uploadedAt));
+    return evidence;
+  }
+
+  async deleteDisputeEvidence(evidenceId: string, userId: string): Promise<void> {
+    // Only delete if uploaded by the user
+    await db.delete(disputeEvidence)
+      .where(and(
+        eq(disputeEvidence.id, evidenceId),
+        eq(disputeEvidence.uploadedBy, userId)
+      ));
+  }
+
+  // Dispute Message operations
+  async addDisputeMessage(message: InsertDisputeMessage): Promise<DisputeMessage> {
+    const [created] = await db.insert(disputeMessages)
+      .values(message)
+      .returning();
+    return created;
+  }
+
+  async getDisputeMessages(disputeId: string): Promise<DisputeMessage[]> {
+    const messages = await db.select()
+      .from(disputeMessages)
+      .where(eq(disputeMessages.disputeId, disputeId))
+      .orderBy(disputeMessages.createdAt);
+    return messages;
   }
 
   // Vendor Category Request operations
