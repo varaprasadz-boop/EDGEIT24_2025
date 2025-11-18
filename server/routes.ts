@@ -6983,6 +6983,328 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // DISPUTE RESOLUTION ROUTES
+  // ============================================================================
+
+  // Create a new dispute
+  app.post('/api/disputes', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const { insertDisputeSchema } = await import("@shared/schema");
+      const parsed = insertDisputeSchema.safeParse({
+        ...req.body,
+        raisedBy: userId,
+      });
+
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      // Verify user has access to the project
+      const project = await storage.getProjectById(parsed.data.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (project.clientId !== userId && project.consultantId !== userId) {
+        return res.status(403).json({ message: "You can only raise disputes for projects you're involved in" });
+      }
+
+      const dispute = await storage.createDispute(parsed.data);
+      res.status(201).json(dispute);
+    } catch (error) {
+      console.error("Error creating dispute:", error);
+      const message = error instanceof Error ? error.message : "Failed to create dispute";
+      res.status(500).json({ message });
+    }
+  });
+
+  // Get user's disputes
+  app.get('/api/disputes', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const status = req.query.status as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+
+      const result = await storage.getUserDisputes(userId, { status, limit, offset });
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching disputes:", error);
+      res.status(500).json({ message: "Failed to fetch disputes" });
+    }
+  });
+
+  // Get specific dispute
+  app.get('/api/disputes/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const dispute = await storage.getDispute(req.params.id);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      // Verify user has access to this dispute
+      const project = await storage.getProjectById(dispute.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Allow access if user is part of the project or is admin
+      const user = await storage.getUser(userId);
+      const isAdmin = user?.role === 'admin';
+      const hasAccess = isAdmin || project.clientId === userId || project.consultantId === userId;
+
+      if (!hasAccess) {
+        return res.status(403).json({ message: "You don't have access to this dispute" });
+      }
+
+      res.json(dispute);
+    } catch (error) {
+      console.error("Error fetching dispute:", error);
+      res.status(500).json({ message: "Failed to fetch dispute" });
+    }
+  });
+
+  // Add evidence to a dispute
+  app.post('/api/disputes/:id/evidence', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const dispute = await storage.getDispute(req.params.id);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      // Verify user has access to this dispute
+      const project = await storage.getProjectById(dispute.projectId);
+      if (!project || (project.clientId !== userId && project.consultantId !== userId)) {
+        return res.status(403).json({ message: "You don't have access to this dispute" });
+      }
+
+      const { insertDisputeEvidenceSchema } = await import("@shared/schema");
+      const parsed = insertDisputeEvidenceSchema.safeParse({
+        ...req.body,
+        disputeId: req.params.id,
+        uploadedBy: userId,
+      });
+
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const evidence = await storage.addDisputeEvidence(parsed.data);
+      res.status(201).json(evidence);
+    } catch (error) {
+      console.error("Error adding evidence:", error);
+      const message = error instanceof Error ? error.message : "Failed to add evidence";
+      res.status(500).json({ message });
+    }
+  });
+
+  // Get dispute evidence
+  app.get('/api/disputes/:id/evidence', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const dispute = await storage.getDispute(req.params.id);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      // Verify user has access to this dispute
+      const project = await storage.getProjectById(dispute.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      const isAdmin = user?.role === 'admin';
+      const hasAccess = isAdmin || project.clientId === userId || project.consultantId === userId;
+
+      if (!hasAccess) {
+        return res.status(403).json({ message: "You don't have access to this dispute" });
+      }
+
+      const evidence = await storage.getDisputeEvidence(req.params.id);
+      res.json({ evidence });
+    } catch (error) {
+      console.error("Error fetching evidence:", error);
+      res.status(500).json({ message: "Failed to fetch evidence" });
+    }
+  });
+
+  // Add message to a dispute
+  app.post('/api/disputes/:id/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const dispute = await storage.getDispute(req.params.id);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      // Verify user has access to this dispute
+      const project = await storage.getProjectById(dispute.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      const isAdmin = user?.role === 'admin';
+      const hasAccess = isAdmin || project.clientId === userId || project.consultantId === userId;
+
+      if (!hasAccess) {
+        return res.status(403).json({ message: "You don't have access to this dispute" });
+      }
+
+      const { insertDisputeMessageSchema } = await import("@shared/schema");
+      const parsed = insertDisputeMessageSchema.safeParse({
+        ...req.body,
+        disputeId: req.params.id,
+        senderId: userId,
+        isAdminMessage: isAdmin,
+      });
+
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const message = await storage.addDisputeMessage(parsed.data);
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Error adding message:", error);
+      const messageText = error instanceof Error ? error.message : "Failed to add message";
+      res.status(500).json({ message: messageText });
+    }
+  });
+
+  // Get dispute messages
+  app.get('/api/disputes/:id/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const dispute = await storage.getDispute(req.params.id);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      // Verify user has access to this dispute
+      const project = await storage.getProjectById(dispute.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      const isAdmin = user?.role === 'admin';
+      const hasAccess = isAdmin || project.clientId === userId || project.consultantId === userId;
+
+      if (!hasAccess) {
+        return res.status(403).json({ message: "You don't have access to this dispute" });
+      }
+
+      const messages = await storage.getDisputeMessages(req.params.id);
+      res.json({ messages });
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  // Admin: Get all disputes
+  app.get('/api/admin/disputes', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const status = req.query.status as string | undefined;
+      const disputeType = req.query.disputeType as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+
+      const result = await storage.getAllDisputes({ status, disputeType, limit, offset });
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching all disputes:", error);
+      res.status(500).json({ message: "Failed to fetch disputes" });
+    }
+  });
+
+  // Admin: Update dispute status
+  app.put('/api/admin/disputes/:id/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const updateSchema = z.object({
+        status: z.enum(['pending', 'under_review', 'resolved', 'closed']),
+        resolution: z.string().max(5000).optional(),
+      });
+
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const dispute = await storage.getDispute(req.params.id);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      const updated = await storage.updateDisputeStatus(
+        req.params.id,
+        parsed.data.status,
+        parsed.data.resolution,
+        userId
+      );
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating dispute status:", error);
+      const message = error instanceof Error ? error.message : "Failed to update dispute status";
+      res.status(500).json({ message });
+    }
+  });
+
+  // ============================================================================
   // PROJECT INVITATION & MATCHING ROUTES
   // ============================================================================
 
