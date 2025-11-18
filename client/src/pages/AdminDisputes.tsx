@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, queryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { DataTable } from "@/components/admin/DataTable";
 import { FilterBar, FilterConfig } from "@/components/admin/FilterBar";
@@ -13,58 +13,77 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Plus } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MoreHorizontal } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
-type DisputeRow = {
+type Dispute = {
   id: string;
   projectId: string;
-  projectTitle: string;
   raisedBy: string;
-  raisedByEmail: string;
-  raisedByName: string;
-  against: string;
-  againstEmail: string;
-  againstName: string;
-  reason: string;
+  disputeType: string;
+  title: string;
   description: string;
+  desiredResolution?: string;
   status: string;
-  resolution: string | null;
-  resolvedBy: string | null;
-  resolvedByEmail: string | null;
-  resolvedByName: string | null;
-  resolvedAt: string | null;
+  resolution?: string;
+  resolvedBy?: string;
+  resolvedAt?: string;
   createdAt: string;
+  updatedAt: string;
 };
 
 type DisputesResponse = {
-  disputes: DisputeRow[];
+  disputes: Dispute[];
   total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
 };
 
-const DISPUTE_STATUSES = ["open", "under_review", "resolved", "closed"];
+const DISPUTE_STATUSES = ["pending", "under_review", "resolved", "closed"];
+const DISPUTE_TYPES = ["payment_dispute", "quality_dispute", "delivery_dispute", "refund_request", "contract_violation"];
+
+const disputeTypeLabels: Record<string, string> = {
+  payment_dispute: "Payment",
+  quality_dispute: "Quality",
+  delivery_dispute: "Delivery",
+  refund_request: "Refund",
+  contract_violation: "Contract",
+};
 
 export default function AdminDisputes() {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [searchValue, setSearchValue] = useState("");
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 20,
   });
+  const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
+  const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null);
+  const [newStatus, setNewStatus] = useState<string>("under_review");
+  const [resolution, setResolution] = useState("");
 
   const statusFilter = filters.status || "all";
+  const typeFilter = filters.disputeType || "all";
 
   const { data, isLoading } = useQuery<DisputesResponse>({
-    queryKey: ['/api/admin/disputes', pagination.pageIndex + 1, pagination.pageSize, searchValue, statusFilter],
+    queryKey: ['/api/admin/disputes', pagination.pageIndex, pagination.pageSize, statusFilter, typeFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
-        page: (pagination.pageIndex + 1).toString(),
         limit: pagination.pageSize.toString(),
-        ...(searchValue && { search: searchValue }),
+        offset: (pagination.pageIndex * pagination.pageSize).toString(),
         ...(statusFilter !== 'all' && { status: statusFilter }),
+        ...(typeFilter !== 'all' && { disputeType: typeFilter }),
       });
       
       const res = await fetch(`/api/admin/disputes?${params}`, {
@@ -79,19 +98,57 @@ export default function AdminDisputes() {
     },
   });
 
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ disputeId, status, resolution }: { disputeId: string; status: string; resolution?: string }) => {
+      return apiRequest(`/api/admin/disputes/${disputeId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status, resolution }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/disputes'] });
+      toast({
+        title: "Status Updated",
+        description: "Dispute status has been updated successfully.",
+      });
+      setResolveDialogOpen(false);
+      setSelectedDispute(null);
+      setResolution("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update status",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleFiltersChange = (newFilters: Record<string, string>) => {
     setFilters(newFilters);
     setPagination({ ...pagination, pageIndex: 0 });
   };
 
-  const handleSearchChange = (value: string) => {
-    setSearchValue(value);
-    setPagination({ ...pagination, pageIndex: 0 });
+  const handleResolve = (dispute: Dispute) => {
+    setSelectedDispute(dispute);
+    setNewStatus(dispute.status === 'pending' ? 'under_review' : 'resolved');
+    setResolution(dispute.resolution || "");
+    setResolveDialogOpen(true);
+  };
+
+  const handleSubmitStatusUpdate = () => {
+    if (!selectedDispute) return;
+    
+    updateStatusMutation.mutate({
+      disputeId: selectedDispute.id,
+      status: newStatus,
+      resolution: resolution.trim() || undefined,
+    });
   };
 
   const getStatusVariant = (status: string): "destructive" | "default" | "secondary" | "outline" => {
     switch (status) {
-      case "open":
+      case "pending":
         return "destructive";
       case "under_review":
         return "outline";
@@ -104,87 +161,50 @@ export default function AdminDisputes() {
     }
   };
 
-  const columns: ColumnDef<DisputeRow>[] = [
+  const columns: ColumnDef<Dispute>[] = [
     {
-      accessorKey: "id",
-      header: t("disputes.id"),
+      accessorKey: "title",
+      header: "Title",
       cell: ({ row }) => (
-        <div className="font-mono text-sm" data-testid={`id-${row.original.id}`}>
-          {row.original.id.substring(0, 8)}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "projectTitle",
-      header: t("disputes.projectTitle"),
-      cell: ({ row }) => (
-        <div className="max-w-[200px]">
-          <div className="font-medium truncate" data-testid={`project-${row.original.id}`}>
-            {row.original.projectTitle}
+        <div className="max-w-md">
+          <div className="font-medium" data-testid={`text-title-${row.original.id}`}>
+            {row.original.title}
+          </div>
+          <div className="text-sm text-muted-foreground truncate">
+            {row.original.description.substring(0, 100)}...
           </div>
         </div>
       ),
     },
     {
-      accessorKey: "raisedByName",
-      header: t("disputes.raisedBy"),
+      accessorKey: "disputeType",
+      header: "Type",
       cell: ({ row }) => (
-        <div className="max-w-[180px]">
-          <div className="font-medium truncate" data-testid={`raised-by-${row.original.id}`}>
-            {row.original.raisedByName}
-          </div>
-          <div className="text-xs text-muted-foreground truncate">
-            {row.original.raisedByEmail}
-          </div>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "againstName",
-      header: t("disputes.against"),
-      cell: ({ row }) => (
-        <div className="max-w-[180px]">
-          <div className="font-medium truncate" data-testid={`against-${row.original.id}`}>
-            {row.original.againstName}
-          </div>
-          <div className="text-xs text-muted-foreground truncate">
-            {row.original.againstEmail}
-          </div>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "reason",
-      header: t("disputes.reason"),
-      cell: ({ row }) => (
-        <div className="max-w-[200px]">
-          <div className="truncate" data-testid={`reason-${row.original.id}`}>
-            {row.original.reason}
-          </div>
-        </div>
+        <Badge variant="outline" data-testid={`badge-type-${row.original.id}`}>
+          {disputeTypeLabels[row.original.disputeType] || row.original.disputeType}
+        </Badge>
       ),
     },
     {
       accessorKey: "status",
-      header: t("common.status"),
+      header: "Status",
       cell: ({ row }) => (
-        <Badge variant={getStatusVariant(row.original.status)} data-testid={`status-${row.original.id}`}>
-          {t(`disputes.${row.original.status}`)}
+        <Badge variant={getStatusVariant(row.original.status)} data-testid={`badge-status-${row.original.id}`}>
+          {row.original.status.replace('_', ' ')}
         </Badge>
       ),
     },
     {
       accessorKey: "createdAt",
-      header: t("common.createdAt"),
+      header: "Created",
       cell: ({ row }) => (
-        <div className="text-xs text-muted-foreground" data-testid={`created-${row.original.id}`}>
+        <span data-testid={`text-date-${row.original.id}`}>
           {format(new Date(row.original.createdAt), "MMM d, yyyy")}
-        </div>
+        </span>
       ),
     },
     {
       id: "actions",
-      header: t("common.actions"),
       cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -193,21 +213,8 @@ export default function AdminDisputes() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => {
-                console.log("View details for dispute:", row.original.id);
-              }}
-              data-testid={`button-view-${row.original.id}`}
-            >
-              {t("disputes.viewDetails")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                console.log("Resolve dispute:", row.original.id);
-              }}
-              data-testid={`button-resolve-${row.original.id}`}
-            >
-              {t("disputes.resolve")}
+            <DropdownMenuItem onClick={() => handleResolve(row.original)} data-testid={`action-update-${row.original.id}`}>
+              Update Status
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -215,62 +222,112 @@ export default function AdminDisputes() {
     },
   ];
 
-  const statusFilterOptions = [
-    { value: "all", label: t("common.all") },
-    ...DISPUTE_STATUSES.map((status) => ({
-      value: status,
-      label: t(`disputes.${status}`),
-    })),
-  ];
-
   const filterConfigs: FilterConfig[] = [
     {
-      key: "status",
-      label: t("disputes.filterByStatus"),
+      id: "status",
+      label: "Status",
       type: "select",
-      options: statusFilterOptions,
+      options: [
+        { label: "All", value: "all" },
+        { label: "Pending", value: "pending" },
+        { label: "Under Review", value: "under_review" },
+        { label: "Resolved", value: "resolved" },
+        { label: "Closed", value: "closed" },
+      ],
+    },
+    {
+      id: "disputeType",
+      label: "Type",
+      type: "select",
+      options: [
+        { label: "All", value: "all" },
+        { label: "Payment", value: "payment_dispute" },
+        { label: "Quality", value: "quality_dispute" },
+        { label: "Delivery", value: "delivery_dispute" },
+        { label: "Refund", value: "refund_request" },
+        { label: "Contract", value: "contract_violation" },
+      ],
     },
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="heading-disputes">
-            {t("disputes.title")}
-          </h1>
-          <p className="text-muted-foreground" data-testid="text-disputes-description">
-            {t("disputes.subtitle")}
-          </p>
-        </div>
-        <Button
-          onClick={() => {
-            console.log("Create dispute clicked");
-          }}
-          data-testid="button-create-dispute"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          {t("disputes.createDispute")}
-        </Button>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight" data-testid="title-admin-disputes">
+          Dispute Management
+        </h2>
+        <p className="text-muted-foreground">
+          Review and manage user disputes
+        </p>
       </div>
 
       <FilterBar
-        searchPlaceholder={t("disputes.searchPlaceholder")}
-        searchValue={searchValue}
-        onSearchChange={handleSearchChange}
-        filters={filterConfigs}
+        filters={filters}
         onFiltersChange={handleFiltersChange}
+        filterConfigs={filterConfigs}
       />
 
       <DataTable
         columns={columns}
         data={data?.disputes || []}
-        pageCount={data?.totalPages || 0}
+        loading={isLoading}
         pagination={pagination}
         onPaginationChange={setPagination}
-        isLoading={isLoading}
-        manualPagination={true}
+        pageCount={Math.ceil((data?.total || 0) / pagination.pageSize)}
+        emptyMessage="No disputes found"
       />
+
+      <Dialog open={resolveDialogOpen} onOpenChange={setResolveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Dispute Status</DialogTitle>
+            <DialogDescription>
+              Change the status and add a resolution note for this dispute.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <Select value={newStatus} onValueChange={setNewStatus}>
+                <SelectTrigger data-testid="select-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="under_review">Under Review</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Resolution Note (Optional)</label>
+              <Textarea
+                placeholder="Add a note about the resolution..."
+                value={resolution}
+                onChange={(e) => setResolution(e.target.value)}
+                className="min-h-[100px]"
+                data-testid="textarea-resolution"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResolveDialogOpen(false)} data-testid="button-cancel">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmitStatusUpdate} 
+              disabled={updateStatusMutation.isPending}
+              data-testid="button-submit"
+            >
+              {updateStatusMutation.isPending ? "Updating..." : "Update Status"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

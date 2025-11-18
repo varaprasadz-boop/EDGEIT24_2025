@@ -49,6 +49,8 @@ import SavedRequirementsPage from "@/pages/consultant/SavedRequirementsPage";
 import FindConsultantsPage from "@/pages/client/FindConsultantsPage";
 import VendorListsPage from "@/pages/client/VendorListsPage";
 import CompareConsultantsPage from "@/pages/client/CompareConsultantsPage";
+import RaiseDispute from "@/pages/RaiseDispute";
+import MyDisputes from "@/pages/MyDisputes";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -94,6 +96,8 @@ function Router() {
       <Route path="/client/vendor-lists" component={VendorListsPage} />
       <Route path="/client/compare-consultants" component={CompareConsultantsPage} />
       <Route path="/wallet" component={WalletPage} />
+      <Route path="/raise-dispute" component={RaiseDispute} />
+      <Route path="/my-disputes" component={MyDisputes} />
       <Route path="/services/:slug" component={CategoryLanding} />
       <Route path="/legal/:slug" component={LegalPage} />
       <Route path="/mock-payment" component={MockPaymentGateway} />
