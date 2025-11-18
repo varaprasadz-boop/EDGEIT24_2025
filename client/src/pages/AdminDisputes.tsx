@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useQuery, useMutation, queryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { queryClient } from "@/lib/queryClient";
 import { DataTable } from "@/components/admin/DataTable";
 import { FilterBar, FilterConfig } from "@/components/admin/FilterBar";
 import { ColumnDef, PaginationState } from "@tanstack/react-table";
