@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import { useLocation } from 'wouter';
+import { BookmarkButton } from '@/components/BookmarkButton';
 
 interface ProjectSearchCardProps {
   project: {
@@ -43,7 +44,7 @@ export function ProjectSearchCard({ project }: ProjectSearchCardProps) {
   return (
     <Card className="hover-elevate transition-all" data-testid={`project-card-${project.id}`}>
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <h3 
               className="font-semibold text-lg cursor-pointer hover:text-primary transition-colors"
@@ -71,14 +72,17 @@ export function ProjectSearchCard({ project }: ProjectSearchCardProps) {
               )}
             </div>
           </div>
-          {project.status && (
-            <Badge 
-              className={statusColors[project.status] || 'bg-gray-100'}
-              data-testid={`project-status-${project.id}`}
-            >
-              {project.status.replace('_', ' ')}
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {project.status && (
+              <Badge 
+                className={statusColors[project.status] || 'bg-gray-100'}
+                data-testid={`project-status-${project.id}`}
+              >
+                {project.status.replace('_', ' ')}
+              </Badge>
+            )}
+            <BookmarkButton jobId={project.id} />
+          </div>
         </div>
       </CardHeader>
 

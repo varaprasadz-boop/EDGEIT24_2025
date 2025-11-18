@@ -6857,8 +6857,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
 
-      const isSaved = await storage.isSavedRequirement(userId, req.params.jobId);
-      res.json({ isSaved });
+      const result = await storage.isSavedRequirement(userId, req.params.jobId);
+      res.json(result);
     } catch (error) {
       console.error("Error checking saved requirement:", error);
       res.status(500).json({ message: "Failed to check saved requirement" });

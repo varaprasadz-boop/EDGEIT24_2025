@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Briefcase, DollarSign, Clock, Search, Filter, X, Shield } from "lucide-react";
 import { CategoryAccessRequestDialog } from "@/components/CategoryAccessRequestDialog";
 import { BidSubmissionDialog } from "@/components/BidSubmissionDialog";
+import { BookmarkButton } from "@/components/BookmarkButton";
 import { useAuthContext } from "@/contexts/AuthContext";
 import type { Category, Job as JobType } from "@shared/schema";
 
@@ -413,16 +414,19 @@ export default function BrowseJobs() {
                       {jobs.map((job) => (
                         <Card key={job.id} className="hover-elevate" data-testid={`card-job-${job.id}`}>
                           <CardHeader>
-                            <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start justify-between gap-2">
                               <div className="flex-1">
                                 <CardTitle data-testid={`text-job-title-${job.id}`}>{job.title}</CardTitle>
                                 <CardDescription className="mt-2" data-testid={`text-job-category-${job.id}`}>
                                   {job.categoryPathLabel}
                                 </CardDescription>
                               </div>
-                              <Badge variant="secondary" data-testid={`badge-job-status-${job.id}`}>
-                                {job.status}
-                              </Badge>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary" data-testid={`badge-job-status-${job.id}`}>
+                                  {job.status}
+                                </Badge>
+                                {isConsultant && <BookmarkButton jobId={job.id} />}
+                              </div>
                             </div>
                           </CardHeader>
                           <CardContent>
