@@ -1223,22 +1223,91 @@ export const savedItems = pgTable("saved_items", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Disputes - Conflict resolution
+// Disputes - Conflict resolution between clients and consultants
 export const disputes = pgTable("disputes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id),
-  raisedBy: varchar("raised_by").notNull().references(() => users.id),
-  against: varchar("against").notNull().references(() => users.id),
-  reason: text("reason").notNull(),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  raisedBy: varchar("raised_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  disputeType: text("dispute_type").notNull(), // 'payment_dispute', 'quality_dispute', 'delivery_dispute', 'refund_request', 'contract_violation'
+  title: text("title").notNull(), // Brief summary
   description: text("description").notNull(),
-  evidence: text("evidence").array(), // File URLs
-  status: text("status").notNull().default('open'), // 'open', 'under_review', 'resolved', 'closed'
-  resolution: text("resolution"),
+  desiredResolution: text("desired_resolution"), // What the user wants
+  status: text("status").notNull().default('pending'), // 'pending', 'under_review', 'resolved', 'closed'
+  resolution: text("resolution"), // Admin's decision
   resolvedBy: varchar("resolved_by").references(() => users.id),
   resolvedAt: timestamp("resolved_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  projectIdIdx: index("disputes_project_id_idx").on(table.projectId),
+  raisedByIdx: index("disputes_raised_by_idx").on(table.raisedBy),
+  statusIdx: index("disputes_status_idx").on(table.status),
+  disputeTypeIdx: index("disputes_type_idx").on(table.disputeType),
+}));
+
+export const insertDisputeSchema = createInsertSchema(disputes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  resolvedAt: true,
+  resolvedBy: true,
+  resolution: true,
+}).extend({
+  title: z.string().min(5).max(200),
+  description: z.string().min(20).max(5000),
+  desiredResolution: z.string().max(2000).optional(),
+  disputeType: z.enum(['payment_dispute', 'quality_dispute', 'delivery_dispute', 'refund_request', 'contract_violation']),
 });
+export type InsertDispute = z.infer<typeof insertDisputeSchema>;
+export type Dispute = typeof disputes.$inferSelect;
+
+// Dispute Evidence - Supporting files for disputes
+export const disputeEvidence = pgTable("dispute_evidence", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  disputeId: varchar("dispute_id").notNull().references(() => disputes.id, { onDelete: "cascade" }),
+  uploadedBy: varchar("uploaded_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  fileUrl: text("file_url").notNull(),
+  fileType: text("file_type").notNull(), // 'document', 'screenshot', 'photo', 'video', 'contract', 'invoice', 'message_log'
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size"),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+}, (table) => ({
+  disputeIdIdx: index("dispute_evidence_dispute_id_idx").on(table.disputeId),
+  uploadedByIdx: index("dispute_evidence_uploaded_by_idx").on(table.uploadedBy),
+}));
+
+export const insertDisputeEvidenceSchema = createInsertSchema(disputeEvidence).omit({
+  id: true,
+  uploadedAt: true,
+}).extend({
+  fileName: z.string().max(255),
+  fileType: z.enum(['document', 'screenshot', 'photo', 'video', 'contract', 'invoice', 'message_log']),
+});
+export type InsertDisputeEvidence = z.infer<typeof insertDisputeEvidenceSchema>;
+export type DisputeEvidence = typeof disputeEvidence.$inferSelect;
+
+// Dispute Messages - Communication thread
+export const disputeMessages = pgTable("dispute_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  disputeId: varchar("dispute_id").notNull().references(() => disputes.id, { onDelete: "cascade" }),
+  senderId: varchar("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  message: text("message").notNull(),
+  isAdminMessage: boolean("is_admin_message").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  disputeIdIdx: index("dispute_messages_dispute_id_idx").on(table.disputeId),
+  senderIdIdx: index("dispute_messages_sender_id_idx").on(table.senderId),
+  createdAtIdx: index("dispute_messages_created_at_idx").on(table.createdAt),
+}));
+
+export const insertDisputeMessageSchema = createInsertSchema(disputeMessages).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  message: z.string().min(1).max(5000),
+});
+export type InsertDisputeMessage = z.infer<typeof insertDisputeMessageSchema>;
+export type DisputeMessage = typeof disputeMessages.$inferSelect;
 
 // Subscription Plans - Engagement models for clients and consultants
 export const subscriptionPlans = pgTable("subscription_plans", {
@@ -2189,16 +2258,6 @@ export const insertSavedItemSchema = createInsertSchema(savedItems).omit({
 
 export type InsertSavedItem = z.infer<typeof insertSavedItemSchema>;
 export type SavedItem = typeof savedItems.$inferSelect;
-
-// Disputes
-export const insertDisputeSchema = createInsertSchema(disputes).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export type InsertDispute = z.infer<typeof insertDisputeSchema>;
-export type Dispute = typeof disputes.$inferSelect;
 
 // Admin Roles
 export const insertAdminRoleSchema = createInsertSchema(adminRoles).omit({
