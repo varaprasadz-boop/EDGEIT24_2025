@@ -834,6 +834,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to change password" });
     }
   });
+
+  // Update profile route
+  app.put('/api/auth/update-profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { fullName, phone, phoneCountryCode, companyName } = req.body;
+
+      // Build update object only with provided fields
+      const updateData: any = {};
+      if (fullName !== undefined) updateData.fullName = fullName;
+      if (phone !== undefined) updateData.phone = phone;
+      if (phoneCountryCode !== undefined) updateData.phoneCountryCode = phoneCountryCode;
+      if (companyName !== undefined) updateData.companyName = companyName;
+
+      // Update user profile
+      await db.update(users)
+        .set(updateData)
+        .where(eq(users.id, userId));
+
+      // Get updated user
+      const updatedUser = await storage.getUser(userId);
+      
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
   
   // Password reset routes
   app.post('/api/auth/request-reset', async (req, res) => {

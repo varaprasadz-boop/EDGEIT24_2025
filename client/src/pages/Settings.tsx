@@ -127,7 +127,14 @@ export default function Settings() {
     }
   }, []);
 
-  const isConsultant = getSelectedRole() === 'consultant' || getSelectedRole() === 'both';
+  // Determine which fields to show based on user role and selected role
+  // For dual-role users, respect their role selection
+  // For single-role users, show their designated fields
+  const selectedRole = getSelectedRole();
+  const showConsultantFields = user?.role === 'consultant' || 
+    (user?.role === 'both' && selectedRole === 'consultant');
+  const showCompanyField = user?.role === 'client' || 
+    (user?.role === 'both' && selectedRole === 'client');
 
   const form = useForm<ChangePasswordFormData>({
     resolver: zodResolver(changePasswordSchema),
@@ -223,11 +230,85 @@ export default function Settings() {
     },
   });
 
+  // Fetch user data from auth context - it's already available
+  // Fetch consultant profile if user has consultant role
+  const { data: consultantData, isLoading: consultantLoading } = useQuery({
+    queryKey: ['/api/profile/consultant'],
+    enabled: activeTab === 'profile' && showConsultantFields,
+  });
+
+  // Load profile data into form when fetched
+  useEffect(() => {
+    if (user && activeTab === 'profile') {
+      const consultant = consultantData as any;
+      profileForm.reset({
+        fullName: user.fullName || '',
+        phone: user.phone || '',
+        phoneCountryCode: user.phoneCountryCode || '+966',
+        companyName: user.companyName || '',
+        bio: consultant?.bio || '',
+        title: consultant?.title || '',
+        skills: consultant?.skills?.join(', ') || '',
+        hourlyRate: consultant?.hourlyRate || '',
+        availability: consultant?.availability || 'available',
+      });
+    }
+  }, [user, consultantData, activeTab]);
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: ProfileFormData) => {
+      // Update user fields via auth update endpoint
+      const userPayload: any = {
+        fullName: data.fullName,
+        phone: data.phone,
+        phoneCountryCode: data.phoneCountryCode,
+      };
+      
+      // Include company name if user has client or both role
+      if (showCompanyField && data.companyName) {
+        userPayload.companyName = data.companyName;
+      }
+      
+      await apiRequest('PUT', '/api/auth/update-profile', userPayload);
+
+      // Update consultant profile if user has consultant or both role
+      if (showConsultantFields) {
+        const consultantPayload = {
+          bio: data.bio,
+          title: data.title,
+          skills: data.skills ? data.skills.split(',').map(s => s.trim()).filter(Boolean) : [],
+          hourlyRate: data.hourlyRate ? parseFloat(data.hourlyRate) : null,
+          availability: data.availability,
+        };
+        await apiRequest('PUT', '/api/profile/consultant', consultantPayload);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant'] });
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update profile. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onPasswordSubmit = (data: ChangePasswordFormData) => {
     changePasswordMutation.mutate({
       currentPassword: data.currentPassword,
       newPassword: data.newPassword,
     });
+  };
+
+  const onProfileSubmit = (data: ProfileFormData) => {
+    updateProfileMutation.mutate(data);
   };
 
   const handleEmailToggle = (checked: boolean) => {
@@ -295,6 +376,228 @@ export default function Settings() {
               Notifications
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="profile" className="mt-6">
+            <Card data-testid="card-profile-info">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Profile Information
+                </CardTitle>
+                <CardDescription>
+                  Update your personal information and {showConsultantFields ? 'professional' : 'company'} details
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!user ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : (
+                  <Form {...profileForm}>
+                    <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
+                      <FormField
+                        control={profileForm.control}
+                        name="fullName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Full Name *</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="Enter your full name"
+                                data-testid="input-profile-full-name"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={profileForm.control}
+                          name="phoneCountryCode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Country Code</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="+966"
+                                  data-testid="input-profile-country-code"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={profileForm.control}
+                          name="phone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Phone Number</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="5xxxxxxxx"
+                                  data-testid="input-profile-phone"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {showCompanyField && (
+                        <FormField
+                          control={profileForm.control}
+                          name="companyName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Company Name</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="Enter your company name"
+                                  data-testid="input-profile-company"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                Optional - Only visible if you're posting jobs as a business
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
+                      {showConsultantFields && (
+                        <>
+                          <FormField
+                            control={profileForm.control}
+                            name="title"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Professional Title</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="e.g., Senior Full-Stack Developer"
+                                    data-testid="input-profile-title"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={profileForm.control}
+                            name="bio"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Bio</FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    placeholder="Tell us about your experience and expertise..."
+                                    className="min-h-[100px]"
+                                    data-testid="input-profile-bio"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  Brief description of your professional background (max 1000 characters)
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={profileForm.control}
+                            name="skills"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Skills</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="e.g., React, Node.js, Python, AWS"
+                                    data-testid="input-profile-skills"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  Enter your skills separated by commas
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={profileForm.control}
+                              name="hourlyRate"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Hourly Rate (SAR)</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      placeholder="e.g., 200"
+                                      data-testid="input-profile-hourly-rate"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={profileForm.control}
+                              name="availability"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Availability</FormLabel>
+                                  <FormControl>
+                                    <select
+                                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                      data-testid="select-profile-availability"
+                                      {...field}
+                                    >
+                                      <option value="available">Available</option>
+                                      <option value="busy">Busy</option>
+                                      <option value="unavailable">Unavailable</option>
+                                    </select>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      <div className="flex justify-end pt-4">
+                        <Button
+                          type="submit"
+                          disabled={updateProfileMutation.isPending}
+                          data-testid="button-save-profile"
+                        >
+                          {updateProfileMutation.isPending ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="account" className="mt-6">
             <Card data-testid="card-change-password">
