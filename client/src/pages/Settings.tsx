@@ -7,10 +7,11 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Lock, Bell } from "lucide-react";
+import { Lock, Bell, User } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,8 +22,10 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { NOTIFICATION_TYPES } from "@shared/schema";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
@@ -37,6 +40,20 @@ const changePasswordSchema = z.object({
 });
 
 type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;
+
+const profileSchema = z.object({
+  fullName: z.string().min(1, "Full name is required").max(100),
+  phone: z.string().optional(),
+  phoneCountryCode: z.string().optional(),
+  companyName: z.string().optional(),
+  bio: z.string().max(1000).optional(),
+  title: z.string().max(100).optional(),
+  skills: z.string().optional(), // Comma-separated skills
+  hourlyRate: z.string().optional(),
+  availability: z.string().optional(),
+});
+
+type ProfileFormData = z.infer<typeof profileSchema>;
 
 type NotificationPreferences = {
   id: string;
@@ -97,9 +114,10 @@ const IMPORTANT_TYPES = [
 
 export default function Settings() {
   const { toast } = useToast();
+  const { getSelectedRole, user } = useAuthContext();
   const urlParams = new URLSearchParams(window.location.search);
   const tabParam = urlParams.get('tab');
-  const [activeTab, setActiveTab] = useState(tabParam || "account");
+  const [activeTab, setActiveTab] = useState(tabParam || "profile");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -109,12 +127,29 @@ export default function Settings() {
     }
   }, []);
 
+  const isConsultant = getSelectedRole() === 'consultant' || getSelectedRole() === 'both';
+
   const form = useForm<ChangePasswordFormData>({
     resolver: zodResolver(changePasswordSchema),
     defaultValues: {
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
+    },
+  });
+
+  const profileForm = useForm<ProfileFormData>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      fullName: "",
+      phone: "",
+      phoneCountryCode: "+966",
+      companyName: "",
+      bio: "",
+      title: "",
+      skills: "",
+      hourlyRate: "",
+      availability: "available",
     },
   });
 
@@ -246,7 +281,11 @@ export default function Settings() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} data-testid="tabs-settings">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="profile" data-testid="tab-profile">
+              <User className="h-4 w-4 mr-2" />
+              Profile
+            </TabsTrigger>
             <TabsTrigger value="account" data-testid="tab-account">
               <Lock className="h-4 w-4 mr-2" />
               Account
