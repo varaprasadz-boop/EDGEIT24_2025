@@ -6755,6 +6755,202 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // SAVED REQUIREMENTS ROUTES (Consultants' bookmarked jobs)
+  // ============================================================================
+
+  app.post('/api/saved-requirements', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const saveSchema = z.object({
+        jobId: z.string().uuid(),
+        notes: z.string().max(2000).optional(),
+      });
+
+      const parsed = saveSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const saved = await storage.saveSavedRequirement(
+        userId,
+        parsed.data.jobId,
+        parsed.data.notes
+      );
+
+      res.status(201).json(saved);
+    } catch (error) {
+      console.error("Error saving requirement:", error);
+      const message = error instanceof Error ? error.message : "Failed to save requirement";
+      res.status(500).json({ message });
+    }
+  });
+
+  app.get('/api/saved-requirements', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const saved = await storage.getSavedRequirements(userId);
+      res.json({ savedRequirements: saved });
+    } catch (error) {
+      console.error("Error fetching saved requirements:", error);
+      res.status(500).json({ message: "Failed to fetch saved requirements" });
+    }
+  });
+
+  app.delete('/api/saved-requirements/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      await storage.unsaveSavedRequirement(req.params.id, userId);
+      res.json({ message: "Requirement unsaved successfully" });
+    } catch (error) {
+      console.error("Error unsaving requirement:", error);
+      const message = error instanceof Error ? error.message : "Failed to unsave requirement";
+      res.status(500).json({ message });
+    }
+  });
+
+  app.patch('/api/saved-requirements/:id/notes', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const notesSchema = z.object({
+        notes: z.string().max(2000),
+      });
+
+      const parsed = notesSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      const updated = await storage.updateSavedRequirementNotes(
+        req.params.id,
+        userId,
+        parsed.data.notes
+      );
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating saved requirement notes:", error);
+      const message = error instanceof Error ? error.message : "Failed to update notes";
+      res.status(500).json({ message });
+    }
+  });
+
+  app.get('/api/saved-requirements/check/:jobId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const isSaved = await storage.isSavedRequirement(userId, req.params.jobId);
+      res.json({ isSaved });
+    } catch (error) {
+      console.error("Error checking saved requirement:", error);
+      res.status(500).json({ message: "Failed to check saved requirement" });
+    }
+  });
+
+  // ============================================================================
+  // BLOCKED USERS ROUTES (User blocking for privacy)
+  // ============================================================================
+
+  app.post('/api/blocked-users', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const blockSchema = z.object({
+        blockedId: z.string().uuid(),
+        reason: z.string().max(500).optional(),
+      });
+
+      const parsed = blockSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+      }
+
+      if (userId === parsed.data.blockedId) {
+        return res.status(400).json({ message: "Cannot block yourself" });
+      }
+
+      const blocked = await storage.blockUser(
+        userId,
+        parsed.data.blockedId,
+        parsed.data.reason
+      );
+
+      res.status(201).json(blocked);
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      const message = error instanceof Error ? error.message : "Failed to block user";
+      res.status(500).json({ message });
+    }
+  });
+
+  app.get('/api/blocked-users', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const blocked = await storage.getBlockedUsers(userId);
+      res.json({ blockedUsers: blocked });
+    } catch (error) {
+      console.error("Error fetching blocked users:", error);
+      res.status(500).json({ message: "Failed to fetch blocked users" });
+    }
+  });
+
+  app.delete('/api/blocked-users/:blockedId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      await storage.unblockUser(userId, req.params.blockedId);
+      res.json({ message: "User unblocked successfully" });
+    } catch (error) {
+      console.error("Error unblocking user:", error);
+      const message = error instanceof Error ? error.message : "Failed to unblock user";
+      res.status(500).json({ message });
+    }
+  });
+
+  app.get('/api/blocked-users/check/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUserId = getUserIdFromRequest(req);
+      if (!currentUserId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const isBlocked = await storage.isUserBlocked(currentUserId, req.params.userId);
+      res.json({ isBlocked });
+    } catch (error) {
+      console.error("Error checking blocked user:", error);
+      res.status(500).json({ message: "Failed to check blocked user" });
+    }
+  });
+
+  // ============================================================================
   // PROJECT INVITATION & MATCHING ROUTES
   // ============================================================================
 
