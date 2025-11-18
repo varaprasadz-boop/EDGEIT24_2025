@@ -411,24 +411,26 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-proposals">
-                {clientStats?.totalBids || 0}
+                {clientStats?.bidsReceived || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {clientStats?.totalBids ? 'Awaiting your review' : 'No proposals yet'}
+                {clientStats?.bidsReceived ? 'Awaiting your review' : 'No proposals yet'}
               </p>
             </CardContent>
           </Card>
 
-          <Card data-testid="card-stat-messages">
+          <Card data-testid="card-stat-active-projects">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Messages</CardTitle>
-              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold" data-testid="text-messages">
-                {clientStats?.messagesCount || 0}
+              <div className="text-2xl font-bold" data-testid="text-active-projects">
+                {clientStats?.activeProjects || 0}
               </div>
-              <p className="text-xs text-muted-foreground">No unread messages</p>
+              <p className="text-xs text-muted-foreground">
+                {clientStats?.activeProjects ? 'In progress' : 'No active projects'}
+              </p>
             </CardContent>
           </Card>
 
@@ -439,7 +441,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-spending">
-                ﷼ {parseFloat(clientStats?.totalSpending || "0").toFixed(2)}
+                ﷼ {parseFloat(clientStats?.allTimeSpending || "0").toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">All time</p>
             </CardContent>
@@ -652,7 +654,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-earnings">
-                ﷼ {parseFloat(consultantStats?.totalEarnings || "0").toFixed(2)}
+                ﷼ {parseFloat(consultantStats?.allTimeEarnings || "0").toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">All time</p>
             </CardContent>
@@ -665,10 +667,10 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-rating">
-                {parseFloat(consultantStats?.rating || "0").toFixed(1) || '-'}
+                {parseFloat(consultantStats?.averageRating || "0").toFixed(1) || '-'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {consultantStats && parseFloat(consultantStats.rating) > 0 ? 'Average rating' : 'No reviews yet'}
+                {consultantStats && parseFloat(consultantStats.averageRating) > 0 ? 'Average rating' : 'No reviews yet'}
               </p>
             </CardContent>
           </Card>
