@@ -27,6 +27,8 @@ import Settings from "@/pages/Settings";
 import MyJobs from "@/pages/MyJobs";
 import Messages from "@/pages/Messages";
 import Analytics from "@/pages/Analytics";
+import VendorAnalytics from "@/pages/VendorAnalytics";
+import ClientAnalytics from "@/pages/ClientAnalytics";
 import Documents from "@/pages/Documents";
 import Portfolio from "@/pages/Portfolio";
 import UserSecurityDashboard from "@/pages/UserSecurityDashboard";
@@ -80,6 +82,8 @@ function Router() {
       <Route path="/consultant/invoices/create" component={CreateInvoicePage} />
       <Route path="/consultant/invoices/:id" component={InvoiceDetailPage} />
       <Route path="/consultant/find-projects" component={FindProjectsPage} />
+      <Route path="/consultant/analytics" component={VendorAnalytics} />
+      <Route path="/client/analytics" component={ClientAnalytics} />
       <Route path="/client/projects" component={ClientProjectsPage} />
       <Route path="/client/projects/:id" component={ClientProjectDetailsPage} />
       <Route path="/client/invoices" component={ClientInvoicesPage} />
