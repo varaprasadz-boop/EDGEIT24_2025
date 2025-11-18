@@ -1647,6 +1647,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/dashboard/financial-trends', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const role = req.query.role as 'client' | 'consultant' || user.role;
+      const months = req.query.months ? parseInt(req.query.months as string) : 6;
+      
+      const trends = await storage.getFinancialTrends(userId, role, months);
+      res.json({ trends });
+    } catch (error) {
+      console.error("Error fetching financial trends:", error);
+      res.status(500).json({ message: "Failed to fetch financial trends" });
+    }
+  });
+
+  app.get('/api/dashboard/pending-actions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const role = req.query.role as 'client' | 'consultant' || user.role;
+      const actions = await storage.getPendingActions(userId, role);
+      res.json({ actions });
+    } catch (error) {
+      console.error("Error fetching pending actions:", error);
+      res.status(500).json({ message: "Failed to fetch pending actions" });
+    }
+  });
+
+  app.get('/api/dashboard/active-projects', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const role = req.query.role as 'client' | 'consultant' || user.role;
+      const projects = await storage.getActiveProjectsSummary(userId, role);
+      res.json({ projects });
+    } catch (error) {
+      console.error("Error fetching active projects:", error);
+      res.status(500).json({ message: "Failed to fetch active projects" });
+    }
+  });
+
   // Bid endpoints
   app.get('/api/bids', isAuthenticated, async (req: any, res) => {
     try {

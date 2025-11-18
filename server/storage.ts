@@ -376,6 +376,9 @@ export interface IStorage {
   getClientDashboardStats(userId: string): Promise<DashboardStats>;
   getConsultantDashboardStats(userId: string): Promise<ConsultantDashboardStats>;
   getRecentActivities(userId: string, role: 'client' | 'consultant', limit?: number): Promise<any[]>;
+  getFinancialTrends(userId: string, role: 'client' | 'consultant', months?: number): Promise<{ month: string; amount: number }[]>;
+  getPendingActions(userId: string, role: 'client' | 'consultant'): Promise<any[]>;
+  getActiveProjectsSummary(userId: string, role: 'client' | 'consultant'): Promise<any[]>;
   listClientJobs(userId: string, limit?: number): Promise<Job[]>;
   listClientBids(userId: string, limit?: number): Promise<Bid[]>;
   
@@ -2409,6 +2412,185 @@ export class DatabaseStorage implements IStorage {
     activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     
     return activities.slice(0, limit);
+  }
+
+  async getFinancialTrends(userId: string, role: 'client' | 'consultant', months: number = 6): Promise<{ month: string; amount: number }[]> {
+    // Generate last N months
+    const monthsArray: { month: string; amount: number }[] = [];
+    const now = new Date();
+    
+    for (let i = months - 1; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthStr = date.toISOString().slice(0, 7); // YYYY-MM format
+      monthsArray.push({ month: monthStr, amount: 0 });
+    }
+    
+    // Get payments for the period
+    const startDate = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
+    
+    const paymentsData = await db
+      .select({
+        month: sql<string>`to_char(${payments.createdAt}, 'YYYY-MM')`,
+        total: sql<number>`COALESCE(SUM(CAST(${payments.amount} AS NUMERIC)), 0)`,
+      })
+      .from(payments)
+      .where(
+        and(
+          role === 'consultant'
+            ? eq(payments.toUserId, userId)
+            : eq(payments.fromUserId, userId),
+          sql`${payments.createdAt} >= ${startDate}`,
+          eq(payments.status, 'completed')
+        )
+      )
+      .groupBy(sql`to_char(${payments.createdAt}, 'YYYY-MM')`)
+      .orderBy(sql`to_char(${payments.createdAt}, 'YYYY-MM')`);
+    
+    // Merge with months array
+    const dataMap = new Map(paymentsData.map(p => [p.month, p.total]));
+    return monthsArray.map(m => ({
+      month: m.month,
+      amount: dataMap.get(m.month) || 0
+    }));
+  }
+
+  async getPendingActions(userId: string, role: 'client' | 'consultant'): Promise<any[]> {
+    const actions: any[] = [];
+    
+    if (role === 'consultant') {
+      // Pending bids to respond to (if client sends clarification)
+      const pendingBids = await db
+        .select({
+          id: bids.id,
+          type: sql<string>`'bid'`,
+          title: sql<string>`'Respond to bid clarification'`,
+          description: jobs.title,
+          dueDate: bids.updatedAt,
+          priority: sql<string>`'medium'`,
+        })
+        .from(bids)
+        .innerJoin(jobs, eq(bids.jobId, jobs.id))
+        .where(
+          and(
+            eq(bids.consultantId, userId),
+            eq(bids.status, 'pending')
+          )
+        )
+        .orderBy(desc(bids.updatedAt))
+        .limit(5);
+      
+      // Projects awaiting deliverables
+      const awaitingDeliverables = await db
+        .select({
+          id: projects.id,
+          type: sql<string>`'project'`,
+          title: sql<string>`'Submit deliverable'`,
+          description: projects.title,
+          dueDate: projects.deadline,
+          priority: sql<string>`'high'`,
+        })
+        .from(projects)
+        .where(
+          and(
+            eq(projects.consultantId, userId),
+            eq(projects.status, 'in_progress')
+          )
+        )
+        .orderBy(asc(projects.deadline))
+        .limit(5);
+      
+      actions.push(...pendingBids, ...awaitingDeliverables);
+    } else {
+      // Client: Pending bids to review
+      const pendingBids = await db
+        .select({
+          id: bids.id,
+          type: sql<string>`'bid'`,
+          title: sql<string>`'Review new bid'`,
+          description: jobs.title,
+          dueDate: bids.createdAt,
+          priority: sql<string>`'medium'`,
+        })
+        .from(bids)
+        .innerJoin(jobs, eq(bids.jobId, jobs.id))
+        .where(
+          and(
+            eq(jobs.clientId, userId),
+            eq(bids.status, 'pending')
+          )
+        )
+        .orderBy(desc(bids.createdAt))
+        .limit(5);
+      
+      // Projects awaiting payment or review
+      const awaitingAction = await db
+        .select({
+          id: projects.id,
+          type: sql<string>`'project'`,
+          title: sql<string>`CASE 
+            WHEN ${projects.status} = 'awaiting_payment' THEN 'Release payment'
+            WHEN ${projects.status} = 'awaiting_review' THEN 'Review deliverable'
+            ELSE 'Review project'
+          END`,
+          description: projects.title,
+          dueDate: projects.updatedAt,
+          priority: sql<string>`'high'`,
+        })
+        .from(projects)
+        .where(
+          and(
+            eq(projects.clientId, userId),
+            sql`${projects.status} IN ('awaiting_payment', 'awaiting_review')`
+          )
+        )
+        .orderBy(desc(projects.updatedAt))
+        .limit(5);
+      
+      actions.push(...pendingBids, ...awaitingAction);
+    }
+    
+    // Sort by priority and date
+    actions.sort((a, b) => {
+      if (a.priority === 'high' && b.priority !== 'high') return -1;
+      if (a.priority !== 'high' && b.priority === 'high') return 1;
+      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    });
+    
+    return actions.slice(0, 10);
+  }
+
+  async getActiveProjectsSummary(userId: string, role: 'client' | 'consultant'): Promise<any[]> {
+    const activeProjects = await db
+      .select({
+        id: projects.id,
+        title: projects.title,
+        status: projects.status,
+        budget: projects.budget,
+        deadline: projects.deadline,
+        progress: sql<number>`COALESCE(
+          (SELECT COUNT(*) * 100.0 / NULLIF(
+            (SELECT COUNT(*) FROM unnest(string_to_array(${projects.deliverables}, ','))), 0
+          )
+          FROM unnest(string_to_array(${projects.deliverables}, ',')) d
+          WHERE d LIKE '%completed%'),
+          0
+        )`,
+        clientName: sql<string>`(SELECT ${users.fullName} FROM ${users} WHERE ${users.id} = ${projects.clientId})`,
+        consultantName: sql<string>`(SELECT ${users.fullName} FROM ${users} WHERE ${users.id} = ${projects.consultantId})`,
+      })
+      .from(projects)
+      .where(
+        and(
+          role === 'consultant'
+            ? eq(projects.consultantId, userId)
+            : eq(projects.clientId, userId),
+          sql`${projects.status} IN ('in_progress', 'awaiting_review', 'awaiting_payment')`
+        )
+      )
+      .orderBy(asc(projects.deadline))
+      .limit(10);
+    
+    return activeProjects;
   }
 
   // Enhanced Bid operations
