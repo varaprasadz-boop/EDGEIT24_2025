@@ -19,7 +19,11 @@ The frontend is built with React, Vite, shadcn/ui, and Radix UI components, styl
 **Admin Portal & CMS:** Provides i18n support with RTL (English/Arabic) for managing profiles, categories, users, bids, payments, contracts, vendors, disputes, subscription plans, and email templates. A bilingual CMS supports rich text editing and XSS sanitization.
 **Dynamic Category & Job Posting System:** A 3-level hierarchical category system with 8 predefined types and support for custom fields. The "Post Job" page dynamically renders fields based on category selection.
 **Consultant Workflow:** Includes a category access request workflow requiring admin approval, verification badge management, and comprehensive consultant profiles with a Quick Quote System, language proficiency, and Pricing Templates.
-**Dashboards & Profile Management:** Role-based dashboards for various user types.
+**Dashboards & Profile Management (ENHANCED):** Role-based dashboards with comprehensive metrics and actionable widgets.
+  - **Client Dashboard**: 6 stat cards (Active Jobs, Proposals Received, Active Projects, Total Spending, Completed Projects, Avg Response Time) + 5 widgets (Quick Actions, Pending Actions, Recent Activities, Spending Trends, Active Projects Summary)
+  - **Consultant Dashboard**: 5 stat cards (Available Jobs, Active Bids, Total Earnings, Rating, Completed Projects) + 5 widgets (Quick Actions, Pending Actions, Recent Activities, Earnings Trends, Active Projects Summary, Performance Score, Quote Requests)
+  - Backend endpoints for stats, activities, financial trends, pending actions, and active projects with proper authorization
+  - Material Design 3 UI with proper data-testid attributes for testing
 **Comprehensive Two-Way Review & Rating System (COMPLETED):** Fully implemented bidirectional review system with role-specific rating criteria (vendor: quality/communication/deadline/professionalism/value; client: communication clarity/requirements clarity/payment promptness/professionalism). Features include:
   - 48-hour edit window enforced via canEditUntil timestamp with countdown timer UI
   - One-time review responses with ReviewResponseDialog
