@@ -14,6 +14,15 @@ export function LanguageSwitcher() {
 
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
+    localStorage.setItem("language", lang);
+    
+    if (lang === "ar") {
+      document.documentElement.setAttribute("dir", "rtl");
+      document.documentElement.setAttribute("lang", "ar");
+    } else {
+      document.documentElement.setAttribute("dir", "ltr");
+      document.documentElement.setAttribute("lang", "en");
+    }
   };
 
   return (

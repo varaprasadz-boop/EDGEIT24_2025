@@ -58,6 +58,8 @@ export const users = pgTable("users", {
   twoFactorEnabled: boolean("two_factor_enabled").default(false),
   twoFactorSecret: varchar("two_factor_secret"), // Encrypted TOTP secret
   backupCodes: text("backup_codes").array(), // Array of backup recovery codes
+  // Privacy settings
+  profileVisibility: text("profile_visibility").default('public'), // 'public', 'clients_only', 'private'
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -3392,6 +3394,51 @@ export const insertVendorListItemSchema = createInsertSchema(vendorListItems).om
 });
 export type InsertVendorListItem = z.infer<typeof insertVendorListItemSchema>;
 export type VendorListItem = typeof vendorListItems.$inferSelect;
+
+// 11.4 SAVED REQUIREMENTS - Consultants' saved/bookmarked jobs
+export const savedRequirements = pgTable("saved_requirements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  consultantId: varchar("consultant_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Must be a consultant
+  jobId: varchar("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  notes: text("notes"), // Consultant's private notes about this job
+  folderId: varchar("folder_id"), // For future folder organization
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  consultantIdIdx: index("saved_requirements_consultant_id_idx").on(table.consultantId),
+  jobIdIdx: index("saved_requirements_job_id_idx").on(table.jobId),
+  uniqueConsultantJob: uniqueIndex("saved_requirements_consultant_job_unique").on(table.consultantId, table.jobId),
+}));
+
+export const insertSavedRequirementSchema = createInsertSchema(savedRequirements).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  notes: z.string().max(2000).optional(),
+});
+export type InsertSavedRequirement = z.infer<typeof insertSavedRequirementSchema>;
+export type SavedRequirement = typeof savedRequirements.$inferSelect;
+
+// 11.5 BLOCKED USERS - User blocking for privacy and safety
+export const blockedUsers = pgTable("blocked_users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  blockerId: varchar("blocker_id").notNull().references(() => users.id, { onDelete: "cascade" }), // User who blocks
+  blockedId: varchar("blocked_id").notNull().references(() => users.id, { onDelete: "cascade" }), // User being blocked
+  reason: text("reason"), // Optional reason for blocking
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  blockerIdIdx: index("blocked_users_blocker_id_idx").on(table.blockerId),
+  blockedIdIdx: index("blocked_users_blocked_id_idx").on(table.blockedId),
+  uniqueBlockerBlocked: uniqueIndex("blocked_users_blocker_blocked_unique").on(table.blockerId, table.blockedId),
+}));
+
+export const insertBlockedUserSchema = createInsertSchema(blockedUsers).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  reason: z.string().max(500).optional(),
+});
+export type InsertBlockedUser = z.infer<typeof insertBlockedUserSchema>;
+export type BlockedUser = typeof blockedUsers.$inferSelect;
 
 // ============================================================================
 // 15. ANALYTICS & REPORTING SYSTEM

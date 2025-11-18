@@ -32,6 +32,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { NotificationBell } from "@/components/NotificationBell";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import logoUrl from "@assets/image_1762432763578.png";
 
 const sidebarStyle = {
@@ -307,7 +309,11 @@ export function UserLayout({ children }: UserLayoutProps) {
         <div className="flex flex-col flex-1">
           <header className="flex items-center justify-between px-4 py-3 border-b border-border">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <NotificationBell />
+            <div className="flex items-center gap-2">
+              <LanguageSwitcher />
+              <ThemeToggle />
+              <NotificationBell />
+            </div>
           </header>
           <main className="flex-1 overflow-auto">
             {children}
