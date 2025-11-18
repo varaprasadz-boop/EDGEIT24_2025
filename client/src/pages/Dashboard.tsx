@@ -34,16 +34,22 @@ import { CategoryRequestsList } from "@/components/CategoryRequestsList";
 
 interface DashboardStats {
   activeJobs: number;
-  totalBids: number;
-  totalSpending: string;
-  messagesCount: number;
+  activeProjects: number;
+  bidsReceived: number;
+  monthlySpending: string;
+  allTimeSpending: string;
+  averageRating: string;
 }
 
 interface ConsultantDashboardStats {
   availableJobs: number;
   activeBids: number;
-  totalEarnings: string;
-  rating: string;
+  pendingBids: number;
+  activeProjects: number;
+  successRate: number;
+  averageRating: string;
+  monthlyEarnings: string;
+  allTimeEarnings: string;
 }
 
 interface ProfileStatus {

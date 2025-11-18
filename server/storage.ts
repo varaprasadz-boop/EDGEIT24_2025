@@ -221,16 +221,22 @@ import { emailService } from './email';
 
 export interface DashboardStats {
   activeJobs: number;
-  totalBids: number;
-  totalSpending: string;
-  messagesCount: number;
+  activeProjects: number;
+  bidsReceived: number;
+  monthlySpending: string;
+  allTimeSpending: string;
+  averageRating: string;
 }
 
 export interface ConsultantDashboardStats {
   availableJobs: number;
   activeBids: number;
-  totalEarnings: string;
-  rating: string;
+  pendingBids: number;
+  activeProjects: number;
+  successRate: number;
+  averageRating: string;
+  monthlyEarnings: string;
+  allTimeEarnings: string;
 }
 
 export interface ConsultantCategoryWithDetails {
@@ -2072,7 +2078,7 @@ export class DatabaseStorage implements IStorage {
 
   // Dashboard operations
   async getClientDashboardStats(userId: string): Promise<DashboardStats> {
-    // Count active jobs posted by client (defensive: match both camelCase and legacy snake_case)
+    // Count active jobs posted by client (open status only)
     const [jobStats] = await db
       .select({
         count: sql<number>`cast(count(*) as int)`,
@@ -2081,7 +2087,20 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(jobs.clientId, userId),
-          sql`${jobs.status} IN ('open', 'inProgress', 'in_progress')`
+          eq(jobs.status, 'open')
+        )
+      );
+
+    // Count active projects (in_progress, not_started, awaiting_review, revision_requested, delayed)
+    const [activeProjectStats] = await db
+      .select({
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.clientId, userId),
+          sql`${projects.status} IN ('in_progress', 'not_started', 'awaiting_review', 'revision_requested', 'delayed')`
         )
       );
 
@@ -2094,19 +2113,46 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(jobs, eq(bids.jobId, jobs.id))
       .where(eq(jobs.clientId, userId));
 
-    // Sum total spending from payments
-    const [spendingStats] = await db
+    // Sum all-time spending from payments
+    const [allTimeSpendingStats] = await db
       .select({
         total: sql<string>`COALESCE(sum(${payments.amount}), 0)`,
       })
       .from(payments)
       .where(eq(payments.fromUserId, userId));
 
+    // Sum monthly spending (current month)
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    const [monthlySpendingStats] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${payments.amount}), 0)`,
+      })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.fromUserId, userId),
+          sql`${payments.createdAt} >= ${startOfMonth}`
+        )
+      );
+
+    // Get client's average rating from reviews (as a client)
+    const [ratingStats] = await db
+      .select({
+        avgRating: sql<string>`COALESCE(ROUND(AVG(${reviews.overallRating}), 1), 0)`,
+      })
+      .from(reviews)
+      .where(eq(reviews.revieweeId, userId));
+
     return {
       activeJobs: jobStats?.count || 0,
-      totalBids: bidStats?.count || 0,
-      totalSpending: spendingStats?.total || "0",
-      messagesCount: 0, // TODO: Implement when messages are added
+      activeProjects: activeProjectStats?.count || 0,
+      bidsReceived: bidStats?.count || 0,
+      monthlySpending: monthlySpendingStats?.total || "0",
+      allTimeSpending: allTimeSpendingStats?.total || "0",
+      averageRating: ratingStats?.avgRating || "0",
     };
   }
 
@@ -2124,8 +2170,8 @@ export class DatabaseStorage implements IStorage {
         )
       );
 
-    // Count active bids by consultant
-    const [bidStats] = await db
+    // Count active bids by consultant (pending, shortlisted, accepted)
+    const [activeBidStats] = await db
       .select({
         count: sql<number>`cast(count(*) as int)`,
       })
@@ -2137,22 +2183,82 @@ export class DatabaseStorage implements IStorage {
         )
       );
 
-    // Sum total earnings from payments
-    const [earningsStats] = await db
+    // Count pending bids only
+    const [pendingBidStats] = await db
+      .select({
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(bids)
+      .where(
+        and(
+          eq(bids.consultantId, userId),
+          eq(bids.status, 'pending')
+        )
+      );
+
+    // Count active projects (in_progress, not_started, awaiting_review, revision_requested, delayed)
+    const [activeProjectStats] = await db
+      .select({
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.consultantId, userId),
+          sql`${projects.status} IN ('in_progress', 'not_started', 'awaiting_review', 'revision_requested', 'delayed')`
+        )
+      );
+
+    // Calculate success rate (accepted bids / total bids)
+    const [bidMetrics] = await db
+      .select({
+        totalBids: sql<number>`cast(count(*) as int)`,
+        acceptedBids: sql<number>`cast(count(*) FILTER (WHERE ${bids.status} = 'accepted') as int)`,
+      })
+      .from(bids)
+      .where(eq(bids.consultantId, userId));
+
+    const successRate = bidMetrics && bidMetrics.totalBids > 0
+      ? bidMetrics.acceptedBids / bidMetrics.totalBids
+      : 0;
+
+    // Sum all-time earnings from payments
+    const [allTimeEarningsStats] = await db
       .select({
         total: sql<string>`COALESCE(sum(${payments.amount}), 0)`,
       })
       .from(payments)
       .where(eq(payments.toUserId, userId));
 
+    // Sum monthly earnings (current month)
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    const [monthlyEarningsStats] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${payments.amount}), 0)`,
+      })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.toUserId, userId),
+          sql`${payments.createdAt} >= ${startOfMonth}`
+        )
+      );
+
     // Get consultant rating
     const profile = await this.getConsultantProfile(userId);
 
     return {
       availableJobs: jobStats?.count || 0,
-      activeBids: bidStats?.count || 0,
-      totalEarnings: earningsStats?.total || "0",
-      rating: profile?.rating || "0",
+      activeBids: activeBidStats?.count || 0,
+      pendingBids: pendingBidStats?.count || 0,
+      activeProjects: activeProjectStats?.count || 0,
+      successRate: Math.round(successRate * 100) / 100, // Round to 2 decimal places
+      averageRating: profile?.rating || "0",
+      monthlyEarnings: monthlyEarningsStats?.total || "0",
+      allTimeEarnings: allTimeEarningsStats?.total || "0",
     };
   }
 
