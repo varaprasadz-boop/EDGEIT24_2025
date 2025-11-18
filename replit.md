@@ -79,6 +79,17 @@ The frontend is built with React, Vite, shadcn/ui, and Radix UI components, styl
   - Profile Visibility: Added profileVisibility field to users table supporting 'public', 'clients_only', 'private' settings
   - Security: All mutations validate ownership via session-derived userId, preventing privilege escalation; job saves restricted to publicly accessible (open/in_progress) jobs
   - UI Integration: Route at /consultant/saved-requirements, proper data-testid attributes for testing
+**Dispute Resolution System (MVP - BACKEND COMPLETE):** Comprehensive conflict resolution system enabling users to raise and manage disputes with admin oversight:
+  - 3 database tables: disputes (main dispute records), disputeEvidence (supporting file uploads), disputeMessages (communication thread)
+  - 5 dispute types: payment_dispute, quality_dispute, delivery_dispute, refund_request, contract_violation
+  - 4 statuses: pending, under_review, resolved, closed
+  - 11 storage methods: createDispute, getDispute, getUserDisputes, getProjectDisputes, getAllDisputes, updateDisputeStatus, addDisputeEvidence, getDisputeEvidence, deleteDisputeEvidence, addDisputeMessage, getDisputeMessages
+  - 10 API endpoints: 7 user endpoints (create dispute, get disputes, get dispute detail, add/get evidence, add/get messages) + 2 admin endpoints (get all disputes with filters, update dispute status)
+  - Security: Session-based authorization ensuring users can only access disputes for projects they're involved in; admins have full access
+  - Evidence management: Support for 7 file types (document, screenshot, photo, video, contract, invoice, message_log)
+  - Communication: Threaded messaging between users and admins with admin message flagging
+  - Project integration: Disputes linked to project records with automatic access validation
+  - Frontend pages (IN PROGRESS): RaiseDispute form, MyDisputes list, DisputeDetail view, AdminDisputes dashboard, AdminDisputeDetail management page
 
 ## External Dependencies
 
