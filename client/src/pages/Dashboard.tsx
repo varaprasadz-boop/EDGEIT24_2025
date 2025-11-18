@@ -1069,6 +1069,203 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card data-testid="card-pending-actions">
+          <CardHeader>
+            <CardTitle>Pending Actions</CardTitle>
+            <CardDescription>Items requiring your attention</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!pendingActions?.actions || pendingActions.actions.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground" data-testid="text-no-actions">
+                <CheckCircle2 className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>All caught up!</p>
+                <p className="text-sm">No pending actions at this time</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                {pendingActions.actions.slice(0, 5).map((action: any, index: number) => (
+                  <div 
+                    key={action.id} 
+                    className="flex items-start gap-3 p-3 rounded-md border hover-elevate"
+                    data-testid={`action-item-${index}`}
+                  >
+                    <div className={`mt-0.5 ${action.priority === 'high' ? 'text-destructive' : 'text-amber-600'}`}>
+                      <AlertCircle className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-sm" data-testid={`action-title-${index}`}>
+                        {action.title}
+                      </h4>
+                      <p className="text-xs text-muted-foreground mt-1 truncate">
+                        {action.description}
+                      </p>
+                      {action.dueDate && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {formatDistanceToNow(new Date(action.dueDate), { addSuffix: true })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-recent-activities">
+          <CardHeader>
+            <CardTitle>Recent Activities</CardTitle>
+            <CardDescription>Your latest platform activities</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!recentActivities?.activities || recentActivities.activities.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground" data-testid="text-no-activities">
+                <Clock className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No recent activities</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                {recentActivities.activities.map((activity: any, index: number) => (
+                  <div 
+                    key={activity.id} 
+                    className="flex items-start gap-3 p-3 rounded-md border hover-elevate"
+                    data-testid={`activity-item-${index}`}
+                  >
+                    <div className="mt-0.5 text-primary">
+                      {activity.type === 'bid' && <FileText className="h-4 w-4" />}
+                      {activity.type === 'payment' && <DollarSign className="h-4 w-4" />}
+                      {activity.type === 'project' && <Briefcase className="h-4 w-4" />}
+                      {activity.type === 'review' && <Star className="h-4 w-4" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" data-testid={`activity-description-${index}`}>
+                            {activity.description || activity.title}
+                          </p>
+                          {activity.title && activity.description !== activity.title && (
+                            <p className="text-xs text-muted-foreground mt-1 truncate">
+                              {activity.title}
+                            </p>
+                          )}
+                        </div>
+                        {activity.amount && (
+                          <span className="text-sm font-medium whitespace-nowrap">
+                            ﷼{parseFloat(activity.amount).toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card data-testid="card-earnings-trends">
+          <CardHeader>
+            <CardTitle>Earnings Trends</CardTitle>
+            <CardDescription>Last 6 months</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!financialTrends?.trends || financialTrends.trends.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No earnings data yet</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {financialTrends.trends.map((trend: any, index: number) => {
+                  const maxAmount = Math.max(...financialTrends.trends.map((t: any) => t.amount), 1);
+                  const percentage = (trend.amount / maxAmount) * 100;
+                  const monthLabel = new Date(trend.month + '-01').toLocaleDateString('en', { month: 'short', year: '2-digit' });
+                  
+                  return (
+                    <div key={trend.month} className="space-y-2" data-testid={`trend-month-${index}`}>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">{monthLabel}</span>
+                        <span className="font-medium">﷼{trend.amount.toFixed(2)}</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary rounded-full transition-all"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-active-projects-summary">
+          <CardHeader>
+            <CardTitle>Active Projects</CardTitle>
+            <CardDescription>Projects you're currently working on</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!activeProjectsSummary?.projects || activeProjectsSummary.projects.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground" data-testid="text-no-active-projects">
+                <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No active projects</p>
+                <p className="text-sm">Projects you're hired for will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[300px] overflow-y-auto">
+                {activeProjectsSummary.projects.map((project: any, index: number) => (
+                  <div 
+                    key={project.id} 
+                    className="p-4 rounded-md border hover-elevate"
+                    data-testid={`active-project-${index}`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium truncate" data-testid={`active-project-title-${index}`}>
+                          {project.title}
+                        </h4>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Client: {project.clientName}
+                        </p>
+                        <div className="flex items-center gap-4 mt-2">
+                          <Badge variant="secondary">{project.status.replace('_', ' ')}</Badge>
+                          <span className="text-sm">﷼{parseFloat(project.budget).toFixed(2)}</span>
+                        </div>
+                      </div>
+                      {project.deadline && (
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">Deadline</p>
+                          <p className="text-sm font-medium">
+                            {new Date(project.deadline).toLocaleDateString()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    {project.progress !== undefined && (
+                      <div className="mt-3 space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Progress</span>
+                          <span className="font-medium">{Math.round(project.progress)}%</span>
+                        </div>
+                        <Progress value={project.progress} className="h-2" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <CategoryRequestsList />
 
       <Dialog open={responseDialogOpen} onOpenChange={setResponseDialogOpen}>
