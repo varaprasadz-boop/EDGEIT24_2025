@@ -1712,6 +1712,319 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // ANALYTICS ENDPOINTS - Reports & Analytics System
+  // ============================================================================
+
+  // Vendor/Consultant Analytics
+  app.get('/api/analytics/vendor/earnings', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify user is consultant
+      const consultantProfile = await storage.getConsultantProfile(userId);
+      if (!consultantProfile) {
+        return res.status(403).json({ message: "Consultant profile required" });
+      }
+
+      const period = (req.query.period as 'daily' | 'weekly' | 'monthly') || 'monthly';
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+      const earnings = await storage.getVendorEarnings(userId, period, startDate, endDate);
+      res.json(earnings);
+    } catch (error) {
+      console.error("Error fetching vendor earnings:", error);
+      res.status(500).json({ message: "Failed to fetch earnings data" });
+    }
+  });
+
+  app.get('/api/analytics/vendor/performance', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify user is consultant
+      const consultantProfile = await storage.getConsultantProfile(userId);
+      if (!consultantProfile) {
+        return res.status(403).json({ message: "Consultant profile required" });
+      }
+
+      const performance = await storage.getVendorPerformance(userId);
+      res.json(performance);
+    } catch (error) {
+      console.error("Error fetching vendor performance:", error);
+      res.status(500).json({ message: "Failed to fetch performance data" });
+    }
+  });
+
+  // Client Analytics
+  app.get('/api/analytics/client/spending', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify user is client
+      const clientProfile = await storage.getClientProfile(userId);
+      if (!clientProfile) {
+        return res.status(403).json({ message: "Client profile required" });
+      }
+
+      const period = (req.query.period as 'daily' | 'weekly' | 'monthly') || 'monthly';
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+      const spending = await storage.getClientSpending(userId, period, startDate, endDate);
+      res.json(spending);
+    } catch (error) {
+      console.error("Error fetching client spending:", error);
+      res.status(500).json({ message: "Failed to fetch spending data" });
+    }
+  });
+
+  app.get('/api/analytics/client/hiring', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify user is client
+      const clientProfile = await storage.getClientProfile(userId);
+      if (!clientProfile) {
+        return res.status(403).json({ message: "Client profile required" });
+      }
+
+      const hiring = await storage.getClientHiring(userId);
+      res.json(hiring);
+    } catch (error) {
+      console.error("Error fetching client hiring stats:", error);
+      res.status(500).json({ message: "Failed to fetch hiring data" });
+    }
+  });
+
+  // Platform Analytics (Admin only)
+  app.get('/api/admin/analytics/growth', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify user is admin
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const period = (req.query.period as 'daily' | 'weekly' | 'monthly') || 'monthly';
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+      const growth = await storage.getPlatformGrowth(period, startDate, endDate);
+      res.json(growth);
+    } catch (error) {
+      console.error("Error fetching platform growth:", error);
+      res.status(500).json({ message: "Failed to fetch growth data" });
+    }
+  });
+
+  app.get('/api/admin/analytics/revenue', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify user is admin
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const period = (req.query.period as 'daily' | 'weekly' | 'monthly') || 'monthly';
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+      const revenue = await storage.getPlatformRevenue(period, startDate, endDate);
+      res.json(revenue);
+    } catch (error) {
+      console.error("Error fetching platform revenue:", error);
+      res.status(500).json({ message: "Failed to fetch revenue data" });
+    }
+  });
+
+  app.get('/api/admin/analytics/categories', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify user is admin
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const categories = await storage.getCategoryPerformance();
+      res.json({ categories });
+    } catch (error) {
+      console.error("Error fetching category performance:", error);
+      res.status(500).json({ message: "Failed to fetch category performance" });
+    }
+  });
+
+  // CSV Export endpoints
+  app.post('/api/analytics/vendor/export-csv', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify user is consultant
+      const consultantProfile = await storage.getConsultantProfile(userId);
+      if (!consultantProfile) {
+        return res.status(403).json({ message: "Consultant profile required" });
+      }
+
+      const { reportType, period, startDate, endDate } = req.body;
+      
+      let csvData = '';
+      if (reportType === 'earnings') {
+        const earnings = await storage.getVendorEarnings(
+          userId,
+          period || 'monthly',
+          startDate ? new Date(startDate) : undefined,
+          endDate ? new Date(endDate) : undefined
+        );
+        
+        csvData = 'Period,Total Earnings (SAR),Category,Amount (SAR)\n';
+        csvData += `${earnings.period},${earnings.totalEarnings},,\n\n`;
+        csvData += 'Earnings by Period:\n';
+        earnings.earningsByPeriod.forEach((e: any) => {
+          csvData += `${e.date},${e.amount},,\n`;
+        });
+        csvData += '\nEarnings by Category:\n';
+        earnings.earningsByCategory.forEach((c: any) => {
+          csvData += `,,${c.categoryName},${c.amount}\n`;
+        });
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="vendor-${reportType}-${Date.now()}.csv"`);
+      res.send(csvData);
+    } catch (error) {
+      console.error("Error exporting vendor CSV:", error);
+      res.status(500).json({ message: "Failed to export CSV" });
+    }
+  });
+
+  app.post('/api/analytics/client/export-csv', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify user is client
+      const clientProfile = await storage.getClientProfile(userId);
+      if (!clientProfile) {
+        return res.status(403).json({ message: "Client profile required" });
+      }
+
+      const { reportType, period, startDate, endDate } = req.body;
+      
+      let csvData = '';
+      if (reportType === 'spending') {
+        const spending = await storage.getClientSpending(
+          userId,
+          period || 'monthly',
+          startDate ? new Date(startDate) : undefined,
+          endDate ? new Date(endDate) : undefined
+        );
+        
+        csvData = 'Period,Total Spending (SAR),Category,Amount (SAR)\n';
+        csvData += `${spending.period},${spending.totalSpending},,\n\n`;
+        csvData += 'Spending by Period:\n';
+        spending.spendingByPeriod.forEach((s: any) => {
+          csvData += `${s.date},${s.amount},,\n`;
+        });
+        csvData += '\nSpending by Category:\n';
+        spending.spendingByCategory.forEach((c: any) => {
+          csvData += `,,${c.categoryName},${c.amount}\n`;
+        });
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="client-${reportType}-${Date.now()}.csv"`);
+      res.send(csvData);
+    } catch (error) {
+      console.error("Error exporting client CSV:", error);
+      res.status(500).json({ message: "Failed to export CSV" });
+    }
+  });
+
+  app.post('/api/admin/analytics/export-csv', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Verify user is admin
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { reportType, period, startDate, endDate } = req.body;
+      
+      let csvData = '';
+      if (reportType === 'growth') {
+        const growth = await storage.getPlatformGrowth(
+          period || 'monthly',
+          startDate ? new Date(startDate) : undefined,
+          endDate ? new Date(endDate) : undefined
+        );
+        
+        csvData = 'Metric,Value\n';
+        csvData += `Total Users,${growth.totalUsers}\n`;
+        csvData += `Total Clients,${growth.totalClients}\n`;
+        csvData += `Total Consultants,${growth.totalConsultants}\n`;
+        csvData += `New Registrations (This Month),${growth.newRegistrationsThisMonth}\n`;
+        csvData += `Active Projects,${growth.activeProjects}\n\n`;
+        csvData += 'User Growth by Period:\n';
+        csvData += 'Period,Clients,Consultants\n';
+        growth.userGrowthByMonth.forEach((g: any) => {
+          csvData += `${g.month},${g.clients},${g.consultants}\n`;
+        });
+      } else if (reportType === 'categories') {
+        const categories = await storage.getCategoryPerformance();
+        
+        csvData = 'Category,Jobs Posted,Total Bids,Success Rate,Avg Budget (SAR)\n';
+        categories.forEach((c: any) => {
+          csvData += `${c.categoryName},${c.jobsPosted},${c.totalBids},${(c.successRate * 100).toFixed(1)}%,${c.avgBudget}\n`;
+        });
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="admin-${reportType}-${Date.now()}.csv"`);
+      res.send(csvData);
+    } catch (error) {
+      console.error("Error exporting admin CSV:", error);
+      res.status(500).json({ message: "Failed to export CSV" });
+    }
+  });
+
   // Bid endpoints
   app.get('/api/bids', isAuthenticated, async (req: any, res) => {
     try {

@@ -383,6 +383,15 @@ export interface IStorage {
   listClientJobs(userId: string, limit?: number): Promise<Job[]>;
   listClientBids(userId: string, limit?: number): Promise<Bid[]>;
   
+  // Analytics operations (real-time calculations from existing data)
+  getVendorEarnings(userId: string, period: 'daily' | 'weekly' | 'monthly', startDate?: Date, endDate?: Date): Promise<any>;
+  getVendorPerformance(userId: string): Promise<any>;
+  getClientSpending(userId: string, period: 'daily' | 'weekly' | 'monthly', startDate?: Date, endDate?: Date): Promise<any>;
+  getClientHiring(userId: string): Promise<any>;
+  getPlatformGrowth(period: 'daily' | 'weekly' | 'monthly', startDate?: Date, endDate?: Date): Promise<any>;
+  getPlatformRevenue(period: 'daily' | 'weekly' | 'monthly', startDate?: Date, endDate?: Date): Promise<any>;
+  getCategoryPerformance(): Promise<any[]>;
+  
   // Job operations
   createJob(job: InsertJob): Promise<Job>;
   listJobs(options?: { ownerClientId?: string; categoryId?: string; excludeClientId?: string; limit?: number }): Promise<(Job & { categoryPathLabel: string })[]>;
@@ -2612,6 +2621,409 @@ export class DatabaseStorage implements IStorage {
       .limit(10);
     
     return activeProjects;
+  }
+
+  // ============================================================================
+  // ANALYTICS OPERATIONS - Real-time calculations from existing data
+  // ============================================================================
+
+  async getVendorEarnings(
+    userId: string,
+    period: 'daily' | 'weekly' | 'monthly',
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<any> {
+    const end = endDate || new Date();
+    const start = startDate || new Date(end.getTime() - 90 * 24 * 60 * 60 * 1000); // Default: last 90 days
+
+    // Calculate total earnings for the period
+    const [totalEarnings] = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(${payments.amount}), '0.00')`,
+      })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.toUserId, userId),
+          sql`${payments.createdAt} BETWEEN ${start} AND ${end}`
+        )
+      );
+
+    // Calculate earnings by period (group by day/week/month)
+    let dateFormat = '%Y-%m-%d'; // daily
+    if (period === 'weekly') dateFormat = '%Y-W%W';
+    if (period === 'monthly') dateFormat = '%Y-%m';
+
+    const earningsByPeriod = await db
+      .select({
+        date: sql<string>`TO_CHAR(${payments.createdAt}, ${dateFormat})`,
+        amount: sql<string>`COALESCE(SUM(${payments.amount}), '0.00')`,
+      })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.toUserId, userId),
+          sql`${payments.createdAt} BETWEEN ${start} AND ${end}`
+        )
+      )
+      .groupBy(sql`TO_CHAR(${payments.createdAt}, ${dateFormat})`)
+      .orderBy(sql`TO_CHAR(${payments.createdAt}, ${dateFormat})`);
+
+    // Calculate earnings by category
+    const earningsByCategory = await db
+      .select({
+        categoryId: jobs.categoryId,
+        categoryName: sql<string>`(SELECT ${categories.name} FROM ${categories} WHERE ${categories.id} = ${jobs.categoryId})`,
+        amount: sql<string>`COALESCE(SUM(${payments.amount}), '0.00')`,
+      })
+      .from(payments)
+      .innerJoin(projects, eq(payments.projectId, projects.id))
+      .innerJoin(jobs, eq(projects.jobId, jobs.id))
+      .where(
+        and(
+          eq(payments.toUserId, userId),
+          sql`${payments.createdAt} BETWEEN ${start} AND ${end}`
+        )
+      )
+      .groupBy(jobs.categoryId)
+      .orderBy(desc(sql`SUM(${payments.amount})`));
+
+    return {
+      totalEarnings: totalEarnings?.total || '0.00',
+      period,
+      earningsByPeriod,
+      earningsByCategory: earningsByCategory.map(c => ({
+        categoryName: c.categoryName || 'Unknown',
+        amount: c.amount,
+      })),
+    };
+  }
+
+  async getVendorPerformance(userId: string): Promise<any> {
+    // Calculate completion rate
+    const [projectStats] = await db
+      .select({
+        total: sql<number>`CAST(COUNT(*) AS INTEGER)`,
+        completed: sql<number>`CAST(COUNT(*) FILTER (WHERE ${projects.status} = 'completed') AS INTEGER)`,
+      })
+      .from(projects)
+      .where(eq(projects.consultantId, userId));
+
+    const completionRate = projectStats && projectStats.total > 0
+      ? projectStats.completed / projectStats.total
+      : 0;
+
+    // Calculate bid win rate
+    const [bidStats] = await db
+      .select({
+        total: sql<number>`CAST(COUNT(*) AS INTEGER)`,
+        accepted: sql<number>`CAST(COUNT(*) FILTER (WHERE ${bids.status} = 'accepted') AS INTEGER)`,
+      })
+      .from(bids)
+      .where(eq(bids.consultantId, userId));
+
+    const bidWinRate = bidStats && bidStats.total > 0
+      ? bidStats.accepted / bidStats.total
+      : 0;
+
+    // Get performance score history (last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const scoreHistory: { month: string; score: number }[] = [];
+    
+    // For now, use current score for all months (can be enhanced with historical data)
+    const currentScore = await this.getPerformanceScore(userId);
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      scoreHistory.push({
+        month: date.toISOString().substring(0, 7), // YYYY-MM format
+        score: currentScore.score,
+      });
+    }
+
+    return {
+      completionRate,
+      bidWinRate,
+      currentPerformanceScore: currentScore.score,
+      scoreHistory,
+    };
+  }
+
+  async getClientSpending(
+    userId: string,
+    period: 'daily' | 'weekly' | 'monthly',
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<any> {
+    const end = endDate || new Date();
+    const start = startDate || new Date(end.getTime() - 90 * 24 * 60 * 60 * 1000); // Default: last 90 days
+
+    // Calculate total spending for the period
+    const [totalSpending] = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(${payments.amount}), '0.00')`,
+      })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.fromUserId, userId),
+          sql`${payments.createdAt} BETWEEN ${start} AND ${end}`
+        )
+      );
+
+    // Calculate spending by period
+    let dateFormat = '%Y-%m-%d'; // daily
+    if (period === 'weekly') dateFormat = '%Y-W%W';
+    if (period === 'monthly') dateFormat = '%Y-%m';
+
+    const spendingByPeriod = await db
+      .select({
+        date: sql<string>`TO_CHAR(${payments.createdAt}, ${dateFormat})`,
+        amount: sql<string>`COALESCE(SUM(${payments.amount}), '0.00')`,
+      })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.fromUserId, userId),
+          sql`${payments.createdAt} BETWEEN ${start} AND ${end}`
+        )
+      )
+      .groupBy(sql`TO_CHAR(${payments.createdAt}, ${dateFormat})`)
+      .orderBy(sql`TO_CHAR(${payments.createdAt}, ${dateFormat})`);
+
+    // Calculate spending by category
+    const spendingByCategory = await db
+      .select({
+        categoryId: jobs.categoryId,
+        categoryName: sql<string>`(SELECT ${categories.name} FROM ${categories} WHERE ${categories.id} = ${jobs.categoryId})`,
+        amount: sql<string>`COALESCE(SUM(${payments.amount}), '0.00')`,
+      })
+      .from(payments)
+      .innerJoin(projects, eq(payments.projectId, projects.id))
+      .innerJoin(jobs, eq(projects.jobId, jobs.id))
+      .where(
+        and(
+          eq(payments.fromUserId, userId),
+          sql`${payments.createdAt} BETWEEN ${start} AND ${end}`
+        )
+      )
+      .groupBy(jobs.categoryId)
+      .orderBy(desc(sql`SUM(${payments.amount})`));
+
+    return {
+      totalSpending: totalSpending?.total || '0.00',
+      period,
+      spendingByPeriod,
+      spendingByCategory: spendingByCategory.map(c => ({
+        categoryName: c.categoryName || 'Unknown',
+        amount: c.amount,
+      })),
+    };
+  }
+
+  async getClientHiring(userId: string): Promise<any> {
+    // Calculate project statistics
+    const [projectStats] = await db
+      .select({
+        posted: sql<number>`CAST(COUNT(DISTINCT ${jobs.id}) AS INTEGER)`,
+        completed: sql<number>`CAST(COUNT(DISTINCT ${projects.id}) FILTER (WHERE ${projects.status} = 'completed') AS INTEGER)`,
+      })
+      .from(jobs)
+      .leftJoin(projects, eq(jobs.id, projects.jobId))
+      .where(eq(jobs.clientId, userId));
+
+    const successRate = projectStats && projectStats.posted > 0
+      ? projectStats.completed / projectStats.posted
+      : 0;
+
+    // Get top 5 vendors
+    const topVendors = await db
+      .select({
+        vendorId: projects.consultantId,
+        vendorName: sql<string>`(SELECT ${users.fullName} FROM ${users} WHERE ${users.id} = ${projects.consultantId})`,
+        totalProjects: sql<number>`CAST(COUNT(*) AS INTEGER)`,
+        totalSpent: sql<string>`COALESCE(SUM(${payments.amount}), '0.00')`,
+        avgRating: sql<string>`COALESCE(
+          (SELECT AVG(${reviews.overallRating}) FROM ${reviews} 
+           WHERE ${reviews.revieweeId} = ${projects.consultantId} 
+           AND ${reviews.reviewerId} = ${userId}), 
+          '0'
+        )`,
+      })
+      .from(projects)
+      .leftJoin(payments, eq(projects.id, payments.projectId))
+      .where(eq(projects.clientId, userId))
+      .groupBy(projects.consultantId)
+      .orderBy(desc(sql`COUNT(*)`))
+      .limit(5);
+
+    return {
+      projectsPosted: projectStats?.posted || 0,
+      projectsCompleted: projectStats?.completed || 0,
+      successRate,
+      topVendors: topVendors.map(v => ({
+        vendorId: v.vendorId,
+        vendorName: v.vendorName || 'Unknown',
+        totalProjects: v.totalProjects,
+        totalSpent: v.totalSpent,
+        avgRating: v.avgRating,
+      })),
+    };
+  }
+
+  async getPlatformGrowth(
+    period: 'daily' | 'weekly' | 'monthly',
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<any> {
+    const end = endDate || new Date();
+    const start = startDate || new Date(end.getTime() - 365 * 24 * 60 * 60 * 1000); // Default: last year
+
+    // Calculate total users
+    const [userCounts] = await db
+      .select({
+        totalUsers: sql<number>`CAST(COUNT(*) AS INTEGER)`,
+        totalClients: sql<number>`CAST(COUNT(*) FILTER (WHERE ${users.role} IN ('client', 'both')) AS INTEGER)`,
+        totalConsultants: sql<number>`CAST(COUNT(*) FILTER (WHERE ${users.role} IN ('consultant', 'both')) AS INTEGER)`,
+      })
+      .from(users);
+
+    // Calculate new registrations this month
+    const thisMonth = new Date();
+    thisMonth.setDate(1);
+    thisMonth.setHours(0, 0, 0, 0);
+
+    const [newRegistrations] = await db
+      .select({
+        count: sql<number>`CAST(COUNT(*) AS INTEGER)`,
+      })
+      .from(users)
+      .where(sql`${users.createdAt} >= ${thisMonth}`);
+
+    // Calculate active projects
+    const [activeProjects] = await db
+      .select({
+        count: sql<number>`CAST(COUNT(*) AS INTEGER)`,
+      })
+      .from(projects)
+      .where(sql`${projects.status} IN ('in_progress', 'not_started', 'awaiting_review', 'revision_requested', 'delayed')`);
+
+    // Calculate user growth by month (last 12 months)
+    let dateFormat = '%Y-%m-%d'; // daily
+    if (period === 'weekly') dateFormat = '%Y-W%W';
+    if (period === 'monthly') dateFormat = '%Y-%m';
+
+    const userGrowthByMonth = await db
+      .select({
+        month: sql<string>`TO_CHAR(${users.createdAt}, ${dateFormat})`,
+        clients: sql<number>`CAST(COUNT(*) FILTER (WHERE ${users.role} IN ('client', 'both')) AS INTEGER)`,
+        consultants: sql<number>`CAST(COUNT(*) FILTER (WHERE ${users.role} IN ('consultant', 'both')) AS INTEGER)`,
+      })
+      .from(users)
+      .where(sql`${users.createdAt} BETWEEN ${start} AND ${end}`)
+      .groupBy(sql`TO_CHAR(${users.createdAt}, ${dateFormat})`)
+      .orderBy(sql`TO_CHAR(${users.createdAt}, ${dateFormat})`);
+
+    return {
+      totalUsers: userCounts?.totalUsers || 0,
+      totalClients: userCounts?.totalClients || 0,
+      totalConsultants: userCounts?.totalConsultants || 0,
+      newRegistrationsThisMonth: newRegistrations?.count || 0,
+      activeProjects: activeProjects?.count || 0,
+      userGrowthByMonth,
+    };
+  }
+
+  async getPlatformRevenue(
+    period: 'daily' | 'weekly' | 'monthly',
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<any> {
+    const end = endDate || new Date();
+    const start = startDate || new Date(end.getTime() - 365 * 24 * 60 * 60 * 1000); // Default: last year
+
+    // Calculate total GMV (Gross Merchandise Value)
+    const [totalGMV] = await db
+      .select({
+        gmv: sql<string>`COALESCE(SUM(${payments.amount}), '0.00')`,
+        transactions: sql<number>`CAST(COUNT(*) AS INTEGER)`,
+      })
+      .from(payments)
+      .where(sql`${payments.createdAt} BETWEEN ${start} AND ${end}`);
+
+    // Calculate platform revenue (mock 15% commission)
+    const gmvValue = parseFloat(totalGMV?.gmv || '0.00');
+    const platformRevenue = (gmvValue * 0.15).toFixed(2);
+
+    // Calculate GMV by month
+    let dateFormat = '%Y-%m-%d'; // daily
+    if (period === 'weekly') dateFormat = '%Y-W%W';
+    if (period === 'monthly') dateFormat = '%Y-%m';
+
+    const gmvByMonth = await db
+      .select({
+        month: sql<string>`TO_CHAR(${payments.createdAt}, ${dateFormat})`,
+        gmv: sql<string>`COALESCE(SUM(${payments.amount}), '0.00')`,
+      })
+      .from(payments)
+      .where(sql`${payments.createdAt} BETWEEN ${start} AND ${end}`)
+      .groupBy(sql`TO_CHAR(${payments.createdAt}, ${dateFormat})`)
+      .orderBy(sql`TO_CHAR(${payments.createdAt}, ${dateFormat})`);
+
+    // Calculate revenue by category
+    const revenueByCategory = await db
+      .select({
+        categoryId: jobs.categoryId,
+        categoryName: sql<string>`(SELECT ${categories.name} FROM ${categories} WHERE ${categories.id} = ${jobs.categoryId})`,
+        revenue: sql<string>`COALESCE(SUM(${payments.amount}), '0.00')`,
+      })
+      .from(payments)
+      .innerJoin(projects, eq(payments.projectId, projects.id))
+      .innerJoin(jobs, eq(projects.jobId, jobs.id))
+      .where(sql`${payments.createdAt} BETWEEN ${start} AND ${end}`)
+      .groupBy(jobs.categoryId)
+      .orderBy(desc(sql`SUM(${payments.amount})`));
+
+    return {
+      totalGMV: totalGMV?.gmv || '0.00',
+      platformRevenue,
+      totalTransactions: totalGMV?.transactions || 0,
+      gmvByMonth,
+      revenueByCategory: revenueByCategory.map(c => ({
+        categoryName: c.categoryName || 'Unknown',
+        revenue: c.revenue,
+      })),
+    };
+  }
+
+  async getCategoryPerformance(): Promise<any[]> {
+    // Calculate performance metrics per category
+    const categoryPerformance = await db
+      .select({
+        categoryId: jobs.categoryId,
+        categoryName: sql<string>`(SELECT ${categories.name} FROM ${categories} WHERE ${categories.id} = ${jobs.categoryId})`,
+        jobsPosted: sql<number>`CAST(COUNT(DISTINCT ${jobs.id}) AS INTEGER)`,
+        totalBids: sql<number>`CAST(COUNT(DISTINCT ${bids.id}) AS INTEGER)`,
+        completedProjects: sql<number>`CAST(COUNT(DISTINCT ${projects.id}) FILTER (WHERE ${projects.status} = 'completed') AS INTEGER)`,
+        totalProjects: sql<number>`CAST(COUNT(DISTINCT ${projects.id}) AS INTEGER)`,
+        avgBudget: sql<string>`COALESCE(AVG(${jobs.budget}), '0.00')`,
+      })
+      .from(jobs)
+      .leftJoin(bids, eq(jobs.id, bids.jobId))
+      .leftJoin(projects, eq(jobs.id, projects.jobId))
+      .groupBy(jobs.categoryId)
+      .orderBy(desc(sql`COUNT(DISTINCT ${jobs.id})`));
+
+    return categoryPerformance.map(c => ({
+      categoryId: c.categoryId,
+      categoryName: c.categoryName || 'Unknown',
+      jobsPosted: c.jobsPosted,
+      totalBids: c.totalBids,
+      successRate: c.totalProjects > 0 ? c.completedProjects / c.totalProjects : 0,
+      avgBudget: c.avgBudget,
+    }));
   }
 
   // Enhanced Bid operations

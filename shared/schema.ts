@@ -3392,3 +3392,83 @@ export const insertVendorListItemSchema = createInsertSchema(vendorListItems).om
 });
 export type InsertVendorListItem = z.infer<typeof insertVendorListItemSchema>;
 export type VendorListItem = typeof vendorListItems.$inferSelect;
+
+// ============================================================================
+// 15. ANALYTICS & REPORTING SYSTEM
+// ============================================================================
+
+// Note: Analytics tables are NOT used for storage. All analytics are calculated
+// in real-time from existing data (payments, projects, bids, jobs).
+// These table definitions are kept for future caching optimization if needed.
+
+// 15.1 VENDOR ANALYTICS SUMMARY - Pre-calculated consultant analytics (future optimization)
+export const vendorAnalyticsSummary = pgTable("vendor_analytics_summary", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  periodType: text("period_type").notNull(), // 'daily', 'weekly', 'monthly'
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  totalEarnings: varchar("total_earnings").notNull().default('0.00'), // SAR amount
+  projectsCompleted: integer("projects_completed").default(0).notNull(),
+  bidWinRate: decimal("bid_win_rate", { precision: 5, scale: 2 }).default('0.00'), // 0.00 to 1.00
+  performanceScore: decimal("performance_score", { precision: 5, scale: 2 }).default('0.00'), // 0-100
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("vendor_analytics_user_id_idx").on(table.userId),
+  periodIdx: index("vendor_analytics_period_idx").on(table.periodType, table.periodStart),
+}));
+
+export const insertVendorAnalyticsSummarySchema = createInsertSchema(vendorAnalyticsSummary).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertVendorAnalyticsSummary = z.infer<typeof insertVendorAnalyticsSummarySchema>;
+export type VendorAnalyticsSummary = typeof vendorAnalyticsSummary.$inferSelect;
+
+// 15.2 CLIENT ANALYTICS SUMMARY - Pre-calculated client analytics (future optimization)
+export const clientAnalyticsSummary = pgTable("client_analytics_summary", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  periodType: text("period_type").notNull(), // 'daily', 'weekly', 'monthly'
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  totalSpending: varchar("total_spending").notNull().default('0.00'), // SAR amount
+  projectsPosted: integer("projects_posted").default(0).notNull(),
+  projectsCompleted: integer("projects_completed").default(0).notNull(),
+  successRate: decimal("success_rate", { precision: 5, scale: 2 }).default('0.00'), // 0.00 to 1.00
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("client_analytics_user_id_idx").on(table.userId),
+  periodIdx: index("client_analytics_period_idx").on(table.periodType, table.periodStart),
+}));
+
+export const insertClientAnalyticsSummarySchema = createInsertSchema(clientAnalyticsSummary).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertClientAnalyticsSummary = z.infer<typeof insertClientAnalyticsSummarySchema>;
+export type ClientAnalyticsSummary = typeof clientAnalyticsSummary.$inferSelect;
+
+// 15.3 PLATFORM ANALYTICS SUMMARY - Platform-wide analytics (admin only, future optimization)
+export const platformAnalyticsSummary = pgTable("platform_analytics_summary", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  periodType: text("period_type").notNull(), // 'daily', 'weekly', 'monthly'
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  totalUsers: integer("total_users").default(0).notNull(),
+  totalClients: integer("total_clients").default(0).notNull(),
+  totalConsultants: integer("total_consultants").default(0).notNull(),
+  newRegistrations: integer("new_registrations").default(0).notNull(),
+  activeProjects: integer("active_projects").default(0).notNull(),
+  totalGMV: varchar("total_gmv").notNull().default('0.00'), // Gross Merchandise Value
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  periodIdx: index("platform_analytics_period_idx").on(table.periodType, table.periodStart),
+}));
+
+export const insertPlatformAnalyticsSummarySchema = createInsertSchema(platformAnalyticsSummary).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPlatformAnalyticsSummary = z.infer<typeof insertPlatformAnalyticsSummarySchema>;
+export type PlatformAnalyticsSummary = typeof platformAnalyticsSummary.$inferSelect;
