@@ -375,6 +375,7 @@ export interface IStorage {
   // Dashboard operations
   getClientDashboardStats(userId: string): Promise<DashboardStats>;
   getConsultantDashboardStats(userId: string): Promise<ConsultantDashboardStats>;
+  getRecentActivities(userId: string, role: 'client' | 'consultant', limit?: number): Promise<any[]>;
   listClientJobs(userId: string, limit?: number): Promise<Job[]>;
   listClientBids(userId: string, limit?: number): Promise<Bid[]>;
   
@@ -2280,6 +2281,134 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
     
     return results.map(r => r.bid);
+  }
+
+  async getRecentActivities(userId: string, role: 'client' | 'consultant', limit: number = 10): Promise<any[]> {
+    const activities: any[] = [];
+    
+    // Get recent bids (for both roles)
+    if (role === 'consultant') {
+      // Consultant: bids they submitted
+      const recentBids = await db
+        .select({
+          id: bids.id,
+          type: sql<string>`'bid'`,
+          title: jobs.title,
+          description: sql<string>`CASE 
+            WHEN ${bids.status} = 'pending' THEN 'Bid submitted'
+            WHEN ${bids.status} = 'accepted' THEN 'Bid accepted'
+            WHEN ${bids.status} = 'rejected' THEN 'Bid rejected'
+            WHEN ${bids.status} = 'shortlisted' THEN 'Bid shortlisted'
+            ELSE 'Bid status changed'
+          END`,
+          amount: bids.proposedBudget,
+          status: bids.status,
+          createdAt: bids.createdAt,
+        })
+        .from(bids)
+        .innerJoin(jobs, eq(bids.jobId, jobs.id))
+        .where(eq(bids.consultantId, userId))
+        .orderBy(desc(bids.createdAt))
+        .limit(5);
+      
+      activities.push(...recentBids);
+    } else {
+      // Client: bids received on their jobs
+      const recentBids = await db
+        .select({
+          id: bids.id,
+          type: sql<string>`'bid'`,
+          title: jobs.title,
+          description: sql<string>`'New bid received'`,
+          amount: bids.proposedBudget,
+          status: bids.status,
+          createdAt: bids.createdAt,
+        })
+        .from(bids)
+        .innerJoin(jobs, eq(bids.jobId, jobs.id))
+        .where(eq(jobs.clientId, userId))
+        .orderBy(desc(bids.createdAt))
+        .limit(5);
+      
+      activities.push(...recentBids);
+    }
+    
+    // Get recent payments
+    const recentPayments = await db
+      .select({
+        id: payments.id,
+        type: sql<string>`'payment'`,
+        title: sql<string>`CASE 
+          WHEN ${payments.type} = 'deposit' THEN 'Payment deposited'
+          WHEN ${payments.type} = 'release' THEN 'Payment released'
+          WHEN ${payments.type} = 'refund' THEN 'Refund processed'
+          ELSE 'Payment processed'
+        END`,
+        description: payments.description,
+        amount: payments.amount,
+        status: payments.status,
+        createdAt: payments.createdAt,
+      })
+      .from(payments)
+      .where(
+        role === 'consultant'
+          ? eq(payments.toUserId, userId)
+          : eq(payments.fromUserId, userId)
+      )
+      .orderBy(desc(payments.createdAt))
+      .limit(3);
+    
+    activities.push(...recentPayments);
+    
+    // Get recent project updates
+    const recentProjects = await db
+      .select({
+        id: projects.id,
+        type: sql<string>`'project'`,
+        title: projects.title,
+        description: sql<string>`CASE 
+          WHEN ${projects.status} = 'in_progress' THEN 'Project started'
+          WHEN ${projects.status} = 'completed' THEN 'Project completed'
+          WHEN ${projects.status} = 'awaiting_review' THEN 'Awaiting review'
+          ELSE 'Project updated'
+        END`,
+        amount: projects.budget,
+        status: projects.status,
+        createdAt: projects.updatedAt,
+      })
+      .from(projects)
+      .where(
+        role === 'consultant'
+          ? eq(projects.consultantId, userId)
+          : eq(projects.clientId, userId)
+      )
+      .orderBy(desc(projects.updatedAt))
+      .limit(3);
+    
+    activities.push(...recentProjects);
+    
+    // Get recent reviews (received)
+    const recentReviews = await db
+      .select({
+        id: reviews.id,
+        type: sql<string>`'review'`,
+        title: sql<string>`'New review received'`,
+        description: reviews.comment,
+        amount: sql<string>`NULL`,
+        status: sql<string>`'published'`,
+        createdAt: reviews.createdAt,
+      })
+      .from(reviews)
+      .where(eq(reviews.revieweeId, userId))
+      .orderBy(desc(reviews.createdAt))
+      .limit(2);
+    
+    activities.push(...recentReviews);
+    
+    // Sort all activities by createdAt and limit
+    activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    return activities.slice(0, limit);
   }
 
   // Enhanced Bid operations

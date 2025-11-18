@@ -1624,6 +1624,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/dashboard/activities', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const role = req.query.role as 'client' | 'consultant' || user.role;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      
+      const activities = await storage.getRecentActivities(userId, role, limit);
+      res.json({ activities });
+    } catch (error) {
+      console.error("Error fetching dashboard activities:", error);
+      res.status(500).json({ message: "Failed to fetch activities" });
+    }
+  });
+
   // Bid endpoints
   app.get('/api/bids', isAuthenticated, async (req: any, res) => {
     try {
