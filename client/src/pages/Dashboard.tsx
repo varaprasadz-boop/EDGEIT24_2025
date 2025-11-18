@@ -35,17 +35,18 @@ import { CategoryRequestsList } from "@/components/CategoryRequestsList";
 interface DashboardStats {
   activeJobs: number;
   activeProjects: number;
+  completedProjects: number;
   bidsReceived: number;
   monthlySpending: string;
   allTimeSpending: string;
-  averageRating: string;
+  avgResponseTime: string;
 }
 
 interface ConsultantDashboardStats {
   availableJobs: number;
   activeBids: number;
-  pendingBids: number;
   activeProjects: number;
+  completedProjects: number;
   successRate: number;
   averageRating: string;
   monthlyEarnings: string;
@@ -487,6 +488,36 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground">All time</p>
             </CardContent>
           </Card>
+
+          <Card data-testid="card-stat-completed-projects">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Completed Projects</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-completed-projects">
+                {clientStats?.completedProjects || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {clientStats?.completedProjects ? 'Successfully completed' : 'No completed projects'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-stat-response-time">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-response-time">
+                {parseFloat(clientStats?.avgResponseTime || "0").toFixed(1)}h
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {parseFloat(clientStats?.avgResponseTime || "0") > 0 ? 'To respond to bids' : 'No data yet'}
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -824,6 +855,21 @@ export default function Dashboard() {
               </div>
               <p className="text-xs text-muted-foreground">
                 {consultantStats && parseFloat(consultantStats.averageRating) > 0 ? 'Average rating' : 'No reviews yet'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-stat-completed-projects">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Completed Projects</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-completed-projects">
+                {consultantStats?.completedProjects || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {consultantStats?.completedProjects ? 'Successfully completed' : 'No completed projects'}
               </p>
             </CardContent>
           </Card>

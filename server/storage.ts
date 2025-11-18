@@ -222,17 +222,18 @@ import { emailService } from './email';
 export interface DashboardStats {
   activeJobs: number;
   activeProjects: number;
+  completedProjects: number;
   bidsReceived: number;
   monthlySpending: string;
   allTimeSpending: string;
-  averageRating: string;
+  avgResponseTime: string;
 }
 
 export interface ConsultantDashboardStats {
   availableJobs: number;
   activeBids: number;
-  pendingBids: number;
   activeProjects: number;
+  completedProjects: number;
   successRate: number;
   averageRating: string;
   monthlyEarnings: string;
@@ -2142,21 +2143,41 @@ export class DatabaseStorage implements IStorage {
         )
       );
 
-    // Get client's average rating from reviews (as a client)
-    const [ratingStats] = await db
+    // Count completed projects
+    const [completedProjectStats] = await db
       .select({
-        avgRating: sql<string>`COALESCE(ROUND(AVG(${reviews.overallRating}), 1), 0)`,
+        count: sql<number>`cast(count(*) as int)`,
       })
-      .from(reviews)
-      .where(eq(reviews.revieweeId, userId));
+      .from(projects)
+      .where(
+        and(
+          eq(projects.clientId, userId),
+          eq(projects.status, 'completed')
+        )
+      );
+
+    // Calculate average response time to bids (in hours)
+    const [responseTimeStats] = await db
+      .select({
+        avgResponseTime: sql<string>`COALESCE(ROUND(AVG(EXTRACT(EPOCH FROM (${bids.updatedAt} - ${bids.createdAt})) / 3600), 1), 0)`,
+      })
+      .from(bids)
+      .innerJoin(jobs, eq(bids.jobId, jobs.id))
+      .where(
+        and(
+          eq(jobs.clientId, userId),
+          sql`${bids.status} IN ('accepted', 'rejected')`
+        )
+      );
 
     return {
       activeJobs: jobStats?.count || 0,
       activeProjects: activeProjectStats?.count || 0,
+      completedProjects: completedProjectStats?.count || 0,
       bidsReceived: bidStats?.count || 0,
       monthlySpending: monthlySpendingStats?.total || "0",
       allTimeSpending: allTimeSpendingStats?.total || "0",
-      averageRating: ratingStats?.avgRating || "0",
+      avgResponseTime: responseTimeStats?.avgResponseTime || "0",
     };
   }
 
@@ -2187,19 +2208,6 @@ export class DatabaseStorage implements IStorage {
         )
       );
 
-    // Count pending bids only
-    const [pendingBidStats] = await db
-      .select({
-        count: sql<number>`cast(count(*) as int)`,
-      })
-      .from(bids)
-      .where(
-        and(
-          eq(bids.consultantId, userId),
-          eq(bids.status, 'pending')
-        )
-      );
-
     // Count active projects (in_progress, not_started, awaiting_review, revision_requested, delayed)
     const [activeProjectStats] = await db
       .select({
@@ -2210,6 +2218,19 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(projects.consultantId, userId),
           sql`${projects.status} IN ('in_progress', 'not_started', 'awaiting_review', 'revision_requested', 'delayed')`
+        )
+      );
+
+    // Count completed projects
+    const [completedProjectStats] = await db
+      .select({
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.consultantId, userId),
+          eq(projects.status, 'completed')
         )
       );
 
@@ -2257,9 +2278,9 @@ export class DatabaseStorage implements IStorage {
     return {
       availableJobs: jobStats?.count || 0,
       activeBids: activeBidStats?.count || 0,
-      pendingBids: pendingBidStats?.count || 0,
       activeProjects: activeProjectStats?.count || 0,
-      successRate: Math.round(successRate * 100) / 100, // Round to 2 decimal places
+      completedProjects: completedProjectStats?.count || 0,
+      successRate: Math.round(successRate * 100) / 100,
       averageRating: profile?.rating || "0",
       monthlyEarnings: monthlyEarningsStats?.total || "0",
       allTimeEarnings: allTimeEarningsStats?.total || "0",
