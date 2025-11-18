@@ -7281,6 +7281,21 @@ export class DatabaseStorage implements IStorage {
     jobId: string,
     notes?: string
   ): Promise<SavedRequirement> {
+    // Verify the job exists and is accessible (open status)
+    const [job] = await db
+      .select()
+      .from(jobs)
+      .where(eq(jobs.id, jobId));
+
+    if (!job) {
+      throw new Error('Job not found');
+    }
+
+    // Only allow saving jobs that are publicly visible (not draft or closed)
+    if (job.status !== 'open' && job.status !== 'in_progress') {
+      throw new Error('This job is no longer available to save');
+    }
+
     const [created] = await db
       .insert(savedRequirements)
       .values({
@@ -7297,14 +7312,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async unsaveSavedRequirement(id: string, consultantId: string): Promise<void> {
+    // Verify ownership before deletion
+    const [existing] = await db
+      .select()
+      .from(savedRequirements)
+      .where(eq(savedRequirements.id, id));
+
+    if (!existing) {
+      throw new Error('Saved requirement not found');
+    }
+
+    if (existing.consultantId !== consultantId) {
+      throw new Error('Unauthorized: You can only remove your own saved requirements');
+    }
+
     await db
       .delete(savedRequirements)
-      .where(
-        and(
-          eq(savedRequirements.id, id),
-          eq(savedRequirements.consultantId, consultantId)
-        )
-      );
+      .where(eq(savedRequirements.id, id));
   }
 
   async getSavedRequirements(consultantId: string): Promise<any[]> {
@@ -7358,19 +7382,28 @@ export class DatabaseStorage implements IStorage {
     consultantId: string,
     notes: string
   ): Promise<SavedRequirement> {
+    // Verify ownership before update
+    const [existing] = await db
+      .select()
+      .from(savedRequirements)
+      .where(eq(savedRequirements.id, id));
+
+    if (!existing) {
+      throw new Error('Saved requirement not found');
+    }
+
+    if (existing.consultantId !== consultantId) {
+      throw new Error('Unauthorized: You can only update your own saved requirements');
+    }
+
     const [updated] = await db
       .update(savedRequirements)
       .set({ notes })
-      .where(
-        and(
-          eq(savedRequirements.id, id),
-          eq(savedRequirements.consultantId, consultantId)
-        )
-      )
+      .where(eq(savedRequirements.id, id))
       .returning();
 
     if (!updated) {
-      throw new Error('Saved requirement not found or unauthorized');
+      throw new Error('Failed to update notes');
     }
     return updated;
   }
@@ -7414,6 +7447,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async unblockUser(blockerId: string, blockedId: string): Promise<void> {
+    // Verify ownership before deletion
+    const [existing] = await db
+      .select()
+      .from(blockedUsers)
+      .where(
+        and(
+          eq(blockedUsers.blockerId, blockerId),
+          eq(blockedUsers.blockedId, blockedId)
+        )
+      );
+
+    if (!existing) {
+      throw new Error('Block record not found');
+    }
+
+    if (existing.blockerId !== blockerId) {
+      throw new Error('Unauthorized: You can only unblock users you blocked');
+    }
+
     await db
       .delete(blockedUsers)
       .where(

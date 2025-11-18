@@ -68,6 +68,17 @@ The frontend is built with React, Vite, shadcn/ui, and Radix UI components, styl
   - Full frontend implementation with GlobalSearchBar, SearchFilters, search result cards, dialogs, and dedicated search pages for both consultants and clients
   - All components follow Material Design 3 guidelines with proper data-testid attributes for testing
   - Complete authorization enforcement ensuring users can only access their own search data and lists
+**Saved Requirements & User Privacy (COMPLETED):** Job bookmarking system for consultants with privacy controls for all users:
+  - Saved Requirements: Database table (savedRequirements) with consultantId, jobId, notes, and unique constraint preventing duplicates
+  - 5 storage methods with strict ownership validation: save (verifies job is open/in_progress), unsave, get saved jobs, update notes, check if saved
+  - 5 API endpoints with session-based authorization: POST /api/saved-requirements, GET /api/saved-requirements, DELETE /api/saved-requirements/:id, PATCH /api/saved-requirements/:id/notes, GET /api/saved-requirements/check/:jobId
+  - SavedRequirementsPage: Card grid UI showing saved jobs with notes editing, unsave functionality, job details (budget, deadline, client), and Material Design 3 styling
+  - Blocked Users: Database table (blockedUsers) for user privacy with blockerId, blockedId, reason, and unique constraint
+  - 4 storage methods with ownership enforcement: block user, unblock user, get blocked users list, check if user is blocked
+  - 4 API endpoints: POST /api/blocked-users, GET /api/blocked-users, DELETE /api/blocked-users/:blockedId, GET /api/blocked-users/check/:userId
+  - Profile Visibility: Added profileVisibility field to users table supporting 'public', 'clients_only', 'private' settings
+  - Security: All mutations validate ownership via session-derived userId, preventing privilege escalation; job saves restricted to publicly accessible (open/in_progress) jobs
+  - UI Integration: Route at /consultant/saved-requirements, proper data-testid attributes for testing
 
 ## External Dependencies
 

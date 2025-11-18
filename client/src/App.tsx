@@ -45,6 +45,7 @@ import ClientInvoicesPage from "@/pages/client/ClientInvoicesPage";
 import ClientInvoiceDetailPage from "@/pages/client/ClientInvoiceDetailPage";
 import WalletPage from "@/pages/WalletPage";
 import FindProjectsPage from "@/pages/consultant/FindProjectsPage";
+import SavedRequirementsPage from "@/pages/consultant/SavedRequirementsPage";
 import FindConsultantsPage from "@/pages/client/FindConsultantsPage";
 import VendorListsPage from "@/pages/client/VendorListsPage";
 import CompareConsultantsPage from "@/pages/client/CompareConsultantsPage";
@@ -82,6 +83,7 @@ function Router() {
       <Route path="/consultant/invoices/create" component={CreateInvoicePage} />
       <Route path="/consultant/invoices/:id" component={InvoiceDetailPage} />
       <Route path="/consultant/find-projects" component={FindProjectsPage} />
+      <Route path="/consultant/saved-requirements" component={SavedRequirementsPage} />
       <Route path="/consultant/analytics" component={VendorAnalytics} />
       <Route path="/client/analytics" component={ClientAnalytics} />
       <Route path="/client/projects" component={ClientProjectsPage} />
