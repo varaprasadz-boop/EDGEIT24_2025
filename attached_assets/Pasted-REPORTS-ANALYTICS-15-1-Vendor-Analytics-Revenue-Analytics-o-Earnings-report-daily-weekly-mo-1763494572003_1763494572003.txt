@@ -1,0 +1,81 @@
+REPORTS & ANALYTICS
+15.1 Vendor Analytics
+•	Revenue Analytics:
+o	Earnings report (daily/weekly/monthly/yearly) by currency
+o	Revenue by category
+o	Revenue by region
+o	Revenue by client type
+o	Revenue trends
+•	Performance Analytics:
+o	Project completion rate
+o	Project success rate (client satisfaction)
+o	Response time analytics
+o	Bid win rate
+o	Conversion funnel: Viewed → Bid → Shortlisted → Awarded → Completed
+o	Average project value
+o	On-time delivery rate
+•	Engagement Analytics:
+o	Profile view statistics
+o	Bid submission frequency
+o	Client retention rate
+o	Repeat client rate
+o	Top clients
+•	Performance Score Details:
+o	Score breakdown by factors
+o	Historical score trends
+o	Improvement suggestions
+15.2 Client Analytics
+•	Spending Analytics:
+o	Spending report (daily/weekly/monthly/yearly) by currency
+o	Spending by category
+o	Spending by region
+o	Spending trends
+o	Budget utilization
+•	Hiring Analytics:
+o	Hiring statistics
+o	Project success rate
+o	Average time to hire
+o	Conversion funnel: Posted → Bids Received → Reviewed → Awarded → Completed
+o	Vendor retention rate
+o	Repeat vendor rate
+o	Top vendors
+15.3 Platform-Wide Analytics (Admin)
+•	User Growth & Engagement:
+o	Total users (clients/vendors) over time
+o	New registrations trend
+o	Active users (DAU/MAU)
+o	User retention rates
+o	Churn analysis
+o	Geographic distribution
+o	User engagement scores
+•	Revenue Analytics:
+o	Revenue by category
+o	Revenue by region
+o	Revenue by vendor type
+o	Total GMV (Gross Merchandise Value)
+o	Platform revenue (commission - mock)
+o	Average transaction value
+o	Revenue growth rate
+•	Conversion Funnel Reports:
+o	Posted → Bid → Awarded → Completed
+o	Drop-off rates at each stage
+o	Conversion optimization insights
+•	Category Performance:
+o	Requirements posted by category
+o	Bids per category
+o	Success rate by category
+o	Average budget by category
+o	Growth/decline trends
+•	Project Success Rate:
+o	Overall platform success rate
+o	Success rate by category
+o	Success rate by vendor type
+o	Success rate by budget range
+15.4 Report Export
+•	Export as PDF
+•	Export as CSV
+•	Export as Excel
+•	Scheduled reports (email delivery)
+•	Custom date ranges
+•	Filter by category, project, vendor/client, currency, region
+•	API access for external BI tools
