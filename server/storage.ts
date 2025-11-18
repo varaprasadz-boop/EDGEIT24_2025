@@ -207,6 +207,12 @@ import {
   type VendorListItem,
   type InsertVendorListItem,
   vendorListItems,
+  type SavedRequirement,
+  type InsertSavedRequirement,
+  savedRequirements,
+  type BlockedUser,
+  type InsertBlockedUser,
+  blockedUsers,
   type Notification,
   type InsertNotification,
   notifications,
@@ -846,6 +852,19 @@ export interface IStorage {
   addConsultantToList(listId: string, consultantId: string, userId: string, notes?: string): Promise<VendorListItem>;
   removeConsultantFromList(listId: string, consultantId: string, userId: string): Promise<void>;
   getConsultantsInList(listId: string, userId: string): Promise<any[]>;
+
+  // 11.4 Saved Requirements operations (5 methods)
+  saveSavedRequirement(consultantId: string, jobId: string, notes?: string): Promise<SavedRequirement>;
+  unsaveSavedRequirement(id: string, consultantId: string): Promise<void>;
+  getSavedRequirements(consultantId: string): Promise<any[]>;
+  updateSavedRequirementNotes(id: string, consultantId: string, notes: string): Promise<SavedRequirement>;
+  isSavedRequirement(consultantId: string, jobId: string): Promise<boolean>;
+
+  // 11.5 Blocked Users operations (4 methods)
+  blockUser(blockerId: string, blockedId: string, reason?: string): Promise<BlockedUser>;
+  unblockUser(blockerId: string, blockedId: string): Promise<void>;
+  getBlockedUsers(blockerId: string): Promise<any[]>;
+  isUserBlocked(blockerId: string, blockedId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7251,6 +7270,204 @@ export class DatabaseStorage implements IStorage {
     );
 
     return consultantsWithDetails;
+  }
+
+  // ============================================================================
+  // 11.4 SAVED REQUIREMENTS - Consultants' saved/bookmarked jobs (5 methods)
+  // ============================================================================
+
+  async saveSavedRequirement(
+    consultantId: string,
+    jobId: string,
+    notes?: string
+  ): Promise<SavedRequirement> {
+    const [created] = await db
+      .insert(savedRequirements)
+      .values({
+        consultantId,
+        jobId,
+        notes,
+      })
+      .returning();
+
+    if (!created) {
+      throw new Error('Failed to save requirement');
+    }
+    return created;
+  }
+
+  async unsaveSavedRequirement(id: string, consultantId: string): Promise<void> {
+    await db
+      .delete(savedRequirements)
+      .where(
+        and(
+          eq(savedRequirements.id, id),
+          eq(savedRequirements.consultantId, consultantId)
+        )
+      );
+  }
+
+  async getSavedRequirements(consultantId: string): Promise<any[]> {
+    const saved = await db
+      .select()
+      .from(savedRequirements)
+      .where(eq(savedRequirements.consultantId, consultantId))
+      .orderBy(desc(savedRequirements.createdAt));
+
+    // Fetch job details for each saved requirement
+    const savedWithDetails = await Promise.all(
+      saved.map(async (item) => {
+        const [job] = await db
+          .select()
+          .from(jobs)
+          .leftJoin(categories, eq(jobs.categoryId, categories.id))
+          .leftJoin(clientProfiles, eq(jobs.clientId, clientProfiles.id))
+          .leftJoin(users, eq(clientProfiles.userId, users.id))
+          .where(eq(jobs.id, item.jobId));
+
+        return {
+          ...item,
+          job: job ? {
+            id: job.jobs.id,
+            title: job.jobs.title,
+            description: job.jobs.description,
+            budget: job.jobs.budget,
+            budgetType: job.jobs.budgetType,
+            deadline: job.jobs.deadline,
+            status: job.jobs.status,
+            createdAt: job.jobs.createdAt,
+            category: job.categories ? {
+              id: job.categories.id,
+              name: job.categories.name,
+            } : null,
+            client: job.users ? {
+              id: job.users.id,
+              fullName: job.users.fullName,
+              companyName: job.client_profiles?.companyName,
+            } : null,
+          } : null,
+        };
+      })
+    );
+
+    return savedWithDetails;
+  }
+
+  async updateSavedRequirementNotes(
+    id: string,
+    consultantId: string,
+    notes: string
+  ): Promise<SavedRequirement> {
+    const [updated] = await db
+      .update(savedRequirements)
+      .set({ notes })
+      .where(
+        and(
+          eq(savedRequirements.id, id),
+          eq(savedRequirements.consultantId, consultantId)
+        )
+      )
+      .returning();
+
+    if (!updated) {
+      throw new Error('Saved requirement not found or unauthorized');
+    }
+    return updated;
+  }
+
+  async isSavedRequirement(consultantId: string, jobId: string): Promise<boolean> {
+    const [saved] = await db
+      .select()
+      .from(savedRequirements)
+      .where(
+        and(
+          eq(savedRequirements.consultantId, consultantId),
+          eq(savedRequirements.jobId, jobId)
+        )
+      );
+
+    return !!saved;
+  }
+
+  // ============================================================================
+  // 11.5 BLOCKED USERS - User blocking for privacy and safety (4 methods)
+  // ============================================================================
+
+  async blockUser(
+    blockerId: string,
+    blockedId: string,
+    reason?: string
+  ): Promise<BlockedUser> {
+    const [created] = await db
+      .insert(blockedUsers)
+      .values({
+        blockerId,
+        blockedId,
+        reason,
+      })
+      .returning();
+
+    if (!created) {
+      throw new Error('Failed to block user');
+    }
+    return created;
+  }
+
+  async unblockUser(blockerId: string, blockedId: string): Promise<void> {
+    await db
+      .delete(blockedUsers)
+      .where(
+        and(
+          eq(blockedUsers.blockerId, blockerId),
+          eq(blockedUsers.blockedId, blockedId)
+        )
+      );
+  }
+
+  async getBlockedUsers(blockerId: string): Promise<any[]> {
+    const blocked = await db
+      .select()
+      .from(blockedUsers)
+      .where(eq(blockedUsers.blockerId, blockerId))
+      .orderBy(desc(blockedUsers.createdAt));
+
+    // Fetch user details for each blocked user
+    const blockedWithDetails = await Promise.all(
+      blocked.map(async (item) => {
+        const user = await this.getUser(item.blockedId);
+        const consultantProfile = await this.getConsultantProfile(item.blockedId);
+        const clientProfile = await this.getClientProfile(item.blockedId);
+
+        return {
+          ...item,
+          blockedUser: {
+            id: user?.id,
+            fullName: user?.fullName,
+            email: user?.email,
+            profileImageUrl: user?.profileImageUrl,
+            role: user?.role,
+            consultantProfile,
+            clientProfile,
+          },
+        };
+      })
+    );
+
+    return blockedWithDetails;
+  }
+
+  async isUserBlocked(blockerId: string, blockedId: string): Promise<boolean> {
+    const [blocked] = await db
+      .select()
+      .from(blockedUsers)
+      .where(
+        and(
+          eq(blockedUsers.blockerId, blockerId),
+          eq(blockedUsers.blockedId, blockedId)
+        )
+      );
+
+    return !!blocked;
   }
 }
 
