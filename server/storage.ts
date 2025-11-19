@@ -7664,7 +7664,7 @@ export class DatabaseStorage implements IStorage {
   async isSavedRequirement(
     consultantId: string,
     jobId: string
-  ): Promise<{ saved: boolean; savedRequirement?: SavedRequirement }> {
+  ): Promise<boolean> {
     const [saved] = await db
       .select()
       .from(savedRequirements)
@@ -7675,10 +7675,7 @@ export class DatabaseStorage implements IStorage {
         )
       );
 
-    return {
-      saved: !!saved,
-      savedRequirement: saved || undefined,
-    };
+    return !!saved;
   }
 
   // ============================================================================

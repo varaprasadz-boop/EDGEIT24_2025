@@ -11517,6 +11517,619 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // SUPPORT TICKETS ROUTES
+  // ============================================================================
+
+  // User endpoints for support tickets
+  
+  // POST /api/support-tickets - Create a new support ticket
+  app.post('/api/support-tickets', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const ticketData = {
+        ...req.body,
+        userId,
+        status: 'open',
+      };
+
+      const ticket = await storage.createSupportTicket(ticketData);
+      
+      // Send notification to admins
+      const admins = await storage.getAdmins();
+      for (const admin of admins) {
+        await notificationService.createNotification({
+          userId: admin.id,
+          type: 'new_support_ticket',
+          title: 'New Support Ticket',
+          message: `New support ticket #${ticket.id.substring(0, 8)} from user`,
+          relatedEntityType: 'support_ticket',
+          relatedEntityId: ticket.id,
+        });
+      }
+
+      res.json(ticket);
+    } catch (error) {
+      console.error('Error creating support ticket:', error);
+      res.status(500).json({ message: 'Failed to create support ticket' });
+    }
+  });
+
+  // GET /api/support-tickets - Get user's support tickets
+  app.get('/api/support-tickets', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { status, category } = req.query;
+      const filters: any = {};
+      if (status) filters.status = status as string;
+      if (category) filters.category = category as string;
+
+      const tickets = await storage.getUserSupportTickets(userId, filters);
+      res.json(tickets);
+    } catch (error) {
+      console.error('Error fetching support tickets:', error);
+      res.status(500).json({ message: 'Failed to fetch support tickets' });
+    }
+  });
+
+  // GET /api/support-tickets/:id - Get a specific support ticket
+  app.get('/api/support-tickets/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const ticket = await storage.getSupportTicket(req.params.id);
+      if (!ticket) {
+        return res.status(404).json({ message: 'Ticket not found' });
+      }
+
+      // Check authorization
+      const user = await storage.getUser(userId);
+      if (ticket.userId !== userId && user?.role !== 'super_admin') {
+        return res.status(403).json({ message: 'Unauthorized access' });
+      }
+
+      res.json(ticket);
+    } catch (error) {
+      console.error('Error fetching support ticket:', error);
+      res.status(500).json({ message: 'Failed to fetch support ticket' });
+    }
+  });
+
+  // POST /api/support-tickets/:id/messages - Add a message to a ticket
+  app.post('/api/support-tickets/:id/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const ticket = await storage.getSupportTicket(req.params.id);
+      if (!ticket) {
+        return res.status(404).json({ message: 'Ticket not found' });
+      }
+
+      // Check authorization
+      const user = await storage.getUser(userId);
+      const isStaff = user?.role === 'super_admin';
+      
+      if (ticket.userId !== userId && !isStaff) {
+        return res.status(403).json({ message: 'Unauthorized access' });
+      }
+
+      const message = await storage.addTicketMessage({
+        ticketId: req.params.id,
+        senderId: userId,
+        message: req.body.message,
+        isStaffReply: isStaff,
+        isInternal: false,
+      });
+
+      // Send notification to the other party
+      const recipientId = isStaff ? ticket.userId : (ticket.assignedTo || null);
+      if (recipientId) {
+        await notificationService.createNotification({
+          userId: recipientId,
+          type: 'ticket_update',
+          title: 'Support Ticket Update',
+          message: `New message on ticket #${ticket.id.substring(0, 8)}`,
+          relatedEntityType: 'support_ticket',
+          relatedEntityId: ticket.id,
+        });
+      }
+
+      res.json(message);
+    } catch (error) {
+      console.error('Error adding ticket message:', error);
+      res.status(500).json({ message: 'Failed to add message' });
+    }
+  });
+
+  // GET /api/support-tickets/:id/messages - Get ticket messages
+  app.get('/api/support-tickets/:id/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const ticket = await storage.getSupportTicket(req.params.id);
+      if (!ticket) {
+        return res.status(404).json({ message: 'Ticket not found' });
+      }
+
+      // Check authorization
+      const user = await storage.getUser(userId);
+      if (ticket.userId !== userId && user?.role !== 'super_admin') {
+        return res.status(403).json({ message: 'Unauthorized access' });
+      }
+
+      const messages = await storage.getTicketMessages(req.params.id);
+      
+      // Filter out internal notes for non-staff users
+      const filteredMessages = user?.role === 'super_admin' 
+        ? messages 
+        : messages.filter(m => !m.isInternal);
+
+      res.json(filteredMessages);
+    } catch (error) {
+      console.error('Error fetching ticket messages:', error);
+      res.status(500).json({ message: 'Failed to fetch messages' });
+    }
+  });
+
+  // POST /api/support-tickets/:id/rate - Rate a resolved/closed ticket
+  app.post('/api/support-tickets/:id/rate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { rating, comment } = req.body;
+
+      if (rating < 1 || rating > 5) {
+        return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+      }
+
+      const ticket = await storage.rateSupportTicket(req.params.id, userId, rating, comment);
+      res.json(ticket);
+    } catch (error: any) {
+      console.error('Error rating ticket:', error);
+      res.status(error.message.includes('Unauthorized') ? 403 : 500).json({ 
+        message: error.message || 'Failed to rate ticket' 
+      });
+    }
+  });
+
+  // Admin endpoints for support tickets
+
+  // GET /api/admin/support-tickets - Get all support tickets (admin only)
+  app.get('/api/admin/support-tickets', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { status, category, priority, assignedTo } = req.query;
+      const filters: any = {};
+      if (status) filters.status = status as string;
+      if (category) filters.category = category as string;
+      if (priority) filters.priority = priority as string;
+      if (assignedTo) filters.assignedTo = assignedTo as string;
+
+      const tickets = await storage.getAllSupportTickets(filters);
+      res.json(tickets);
+    } catch (error) {
+      console.error('Error fetching all support tickets:', error);
+      res.status(500).json({ message: 'Failed to fetch support tickets' });
+    }
+  });
+
+  // PATCH /api/admin/support-tickets/:id/status - Update ticket status (admin only)
+  app.patch('/api/admin/support-tickets/:id/status', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { status } = req.body;
+      
+      if (!['open', 'in_progress', 'resolved', 'closed'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status' });
+      }
+
+      const ticket = await storage.updateSupportTicketStatus(req.params.id, status);
+      
+      // Notify user of status change
+      await notificationService.createNotification({
+        userId: ticket.userId,
+        type: 'ticket_status_update',
+        title: 'Support Ticket Status Updated',
+        message: `Your support ticket #${ticket.id.substring(0, 8)} is now ${status}`,
+        relatedEntityType: 'support_ticket',
+        relatedEntityId: ticket.id,
+      });
+
+      res.json(ticket);
+    } catch (error) {
+      console.error('Error updating ticket status:', error);
+      res.status(500).json({ message: 'Failed to update ticket status' });
+    }
+  });
+
+  // POST /api/admin/support-tickets/:id/assign - Assign ticket to admin (admin only)
+  app.post('/api/admin/support-tickets/:id/assign', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminId = getUserIdFromRequest(req);
+      if (!adminId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const ticket = await storage.assignSupportTicket(req.params.id, adminId);
+      
+      // Notify user that ticket is being worked on
+      await notificationService.createNotification({
+        userId: ticket.userId,
+        type: 'ticket_assigned',
+        title: 'Support Ticket Assigned',
+        message: `Your support ticket #${ticket.id.substring(0, 8)} has been assigned to our support team`,
+        relatedEntityType: 'support_ticket',
+        relatedEntityId: ticket.id,
+      });
+
+      res.json(ticket);
+    } catch (error) {
+      console.error('Error assigning ticket:', error);
+      res.status(500).json({ message: 'Failed to assign ticket' });
+    }
+  });
+
+  // POST /api/admin/support-tickets/:id/internal-note - Add internal note (admin only)
+  app.post('/api/admin/support-tickets/:id/internal-note', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminId = getUserIdFromRequest(req);
+      if (!adminId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { message } = req.body;
+
+      const note = await storage.addInternalTicketNote(req.params.id, adminId, message);
+      res.json(note);
+    } catch (error) {
+      console.error('Error adding internal note:', error);
+      res.status(500).json({ message: 'Failed to add internal note' });
+    }
+  });
+
+  // ============================================================================
+  // PLATFORM FEEDBACK ROUTES
+  // ============================================================================
+
+  // POST /api/feedback - Submit platform feedback
+  app.post('/api/feedback', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const feedbackData = {
+        ...req.body,
+        userId,
+        status: 'pending',
+      };
+
+      const feedback = await storage.createPlatformFeedback(feedbackData);
+      res.json(feedback);
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      res.status(500).json({ message: 'Failed to submit feedback' });
+    }
+  });
+
+  // GET /api/feedback - Get user's feedback submissions
+  app.get('/api/feedback', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const feedback = await storage.getUserFeedback(userId);
+      res.json(feedback);
+    } catch (error) {
+      console.error('Error fetching feedback:', error);
+      res.status(500).json({ message: 'Failed to fetch feedback' });
+    }
+  });
+
+  // GET /api/admin/feedback - Get all feedback (admin only)
+  app.get('/api/admin/feedback', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { feedbackType, status, category } = req.query;
+      const filters: any = {};
+      if (feedbackType) filters.feedbackType = feedbackType as string;
+      if (status) filters.status = status as string;
+      if (category) filters.category = category as string;
+
+      const feedback = await storage.getAllFeedback(filters);
+      res.json(feedback);
+    } catch (error) {
+      console.error('Error fetching all feedback:', error);
+      res.status(500).json({ message: 'Failed to fetch feedback' });
+    }
+  });
+
+  // PATCH /api/admin/feedback/:id - Update feedback status (admin only)
+  app.patch('/api/admin/feedback/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminId = getUserIdFromRequest(req);
+      if (!adminId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { status, adminNotes } = req.body;
+
+      const feedback = await storage.updateFeedbackStatus(
+        req.params.id,
+        status,
+        adminId,
+        adminNotes
+      );
+
+      res.json(feedback);
+    } catch (error) {
+      console.error('Error updating feedback:', error);
+      res.status(500).json({ message: 'Failed to update feedback' });
+    }
+  });
+
+  // ============================================================================
+  // FEATURE SUGGESTIONS ROUTES
+  // ============================================================================
+
+  // POST /api/feature-suggestions - Submit a feature suggestion
+  app.post('/api/feature-suggestions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const suggestionData = {
+        ...req.body,
+        userId,
+        status: 'pending',
+        voteCount: 0,
+      };
+
+      const suggestion = await storage.createFeatureSuggestion(suggestionData);
+      
+      // Auto-vote for own suggestion
+      await storage.voteForFeature(suggestion.id, userId);
+
+      res.json(suggestion);
+    } catch (error) {
+      console.error('Error creating feature suggestion:', error);
+      res.status(500).json({ message: 'Failed to create feature suggestion' });
+    }
+  });
+
+  // GET /api/feature-suggestions - Get all feature suggestions
+  app.get('/api/feature-suggestions', async (req: any, res) => {
+    try {
+      const { status, category } = req.query;
+      const filters: any = {};
+      if (status) filters.status = status as string;
+      if (category) filters.category = category as string;
+
+      const suggestions = await storage.getAllFeatureSuggestions(filters);
+      res.json(suggestions);
+    } catch (error) {
+      console.error('Error fetching feature suggestions:', error);
+      res.status(500).json({ message: 'Failed to fetch feature suggestions' });
+    }
+  });
+
+  // POST /api/feature-suggestions/:id/vote - Vote for a feature
+  app.post('/api/feature-suggestions/:id/vote', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      await storage.voteForFeature(req.params.id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error voting for feature:', error);
+      res.status(500).json({ message: 'Failed to vote for feature' });
+    }
+  });
+
+  // DELETE /api/feature-suggestions/:id/vote - Unvote for a feature
+  app.delete('/api/feature-suggestions/:id/vote', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      await storage.unvoteForFeature(req.params.id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error unvoting for feature:', error);
+      res.status(500).json({ message: 'Failed to unvote for feature' });
+    }
+  });
+
+  // PATCH /api/admin/feature-suggestions/:id - Update feature suggestion status (admin only)
+  app.patch('/api/admin/feature-suggestions/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminId = getUserIdFromRequest(req);
+      if (!adminId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { status, adminResponse } = req.body;
+
+      const suggestion = await storage.updateFeatureSuggestionStatus(
+        req.params.id,
+        status,
+        adminId,
+        adminResponse
+      );
+
+      res.json(suggestion);
+    } catch (error) {
+      console.error('Error updating feature suggestion:', error);
+      res.status(500).json({ message: 'Failed to update feature suggestion' });
+    }
+  });
+
+  // ============================================================================
+  // SURVEYS ROUTES
+  // ============================================================================
+
+  // GET /api/surveys/active - Get active surveys for user
+  app.get('/api/surveys/active', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const user = await storage.getUser(userId);
+      const targetAudience = user?.role === 'consultant' ? 'consultants' : 
+                            user?.role === 'client' ? 'clients' : 'all';
+
+      const surveys = await storage.getActiveSurveys(targetAudience);
+      res.json(surveys);
+    } catch (error) {
+      console.error('Error fetching active surveys:', error);
+      res.status(500).json({ message: 'Failed to fetch surveys' });
+    }
+  });
+
+  // POST /api/surveys/:id/respond - Submit survey response
+  app.post('/api/surveys/:id/respond', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { answers } = req.body;
+
+      const response = await storage.submitSurveyResponse({
+        surveyId: req.params.id,
+        userId,
+        answers,
+      });
+
+      res.json(response);
+    } catch (error) {
+      console.error('Error submitting survey response:', error);
+      res.status(500).json({ message: 'Failed to submit survey response' });
+    }
+  });
+
+  // Admin survey endpoints
+
+  // POST /api/admin/surveys - Create a new survey (admin only)
+  app.post('/api/admin/surveys', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const adminId = getUserIdFromRequest(req);
+      if (!adminId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const surveyData = {
+        ...req.body,
+        createdBy: adminId,
+        status: 'active',
+        responseCount: 0,
+      };
+
+      const survey = await storage.createSurvey(surveyData);
+      res.json(survey);
+    } catch (error) {
+      console.error('Error creating survey:', error);
+      res.status(500).json({ message: 'Failed to create survey' });
+    }
+  });
+
+  // GET /api/admin/surveys/:id/responses - Get survey responses (admin only)
+  app.get('/api/admin/surveys/:id/responses', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const responses = await storage.getSurveyResponses(req.params.id);
+      res.json(responses);
+    } catch (error) {
+      console.error('Error fetching survey responses:', error);
+      res.status(500).json({ message: 'Failed to fetch survey responses' });
+    }
+  });
+
+  // ============================================================================
+  // BETA OPT-IN ROUTES
+  // ============================================================================
+
+  // POST /api/beta/opt-in - Opt in to beta features
+  app.post('/api/beta/opt-in', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { featureName } = req.body;
+
+      const optIn = await storage.optInToBeta(userId, featureName);
+      res.json(optIn);
+    } catch (error) {
+      console.error('Error opting in to beta:', error);
+      res.status(500).json({ message: 'Failed to opt in to beta' });
+    }
+  });
+
+  // POST /api/beta/opt-out - Opt out of beta features
+  app.post('/api/beta/opt-out', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { featureName } = req.body;
+
+      await storage.optOutOfBeta(userId, featureName);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error opting out of beta:', error);
+      res.status(500).json({ message: 'Failed to opt out of beta' });
+    }
+  });
+
+  // GET /api/beta/my-opt-ins - Get user's beta opt-ins
+  app.get('/api/beta/my-opt-ins', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const optIns = await storage.getUserBetaOptIns(userId);
+      res.json(optIns);
+    } catch (error) {
+      console.error('Error fetching beta opt-ins:', error);
+      res.status(500).json({ message: 'Failed to fetch beta opt-ins' });
+    }
+  });
+
   // Register payment and escrow routes
   registerPaymentRoutes(app, {
     storage,

@@ -27,6 +27,8 @@ import AdminCategoryRequests from "@/pages/AdminCategoryRequests";
 import AdminRefunds from "@/pages/AdminRefunds";
 import AdminPaymentAnalytics from "@/pages/AdminPaymentAnalytics";
 import PlatformAnalytics from "@/pages/admin/PlatformAnalytics";
+import AdminSupportTickets from "@/pages/admin/AdminSupportTickets";
+import AdminFeedback from "@/pages/admin/AdminFeedback";
 
 export function AdminRouter() {
   const { user, isLoading } = useAuthContext();
@@ -90,6 +92,8 @@ export function AdminRouter() {
         <Route path="/admin/content-pages" component={AdminContentPages} />
         <Route path="/admin/footer-links" component={AdminFooterLinks} />
         <Route path="/admin/home-sections" component={AdminHomeSections} />
+        <Route path="/admin/support-tickets" component={AdminSupportTickets} />
+        <Route path="/admin/feedback" component={AdminFeedback} />
       </Switch>
     </AdminLayout>
   );

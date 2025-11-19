@@ -51,6 +51,12 @@ import VendorListsPage from "@/pages/client/VendorListsPage";
 import CompareConsultantsPage from "@/pages/client/CompareConsultantsPage";
 import RaiseDispute from "@/pages/RaiseDispute";
 import MyDisputes from "@/pages/MyDisputes";
+import HelpCenter from "@/pages/HelpCenter";
+import FAQPage from "@/pages/FAQPage";
+import KnowledgeBase from "@/pages/KnowledgeBase";
+import ContactSupport from "@/pages/ContactSupport";
+import MySupportTickets from "@/pages/MySupportTickets";
+import PlatformFeedback from "@/pages/PlatformFeedback";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -98,6 +104,12 @@ function Router() {
       <Route path="/wallet" component={WalletPage} />
       <Route path="/raise-dispute" component={RaiseDispute} />
       <Route path="/my-disputes" component={MyDisputes} />
+      <Route path="/help" component={HelpCenter} />
+      <Route path="/help/faq" component={FAQPage} />
+      <Route path="/help/knowledge-base" component={KnowledgeBase} />
+      <Route path="/help/contact" component={ContactSupport} />
+      <Route path="/help/my-tickets" component={MySupportTickets} />
+      <Route path="/help/feedback" component={PlatformFeedback} />
       <Route path="/services/:slug" component={CategoryLanding} />
       <Route path="/legal/:slug" component={LegalPage} />
       <Route path="/mock-payment" component={MockPaymentGateway} />
