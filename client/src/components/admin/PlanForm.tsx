@@ -23,6 +23,11 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { FeatureListBuilder } from "@/components/admin/FeatureListBuilder";
 
+const multilingualFeatureSchema = z.object({
+  en: z.string().min(1, "English feature is required"),
+  ar: z.string().optional(),
+});
+
 const planFormSchema = z.object({
   name: z.string().min(1, "Plan name is required"),
   nameAr: z.string().optional(),
@@ -36,7 +41,7 @@ const planFormSchema = z.object({
   featured: z.boolean().default(false),
   popular: z.boolean().default(false),
   displayOrder: z.number().int().min(0).default(0),
-  features: z.array(z.string()).default([]),
+  features: z.any().optional(),
   supportLevel: z.string().optional(),
   analyticsAccess: z.boolean().default(false),
   apiAccess: z.boolean().default(false),
@@ -73,7 +78,7 @@ export function PlanForm({ plan, onSubmit, onCancel, isPending }: PlanFormProps)
       featured: plan?.featured || false,
       popular: plan?.popular || false,
       displayOrder: plan?.displayOrder || 0,
-      features: Array.isArray(plan?.features) ? plan.features : [],
+      features: plan?.features || null,
       supportLevel: plan?.supportLevel || "email",
       analyticsAccess: plan?.analyticsAccess || false,
       apiAccess: plan?.apiAccess || false,
@@ -289,8 +294,8 @@ export function PlanForm({ plan, onSubmit, onCancel, isPending }: PlanFormProps)
               <FormItem>
                 <FormControl>
                   <FeatureListBuilder
-                    features={field.value}
-                    onChange={field.onChange}
+                    features={field.value?.list || []}
+                    onChange={(list) => field.onChange({ ...(field.value || {}), list })}
                   />
                 </FormControl>
                 <FormMessage />
