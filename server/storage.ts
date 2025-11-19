@@ -938,9 +938,10 @@ export interface IStorage {
   getTicketMessages(ticketId: string): Promise<TicketMessage[]>;
   addInternalTicketNote(ticketId: string, senderId: string, message: string): Promise<TicketMessage>;
 
-  // Ticket Attachment operations (3 methods)
+  // Ticket Attachment operations (4 methods)
   addTicketAttachment(attachment: InsertTicketAttachment): Promise<TicketAttachment>;
   getTicketAttachments(ticketId: string): Promise<TicketAttachment[]>;
+  getTicketAttachmentByFilename(filename: string): Promise<TicketAttachment | undefined>;
   deleteTicketAttachment(id: string): Promise<void>;
 
   // ============================================================================
@@ -8016,6 +8017,14 @@ export class DatabaseStorage implements IStorage {
       .from(ticketAttachments)
       .where(eq(ticketAttachments.ticketId, ticketId))
       .orderBy(ticketAttachments.uploadedAt);
+  }
+
+  async getTicketAttachmentByFilename(filename: string): Promise<TicketAttachment | undefined> {
+    const [attachment] = await db
+      .select()
+      .from(ticketAttachments)
+      .where(eq(ticketAttachments.fileUrl, `/api/support-tickets/attachments/${filename}`));
+    return attachment;
   }
 
   async deleteTicketAttachment(id: string): Promise<void> {

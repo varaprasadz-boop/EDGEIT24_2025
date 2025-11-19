@@ -56,10 +56,20 @@ export default function ContactSupport() {
 
   const createTicketMutation = useMutation({
     mutationFn: async (data: SupportTicketForm) => {
+      const formData = new FormData();
+      formData.append("category", data.category);
+      formData.append("priority", data.priority);
+      formData.append("subject", data.subject);
+      formData.append("description", data.description);
+      formData.append("email", data.email);
+      
+      attachments.forEach((file) => {
+        formData.append("attachments", file);
+      });
+      
       return await apiRequest("/api/support-tickets", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: formData,
       });
     },
     onSuccess: () => {

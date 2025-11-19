@@ -22,9 +22,51 @@ import { UploadPolicy } from './uploadPolicy';
 import { FileScanService } from './fileScanService';
 import { RateLimits, initializeRateLimiter } from './middleware/rateLimiter';
 import { activityLogger } from './middleware/activityLogger';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 // Initialize rate limiter with storage
 initializeRateLimiter(storage);
+
+// Configure multer for file uploads
+const uploadDir = path.join(process.cwd(), 'attached_assets', 'ticket_attachments');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage_multer = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${nanoid(8)}`;
+    const ext = path.extname(file.originalname);
+    cb(null, `${uniqueSuffix}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage: storage_multer,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+      'application/zip',
+    ];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only images, PDFs, documents, and archives are allowed.'));
+    }
+  },
+});
 
 // Periodic cleanup of expired rate limits (every 5 minutes)
 setInterval(async () => {
@@ -11524,39 +11566,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User endpoints for support tickets
   
   // POST /api/support-tickets - Create a new support ticket
-  app.post('/api/support-tickets', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = getUserIdFromRequest(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Authentication required" });
+  app.post('/api/support-tickets', isAuthenticated, (req: any, res, next) => {
+    upload.array('attachments', 5)(req, res, async (err) => {
+      if (err) {
+        // Handle multer errors
+        if (err instanceof multer.MulterError) {
+          if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ message: 'File size exceeds 10MB limit' });
+          }
+          if (err.code === 'LIMIT_FILE_COUNT') {
+            return res.status(400).json({ message: 'Maximum 5 files allowed' });
+          }
+          return res.status(400).json({ message: `Upload error: ${err.message}` });
+        }
+        if (err.message.includes('Invalid file type')) {
+          return res.status(400).json({ message: err.message });
+        }
+        return res.status(500).json({ message: 'File upload failed' });
       }
 
-      const ticketData = {
-        ...req.body,
-        userId,
-        status: 'open',
-      };
+      try {
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+          return res.status(401).json({ message: "Authentication required" });
+        }
 
-      const ticket = await storage.createSupportTicket(ticketData);
-      
-      // Send notification to admins
-      const admins = await storage.getAdmins();
-      for (const admin of admins) {
-        await notificationService.createNotification({
-          userId: admin.id,
-          type: 'new_support_ticket',
-          title: 'New Support Ticket',
-          message: `New support ticket #${ticket.id.substring(0, 8)} from user`,
-          relatedEntityType: 'support_ticket',
-          relatedEntityId: ticket.id,
-        });
+        const ticketData = {
+          ...req.body,
+          userId,
+          status: 'open',
+        };
+
+        const ticket = await storage.createSupportTicket(ticketData);
+        
+        // Handle file attachments with security scanning
+        if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+          const uploadPolicy = new UploadPolicy();
+          const fileScanService = new FileScanService();
+          
+          for (const file of req.files) {
+            let fileAccepted = false;
+            try {
+              // Validate file with UploadPolicy
+              const validation = uploadPolicy.validateFile(
+                file.originalname,
+                file.size,
+                file.mimetype
+              );
+              
+              if (!validation.valid) {
+                console.warn(`Invalid file rejected: ${validation.error}`);
+                continue;
+              }
+
+              // Scan file for malware
+              const scanResult = await fileScanService.scanFile(file.path);
+              if (!scanResult.safe) {
+                console.warn(`Unsafe file rejected: ${scanResult.reason}`);
+                continue;
+              }
+
+              // File is safe, create attachment record
+              await storage.addTicketAttachment({
+                ticketId: ticket.id,
+                fileName: file.originalname,
+                fileUrl: `/api/support-tickets/attachments/${file.filename}`,
+                fileType: file.mimetype,
+                fileSize: file.size,
+                uploadedBy: userId,
+              });
+              
+              fileAccepted = true;
+            } catch (fileError) {
+              console.error('Error processing file:', fileError);
+            } finally {
+              // Always delete file if it wasn't accepted
+              if (!fileAccepted && fs.existsSync(file.path)) {
+                try {
+                  fs.unlinkSync(file.path);
+                } catch (unlinkError) {
+                  console.error('Error deleting rejected file:', unlinkError);
+                }
+              }
+            }
+          }
+        }
+        
+        // Send notification to admins
+        try {
+          const admins = await storage.getAdmins();
+          for (const admin of admins) {
+            await notificationService.createNotification({
+              userId: admin.id,
+              type: 'new_support_ticket',
+              title: 'New Support Ticket',
+              message: `New support ticket #${ticket.id.substring(0, 8)} from user`,
+              relatedEntityType: 'support_ticket',
+              relatedEntityId: ticket.id,
+            });
+          }
+        } catch (notifError) {
+          console.error('Error sending notifications:', notifError);
+          // Continue anyway - ticket is created
+        }
+
+        res.json(ticket);
+      } catch (error) {
+        console.error('Error creating support ticket:', error);
+        res.status(500).json({ message: 'Failed to create support ticket' });
       }
-
-      res.json(ticket);
-    } catch (error) {
-      console.error('Error creating support ticket:', error);
-      res.status(500).json({ message: 'Failed to create support ticket' });
-    }
+    });
   });
 
   // GET /api/support-tickets - Get user's support tickets
@@ -11685,6 +11804,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching ticket messages:', error);
       res.status(500).json({ message: 'Failed to fetch messages' });
+    }
+  });
+
+  // GET /api/support-tickets/attachments/:filename - Serve attachment file with authorization
+  app.get('/api/support-tickets/attachments/:filename', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { filename } = req.params;
+      
+      // Get attachment metadata from database
+      const attachment = await storage.getTicketAttachmentByFilename(filename);
+      if (!attachment) {
+        return res.status(404).json({ message: 'Attachment not found' });
+      }
+
+      // Get the ticket to verify authorization
+      const ticket = await storage.getSupportTicket(attachment.ticketId);
+      if (!ticket) {
+        return res.status(404).json({ message: 'Ticket not found' });
+      }
+
+      // Check authorization
+      const user = await storage.getUser(userId);
+      if (ticket.userId !== userId && user?.role !== 'super_admin') {
+        return res.status(403).json({ message: 'Unauthorized access' });
+      }
+
+      // Stream the file
+      const filePath = path.join(uploadDir, filename);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ message: 'File not found on disk' });
+      }
+
+      // Set proper headers
+      res.setHeader('Content-Type', attachment.fileType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `inline; filename="${attachment.fileName}"`);
+      res.setHeader('Content-Length', attachment.fileSize.toString());
+
+      // Stream file
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error('Error serving attachment:', error);
+      res.status(500).json({ message: 'Failed to serve attachment' });
     }
   });
 
