@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { FeatureListBuilder } from "@/components/admin/FeatureListBuilder";
 
 const planFormSchema = z.object({
   name: z.string().min(1, "Plan name is required"),
@@ -35,7 +36,7 @@ const planFormSchema = z.object({
   featured: z.boolean().default(false),
   popular: z.boolean().default(false),
   displayOrder: z.number().int().min(0).default(0),
-  features: z.string().optional(),
+  features: z.array(z.string()).default([]),
   supportLevel: z.string().optional(),
   analyticsAccess: z.boolean().default(false),
   apiAccess: z.boolean().default(false),
@@ -72,7 +73,7 @@ export function PlanForm({ plan, onSubmit, onCancel, isPending }: PlanFormProps)
       featured: plan?.featured || false,
       popular: plan?.popular || false,
       displayOrder: plan?.displayOrder || 0,
-      features: plan?.features ? JSON.stringify(plan.features) : "",
+      features: Array.isArray(plan?.features) ? plan.features : [],
       supportLevel: plan?.supportLevel || "email",
       analyticsAccess: plan?.analyticsAccess || false,
       apiAccess: plan?.apiAccess || false,
@@ -84,11 +85,7 @@ export function PlanForm({ plan, onSubmit, onCancel, isPending }: PlanFormProps)
   });
 
   const handleSubmit = (data: PlanFormValues) => {
-    const payload: any = {
-      ...data,
-      features: data.features ? JSON.parse(data.features) : null,
-    };
-    onSubmit(payload);
+    onSubmit(data);
   };
 
   return (
@@ -290,16 +287,18 @@ export function PlanForm({ plan, onSubmit, onCancel, isPending }: PlanFormProps)
             name="features"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t("subscriptionPlans.featuresJSON")}</FormLabel>
                 <FormControl>
-                  <Textarea {...field} rows={3} placeholder='["Feature 1", "Feature 2", "Feature 3"]' data-testid="input-features" />
+                  <FeatureListBuilder
+                    features={field.value}
+                    onChange={field.onChange}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="featured"
@@ -358,14 +357,14 @@ export function PlanForm({ plan, onSubmit, onCancel, isPending }: PlanFormProps)
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="apiAccess"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <FormLabel>{t("subscriptionPlans.apiAccess")}</FormLabel>
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 gap-4">
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <FormLabel className="text-sm">{t("subscriptionPlans.apiAccess")}</FormLabel>
                   </div>
                   <FormControl>
                     <Switch
@@ -382,9 +381,9 @@ export function PlanForm({ plan, onSubmit, onCancel, isPending }: PlanFormProps)
               control={form.control}
               name="whiteLabel"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <FormLabel>{t("subscriptionPlans.whiteLabel")}</FormLabel>
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 gap-4">
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <FormLabel className="text-sm">{t("subscriptionPlans.whiteLabel")}</FormLabel>
                   </div>
                   <FormControl>
                     <Switch
@@ -401,9 +400,9 @@ export function PlanForm({ plan, onSubmit, onCancel, isPending }: PlanFormProps)
               control={form.control}
               name="customIntegrations"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <FormLabel>{t("subscriptionPlans.customIntegrations")}</FormLabel>
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 gap-4">
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <FormLabel className="text-sm">{t("subscriptionPlans.customIntegrations")}</FormLabel>
                   </div>
                   <FormControl>
                     <Switch

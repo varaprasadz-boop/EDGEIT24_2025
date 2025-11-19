@@ -413,7 +413,7 @@ export default function AdminSubscriptionPlans() {
 
         {/* Edit/Create Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {selectedPlan ? t("subscriptionPlans.editPlan") : t("subscriptionPlans.addPlan")}

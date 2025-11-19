@@ -123,7 +123,7 @@ function PlanCard({ plan, t }: { plan: SubscriptionPlan; t: any }) {
           variant={isPopular ? "default" : "outline"} 
           data-testid={`button-${plan.audience}-${slug}`}
         >
-          {priceNum === 0 ? t('home.engagementModels.getStarted') : plan.featured ? t('home.engagementModels.contactSales') : t('home.engagementModels.choose', { name: plan.name })}
+          {t('home.engagementModels.choose', { name: plan.name })}
         </Button>
       </CardContent>
     </Card>
