@@ -77,6 +77,8 @@ export const users = pgTable("users", {
   // Risk assessment (auto-calculated)
   riskScore: integer("risk_score").default(0), // 0-100, lower is better
   riskFactors: jsonb("risk_factors"), // { invalidDocs: false, suspiciousEmail: false, etc }
+  // KYC Documents (uploaded by users for verification)
+  kycDocuments: jsonb("kyc_documents"), // Array of { type, filename, originalName, uploadedAt, status, size }
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
