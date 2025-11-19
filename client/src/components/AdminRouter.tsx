@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "@/components/AdminLayout";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminUsers from "@/pages/AdminUsers";
+import AdminApprovalQueue from "@/pages/AdminApprovalQueue";
 import AdminProfileApprovals from "@/pages/AdminProfileApprovals";
 import AdminCategories from "@/pages/AdminCategories";
 import AdminVendorRequests from "@/pages/AdminVendorRequests";
@@ -70,6 +71,7 @@ export function AdminRouter() {
         <Route path="/admin" component={() => <Redirect to="/admin/dashboard" />} />
         <Route path="/admin/dashboard" component={AdminDashboard} />
         <Route path="/admin/users" component={AdminUsers} />
+        <Route path="/admin/approval-queue" component={AdminApprovalQueue} />
         <Route path="/admin/profile-approvals" component={AdminProfileApprovals} />
         <Route path="/admin/categories" component={AdminCategories} />
         <Route path="/admin/category-requests" component={AdminCategoryRequests} />

@@ -996,6 +996,23 @@ export interface IStorage {
   // Admin Activity Logging
   logAdminActivity(activity: InsertAdminActivityLog): Promise<void>;
   getAdminActivityLogs(filters?: { adminId?: string; action?: string; targetType?: string; startDate?: Date; endDate?: Date }): Promise<AdminActivityLog[]>;
+  
+  // User Approval Queue operations
+  getPendingUsers(filters?: { 
+    status?: string;
+    search?: string; 
+    role?: string;
+    sortBy?: 'createdAt' | 'email' | 'riskScore';
+    sortOrder?: 'asc' | 'desc';
+    limit?: number; 
+    offset?: number; 
+  }): Promise<{ users: any[]; total: number }>;
+  approveUser(userId: string, adminId: string, notes?: string): Promise<void>;
+  rejectUser(userId: string, adminId: string, reason: string): Promise<void>;
+  requestUserInfo(userId: string, adminId: string, details: string): Promise<void>;
+  bulkApproveUsers(userIds: string[], adminId: string, notes?: string): Promise<void>;
+  bulkRejectUsers(userIds: string[], adminId: string, reason: string): Promise<void>;
+  calculateUserRiskScore(userId: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -8514,6 +8531,221 @@ export class DatabaseStorage implements IStorage {
     }
     
     return await query.orderBy(desc(adminActivityLogs.createdAt));
+  }
+
+  // ============================================================================
+  // USER APPROVAL QUEUE OPERATIONS
+  // ============================================================================
+
+  async getPendingUsers(filters?: { 
+    status?: string;
+    search?: string; 
+    role?: string;
+    sortBy?: 'createdAt' | 'email' | 'riskScore';
+    sortOrder?: 'asc' | 'desc';
+    limit?: number; 
+    offset?: number; 
+  }): Promise<{ users: any[]; total: number }> {
+    const conditions = [];
+    
+    // Filter by account status (defaults to pending_approval, but can also show rejected, pending_info)
+    if (filters?.status) {
+      conditions.push(eq(users.accountStatus, filters.status));
+    } else {
+      // Default: show pending approval
+      conditions.push(eq(users.accountStatus, 'pending_approval'));
+    }
+    
+    // Filter by role
+    if (filters?.role) {
+      conditions.push(eq(users.role, filters.role));
+    }
+    
+    // Search by email or name (using ILIKE for case-insensitive)
+    if (filters?.search) {
+      conditions.push(sql`${users.email} ILIKE ${`%${filters.search}%`}`);
+    }
+    
+    // Build query
+    let query = db.select().from(users);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    // Count total
+    const countQuery = db.select({ count: sql`count(*)::int` }).from(users);
+    if (conditions.length > 0) {
+      countQuery.where(and(...conditions));
+    }
+    const [{ count: total }] = await countQuery;
+    
+    // Apply sorting
+    const sortBy = filters?.sortBy || 'createdAt';
+    const sortOrder = filters?.sortOrder || 'desc';
+    
+    if (sortBy === 'createdAt') {
+      query = sortOrder === 'asc' 
+        ? query.orderBy(users.createdAt) 
+        : query.orderBy(desc(users.createdAt));
+    } else if (sortBy === 'email') {
+      query = sortOrder === 'asc' 
+        ? query.orderBy(users.email) 
+        : query.orderBy(desc(users.email));
+    }
+    
+    // Apply pagination
+    if (filters?.limit) {
+      query = query.limit(filters.limit);
+    }
+    if (filters?.offset) {
+      query = query.offset(filters.offset);
+    }
+    
+    const pendingUsers = await query;
+    
+    // Calculate risk scores for each user
+    const usersWithRiskScores = await Promise.all(
+      pendingUsers.map(async (user) => {
+        const riskScore = await this.calculateUserRiskScore(user.id);
+        return {
+          ...user,
+          riskScore,
+        };
+      })
+    );
+    
+    // Sort by risk score if requested
+    if (sortBy === 'riskScore') {
+      usersWithRiskScores.sort((a, b) => 
+        sortOrder === 'asc' ? a.riskScore - b.riskScore : b.riskScore - a.riskScore
+      );
+    }
+    
+    return { users: usersWithRiskScores, total };
+  }
+
+  async approveUser(userId: string, adminId: string, notes?: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        accountStatus: 'active',
+        approvalNotes: notes,
+        approvedBy: adminId,
+        approvedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async rejectUser(userId: string, adminId: string, reason: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        accountStatus: 'rejected',
+        rejectionReason: reason,
+        approvedBy: adminId,
+        approvedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async requestUserInfo(userId: string, adminId: string, details: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        accountStatus: 'pending_info',
+        requestedInfoDetails: details,
+        approvedBy: adminId, // Track who requested the info
+        approvedAt: new Date(), // Track when info was requested
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async bulkApproveUsers(userIds: string[], adminId: string, notes?: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        accountStatus: 'active',
+        approvalNotes: notes,
+        approvedBy: adminId,
+        approvedAt: new Date(),
+      })
+      .where(inArray(users.id, userIds));
+  }
+
+  async bulkRejectUsers(userIds: string[], adminId: string, reason: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        accountStatus: 'rejected',
+        rejectionReason: reason,
+        approvedBy: adminId,
+        approvedAt: new Date(),
+      })
+      .where(inArray(users.id, userIds));
+  }
+
+  async calculateUserRiskScore(userId: string): Promise<number> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    
+    if (!user) return 0;
+    
+    let riskScore = 0;
+    
+    // Factor 1: Email domain (free email providers = higher risk)
+    const freeEmailDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'mail.ru'];
+    const emailDomain = user.email.split('@')[1]?.toLowerCase();
+    if (freeEmailDomains.includes(emailDomain)) {
+      riskScore += 20;
+    }
+    
+    // Factor 2: Profile completeness (check if they have a profile)
+    if (user.role === 'client') {
+      const [clientProfile] = await db
+        .select()
+        .from(clientProfiles)
+        .where(eq(clientProfiles.userId, userId))
+        .limit(1);
+      
+      if (!clientProfile) {
+        riskScore += 30; // No profile = higher risk
+      } else {
+        // Check profile completeness
+        if (!clientProfile.companyName) riskScore += 10;
+        if (!clientProfile.phoneNumber) riskScore += 10;
+        if (!clientProfile.industry) riskScore += 5;
+      }
+    } else if (user.role === 'consultant') {
+      const [consultantProfile] = await db
+        .select()
+        .from(consultantProfiles)
+        .where(eq(consultantProfiles.userId, userId))
+        .limit(1);
+      
+      if (!consultantProfile) {
+        riskScore += 30;
+      } else {
+        if (!consultantProfile.phoneNumber) riskScore += 10;
+        if (!consultantProfile.bio) riskScore += 5;
+        if (!consultantProfile.skills || consultantProfile.skills.length === 0) riskScore += 10;
+      }
+    }
+    
+    // Factor 3: Account age (new accounts = slightly higher risk)
+    const accountAge = Date.now() - user.createdAt.getTime();
+    const hoursSinceCreation = accountAge / (1000 * 60 * 60);
+    if (hoursSinceCreation < 1) {
+      riskScore += 15; // Created less than 1 hour ago
+    } else if (hoursSinceCreation < 24) {
+      riskScore += 5; // Created less than 24 hours ago
+    }
+    
+    // Risk score is 0-100 (0 = lowest risk, 100 = highest risk)
+    return Math.min(riskScore, 100);
   }
 }
 

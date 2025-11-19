@@ -8074,6 +8074,281 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch user info" });
     }
   });
+
+  // ==================== USER APPROVAL QUEUE ROUTES ====================
+  
+  // Zod schemas for approval queue validation
+  const pendingUsersQuerySchema = z.object({
+    status: z.enum(['pending_approval', 'pending_info', 'rejected', 'active']).optional(),
+    search: z.string().optional(),
+    role: z.enum(['client', 'consultant']).optional(),
+    sortBy: z.enum(['createdAt', 'email', 'riskScore']).optional(),
+    sortOrder: z.enum(['asc', 'desc']).optional(),
+    limit: z.string().transform(Number).pipe(z.number().min(1).max(100)).optional(),
+    offset: z.string().transform(Number).pipe(z.number().min(0)).optional(),
+  });
+
+  const approveUserSchema = z.object({
+    notes: z.string().optional(),
+  });
+
+  const rejectUserSchema = z.object({
+    reason: z.string().min(1, "Rejection reason is required"),
+  });
+
+  const requestInfoSchema = z.object({
+    details: z.string().min(1, "Info request details are required"),
+  });
+
+  const bulkActionSchema = z.object({
+    action: z.enum(['approve', 'reject']),
+    userIds: z.array(z.string().uuid()).min(1, "At least one user must be selected"),
+    notes: z.string().optional(),
+    reason: z.string().optional(),
+  }).refine(data => {
+    if (data.action === 'reject') {
+      return data.reason && data.reason.length > 0;
+    }
+    return true;
+  }, {
+    message: "Rejection reason is required when rejecting users",
+    path: ['reason'],
+  });
+  
+  // GET /api/admin/users/pending - Get pending users with filters/pagination
+  app.get('/api/admin/users/pending', isAuthenticated, requirePermission('users.view'), async (req: any, res) => {
+    try {
+      // Validate query parameters
+      const validation = pendingUsersQuerySchema.safeParse(req.query);
+      if (!validation.success) {
+        return res.status(400).json({
+          message: "Invalid query parameters",
+          errors: validation.error.format(),
+        });
+      }
+      
+      const { status, search, role, sortBy, sortOrder, limit, offset } = validation.data;
+      
+      const result = await storage.getPendingUsers({
+        status,
+        search,
+        role,
+        sortBy: sortBy || 'createdAt',
+        sortOrder: sortOrder || 'desc',
+        limit: limit || 20,
+        offset: offset || 0,
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching pending users:", error);
+      res.status(500).json({ message: "Failed to fetch pending users" });
+    }
+  });
+
+  // POST /api/admin/users/:id/approve - Approve user account
+  app.post('/api/admin/users/:id/approve', isAuthenticated, requirePermission('users.approve'), async (req: any, res) => {
+    try {
+      const { id: userId } = req.params;
+      
+      // Validate request body
+      const validation = approveUserSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          message: "Invalid request body",
+          errors: validation.error.format(),
+        });
+      }
+      
+      const { notes } = validation.data;
+      const adminId = getUserIdFromRequest(req);
+      
+      if (!adminId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      await storage.approveUser(userId, adminId, notes);
+      
+      // Log admin activity
+      await storage.logAdminActivity({
+        adminId,
+        action: 'user_approved',
+        targetType: 'user',
+        targetId: userId,
+        metadata: { notes },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      // Send notification to user
+      await notificationService.notifyUserAccountApproved(userId);
+      
+      res.json({ message: "User approved successfully" });
+    } catch (error) {
+      console.error("Error approving user:", error);
+      res.status(500).json({ message: "Failed to approve user" });
+    }
+  });
+
+  // POST /api/admin/users/:id/reject - Reject user account
+  app.post('/api/admin/users/:id/reject', isAuthenticated, requirePermission('users.reject'), async (req: any, res) => {
+    try {
+      const { id: userId } = req.params;
+      
+      // Validate request body
+      const validation = rejectUserSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          message: "Invalid request body",
+          errors: validation.error.format(),
+        });
+      }
+      
+      const { reason } = validation.data;
+      const adminId = getUserIdFromRequest(req);
+      
+      if (!adminId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      await storage.rejectUser(userId, adminId, reason);
+      
+      // Log admin activity
+      await storage.logAdminActivity({
+        adminId,
+        action: 'user_rejected',
+        targetType: 'user',
+        targetId: userId,
+        metadata: { reason },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      // Send notification to user
+      await notificationService.notifyUserAccountRejected(userId, reason);
+      
+      res.json({ message: "User rejected successfully" });
+    } catch (error) {
+      console.error("Error rejecting user:", error);
+      res.status(500).json({ message: "Failed to reject user" });
+    }
+  });
+
+  // POST /api/admin/users/:id/request-info - Request more info from user
+  app.post('/api/admin/users/:id/request-info', isAuthenticated, requirePermission('users.manage'), async (req: any, res) => {
+    try {
+      const { id: userId } = req.params;
+      
+      // Validate request body
+      const validation = requestInfoSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          message: "Invalid request body",
+          errors: validation.error.format(),
+        });
+      }
+      
+      const { details } = validation.data;
+      const adminId = getUserIdFromRequest(req);
+      
+      if (!adminId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      await storage.requestUserInfo(userId, adminId, details);
+      
+      // Log admin activity
+      await storage.logAdminActivity({
+        adminId,
+        action: 'user_info_requested',
+        targetType: 'user',
+        targetId: userId,
+        metadata: { details },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      // Send notification to user
+      await notificationService.notifyUserInfoRequested(userId, details);
+      
+      res.json({ message: "Info request sent successfully" });
+    } catch (error) {
+      console.error("Error requesting user info:", error);
+      res.status(500).json({ message: "Failed to request user info" });
+    }
+  });
+
+  // POST /api/admin/users/bulk-action - Bulk approve or reject users
+  app.post('/api/admin/users/bulk-action', isAuthenticated, requirePermission('users.approve'), async (req: any, res) => {
+    try {
+      // Validate request body
+      const validation = bulkActionSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          message: "Invalid request body",
+          errors: validation.error.format(),
+        });
+      }
+      
+      const { action, userIds, notes, reason } = validation.data;
+      const adminId = getUserIdFromRequest(req);
+      
+      if (!adminId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      if (action === 'approve') {
+        await storage.bulkApproveUsers(userIds, adminId, notes);
+        
+        // Log admin activity
+        await storage.logAdminActivity({
+          adminId,
+          action: 'bulk_user_approved',
+          targetType: 'user',
+          targetId: userIds.join(','),
+          metadata: { count: userIds.length, notes },
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+        });
+        
+        // Send notifications to all users
+        for (const userId of userIds) {
+          await notificationService.notifyUserAccountApproved(userId);
+        }
+        
+        res.json({ message: `${userIds.length} users approved successfully` });
+      } else if (action === 'reject') {
+        if (!reason) {
+          return res.status(400).json({ message: "Rejection reason is required" });
+        }
+        
+        await storage.bulkRejectUsers(userIds, adminId, reason);
+        
+        // Log admin activity
+        await storage.logAdminActivity({
+          adminId,
+          action: 'bulk_user_rejected',
+          targetType: 'user',
+          targetId: userIds.join(','),
+          metadata: { count: userIds.length, reason },
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+        });
+        
+        // Send notifications to all users
+        for (const userId of userIds) {
+          await notificationService.notifyUserAccountRejected(userId, reason);
+        }
+        
+        res.json({ message: `${userIds.length} users rejected successfully` });
+      } else {
+        res.status(400).json({ message: "Invalid action. Must be 'approve' or 'reject'" });
+      }
+    } catch (error) {
+      console.error("Error performing bulk action:", error);
+      res.status(500).json({ message: "Failed to perform bulk action" });
+    }
+  });
   
   // Admin dashboard stats
   app.get('/api/admin/dashboard/stats', isAuthenticated, isAdmin, async (req, res) => {

@@ -320,6 +320,39 @@ export class NotificationService {
       metadata: { projectId: activityDetails.projectId, action: activityDetails.action },
     });
   }
+
+  async notifyUserAccountApproved(userId: string): Promise<void> {
+    await this.sendNotification({
+      userId,
+      type: NOTIFICATION_TYPES.ACCOUNT_APPROVED,
+      title: "Account Approved!",
+      message: "Your EDGEIT24 account has been approved. You now have full access to the platform.",
+      link: `/dashboard`,
+      metadata: { approvedAt: new Date().toISOString() },
+    });
+  }
+
+  async notifyUserAccountRejected(userId: string, reason: string): Promise<void> {
+    await this.sendNotification({
+      userId,
+      type: NOTIFICATION_TYPES.ACCOUNT_REJECTED,
+      title: "Account Application Update",
+      message: `Your account application was not approved. Reason: ${reason}`,
+      link: `/settings`,
+      metadata: { reason, rejectedAt: new Date().toISOString() },
+    });
+  }
+
+  async notifyUserInfoRequested(userId: string, details: string): Promise<void> {
+    await this.sendNotification({
+      userId,
+      type: NOTIFICATION_TYPES.INFO_REQUESTED,
+      title: "Additional Information Required",
+      message: `Please provide the following information to complete your account approval: ${details}`,
+      link: `/settings/profile`,
+      metadata: { details, requestedAt: new Date().toISOString() },
+    });
+  }
 }
 
 // Singleton instance
