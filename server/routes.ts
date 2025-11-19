@@ -70,6 +70,49 @@ const upload = multer({
   },
 });
 
+// Configure multer for KYC document uploads
+const kycUploadDir = path.join(process.cwd(), 'server', 'uploads', 'kyc');
+if (!fs.existsSync(kycUploadDir)) {
+  fs.mkdirSync(kycUploadDir, { recursive: true });
+}
+
+const kycStorage = multer.diskStorage({
+  destination: (req: any, file, cb) => {
+    const userId = req.user?.id;
+    if (!userId) {
+      return cb(new Error('User not authenticated'), '');
+    }
+    const userKycDir = path.join(kycUploadDir, userId);
+    if (!fs.existsSync(userKycDir)) {
+      fs.mkdirSync(userKycDir, { recursive: true });
+    }
+    cb(null, userKycDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueId = nanoid(12);
+    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    cb(null, `${uniqueId}_${sanitizedName}`);
+  },
+});
+
+const kycUpload = multer({
+  storage: kycStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = [
+      'image/jpeg', 'image/jpg', 'image/png',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF, JPEG, PNG, and DOCX files are allowed for KYC documents.'));
+    }
+  },
+});
+
 // Periodic cleanup of expired rate limits (every 5 minutes)
 setInterval(async () => {
   try {
@@ -8072,6 +8115,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching admin user:", error);
       res.status(500).json({ message: "Failed to fetch user info" });
+    }
+  });
+
+  // ==================== KYC DOCUMENT UPLOAD ROUTES ====================
+  
+  // Zod schema for KYC document upload
+  const kycUploadMetadataSchema = z.object({
+    documentType: z.enum(['commercial_registration', 'tax_certificate', 'national_id', 'authorization_letter', 'business_license', 'other']),
+    profileType: z.enum(['client', 'consultant']),
+  });
+
+  // GET /api/user/kyc-documents - List user's KYC documents
+  app.get('/api/user/kyc-documents', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const documents = await storage.listUserKycDocuments(userId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching KYC documents:", error);
+      res.status(500).json({ message: "Failed to fetch KYC documents" });
+    }
+  });
+
+  // POST /api/user/kyc-documents - Upload KYC document
+  app.post('/api/user/kyc-documents', isAuthenticated, kycUpload.single('file'), async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      
+      // Validate metadata
+      const validation = kycUploadMetadataSchema.safeParse(req.body);
+      if (!validation.success) {
+        // Clean up uploaded file
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({
+          message: "Invalid metadata",
+          errors: validation.error.format(),
+        });
+      }
+      
+      const { documentType, profileType } = validation.data;
+      
+      // Generate storage key (relative path for database)
+      const storageKey = path.join('kyc', userId, req.file.filename);
+      
+      // Create document record in database
+      const document = await storage.createUserKycDocument(userId, {
+        userId,
+        profileType,
+        documentType,
+        storageKey,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        status: 'pending',
+      });
+      
+      res.status(201).json(document);
+    } catch (error) {
+      console.error("Error uploading KYC document:", error);
+      // Clean up file if database insert failed
+      if (req.file) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (cleanupError) {
+          console.error("Error cleaning up file:", cleanupError);
+        }
+      }
+      res.status(500).json({ message: "Failed to upload KYC document" });
+    }
+  });
+
+  // DELETE /api/user/kyc-documents/:id - Delete KYC document
+  app.delete('/api/user/kyc-documents/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const { id: docId } = req.params;
+      
+      // Get document to find file path before deleting
+      const documents = await storage.listUserKycDocuments(userId);
+      const document = documents.find(doc => doc.id === docId);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Delete from database
+      await storage.deleteUserKycDocument(userId, docId);
+      
+      // Delete file from filesystem
+      const filePath = path.join(process.cwd(), 'server', 'uploads', document.storageKey);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      
+      res.json({ message: "Document deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting KYC document:", error);
+      res.status(500).json({ message: "Failed to delete KYC document" });
     }
   });
 
