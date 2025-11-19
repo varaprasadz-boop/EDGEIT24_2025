@@ -213,6 +213,33 @@ import {
   type BlockedUser,
   type InsertBlockedUser,
   blockedUsers,
+  type SupportTicket,
+  type InsertSupportTicket,
+  supportTickets,
+  type TicketMessage,
+  type InsertTicketMessage,
+  ticketMessages,
+  type TicketAttachment,
+  type InsertTicketAttachment,
+  ticketAttachments,
+  type PlatformFeedback,
+  type InsertPlatformFeedback,
+  platformFeedback,
+  type FeatureSuggestion,
+  type InsertFeatureSuggestion,
+  featureSuggestions,
+  type FeatureVote,
+  type InsertFeatureVote,
+  featureVotes,
+  type UserSurvey,
+  type InsertUserSurvey,
+  userSurveys,
+  type SurveyResponse,
+  type InsertSurveyResponse,
+  surveyResponses,
+  type BetaOptIn,
+  type InsertBetaOptIn,
+  betaOptIns,
   type Notification,
   type InsertNotification,
   notifications,
@@ -891,6 +918,61 @@ export interface IStorage {
   unblockUser(blockerId: string, blockedId: string): Promise<void>;
   getBlockedUsers(blockerId: string): Promise<any[]>;
   isUserBlocked(blockerId: string, blockedId: string): Promise<boolean>;
+
+  // ============================================================================
+  // 16. SUPPORT TICKETS SYSTEM (14 methods)
+  // ============================================================================
+
+  // Support Ticket operations (7 methods)
+  createSupportTicket(ticket: InsertSupportTicket): Promise<SupportTicket>;
+  getSupportTicket(id: string): Promise<SupportTicket | undefined>;
+  getUserSupportTickets(userId: string, filters?: { status?: string; category?: string }): Promise<SupportTicket[]>;
+  getAllSupportTickets(filters?: { status?: string; category?: string; priority?: string; assignedTo?: string }): Promise<SupportTicket[]>;
+  updateSupportTicketStatus(id: string, status: string): Promise<SupportTicket>;
+  assignSupportTicket(id: string, adminId: string): Promise<SupportTicket>;
+  closeSupportTicket(id: string): Promise<SupportTicket>;
+  rateSupportTicket(id: string, userId: string, rating: number, comment?: string): Promise<SupportTicket>;
+
+  // Ticket Message operations (3 methods)
+  addTicketMessage(message: InsertTicketMessage): Promise<TicketMessage>;
+  getTicketMessages(ticketId: string): Promise<TicketMessage[]>;
+  addInternalTicketNote(ticketId: string, senderId: string, message: string): Promise<TicketMessage>;
+
+  // Ticket Attachment operations (3 methods)
+  addTicketAttachment(attachment: InsertTicketAttachment): Promise<TicketAttachment>;
+  getTicketAttachments(ticketId: string): Promise<TicketAttachment[]>;
+  deleteTicketAttachment(id: string): Promise<void>;
+
+  // ============================================================================
+  // 17. PLATFORM FEEDBACK SYSTEM (15 methods)
+  // ============================================================================
+
+  // Platform Feedback operations (6 methods)
+  createPlatformFeedback(feedback: InsertPlatformFeedback): Promise<PlatformFeedback>;
+  getPlatformFeedback(id: string): Promise<PlatformFeedback | undefined>;
+  getUserFeedback(userId: string): Promise<PlatformFeedback[]>;
+  getAllFeedback(filters?: { feedbackType?: string; status?: string; category?: string }): Promise<PlatformFeedback[]>;
+  updateFeedbackStatus(id: string, status: string, reviewedBy?: string, adminNotes?: string): Promise<PlatformFeedback>;
+  deleteFeedback(id: string): Promise<void>;
+
+  // Feature Suggestion operations (5 methods)
+  createFeatureSuggestion(suggestion: InsertFeatureSuggestion): Promise<FeatureSuggestion>;
+  getFeatureSuggestion(id: string): Promise<FeatureSuggestion | undefined>;
+  getAllFeatureSuggestions(filters?: { status?: string; category?: string }): Promise<FeatureSuggestion[]>;
+  updateFeatureSuggestionStatus(id: string, status: string, reviewedBy?: string, adminResponse?: string): Promise<FeatureSuggestion>;
+  voteForFeature(featureId: string, userId: string): Promise<void>;
+  unvoteForFeature(featureId: string, userId: string): Promise<void>;
+
+  // Survey operations (4 methods)
+  createSurvey(survey: InsertUserSurvey): Promise<UserSurvey>;
+  getActiveSurveys(targetAudience?: string): Promise<UserSurvey[]>;
+  submitSurveyResponse(response: InsertSurveyResponse): Promise<SurveyResponse>;
+  getSurveyResponses(surveyId: string): Promise<SurveyResponse[]>;
+
+  // Beta Opt-in operations (3 methods)
+  optInToBeta(userId: string, featureName: string): Promise<BetaOptIn>;
+  optOutOfBeta(userId: string, featureName: string): Promise<void>;
+  getUserBetaOptIns(userId: string): Promise<BetaOptIn[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7697,6 +7779,605 @@ export class DatabaseStorage implements IStorage {
       );
 
     return !!blocked;
+  }
+
+  // ============================================================================
+  // 16. SUPPORT TICKETS SYSTEM (14 methods)
+  // ============================================================================
+
+  // Support Ticket operations (8 methods)
+  async createSupportTicket(ticket: InsertSupportTicket): Promise<SupportTicket> {
+    const [created] = await db
+      .insert(supportTickets)
+      .values(ticket)
+      .returning();
+
+    if (!created) {
+      throw new Error('Failed to create support ticket');
+    }
+    return created;
+  }
+
+  async getSupportTicket(id: string): Promise<SupportTicket | undefined> {
+    const [ticket] = await db
+      .select()
+      .from(supportTickets)
+      .where(eq(supportTickets.id, id));
+    return ticket;
+  }
+
+  async getUserSupportTickets(
+    userId: string,
+    filters?: { status?: string; category?: string }
+  ): Promise<SupportTicket[]> {
+    const conditions = [eq(supportTickets.userId, userId)];
+
+    if (filters?.status) {
+      conditions.push(eq(supportTickets.status, filters.status));
+    }
+    if (filters?.category) {
+      conditions.push(eq(supportTickets.category, filters.category));
+    }
+
+    return await db
+      .select()
+      .from(supportTickets)
+      .where(and(...conditions))
+      .orderBy(desc(supportTickets.createdAt));
+  }
+
+  async getAllSupportTickets(filters?: {
+    status?: string;
+    category?: string;
+    priority?: string;
+    assignedTo?: string;
+  }): Promise<SupportTicket[]> {
+    const conditions = [];
+
+    if (filters?.status) {
+      conditions.push(eq(supportTickets.status, filters.status));
+    }
+    if (filters?.category) {
+      conditions.push(eq(supportTickets.category, filters.category));
+    }
+    if (filters?.priority) {
+      conditions.push(eq(supportTickets.priority, filters.priority));
+    }
+    if (filters?.assignedTo) {
+      conditions.push(eq(supportTickets.assignedTo, filters.assignedTo));
+    }
+
+    return await db
+      .select()
+      .from(supportTickets)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(supportTickets.createdAt));
+  }
+
+  async updateSupportTicketStatus(id: string, status: string): Promise<SupportTicket> {
+    const updateData: any = {
+      status,
+      updatedAt: new Date(),
+    };
+
+    if (status === 'resolved') {
+      updateData.resolvedAt = new Date();
+    } else if (status === 'closed') {
+      updateData.closedAt = new Date();
+    }
+
+    const [updated] = await db
+      .update(supportTickets)
+      .set(updateData)
+      .where(eq(supportTickets.id, id))
+      .returning();
+
+    if (!updated) {
+      throw new Error('Failed to update ticket status');
+    }
+    return updated;
+  }
+
+  async assignSupportTicket(id: string, adminId: string): Promise<SupportTicket> {
+    const [updated] = await db
+      .update(supportTickets)
+      .set({
+        assignedTo: adminId,
+        assignedAt: new Date(),
+        status: 'in_progress',
+        updatedAt: new Date(),
+      })
+      .where(eq(supportTickets.id, id))
+      .returning();
+
+    if (!updated) {
+      throw new Error('Failed to assign ticket');
+    }
+    return updated;
+  }
+
+  async closeSupportTicket(id: string): Promise<SupportTicket> {
+    const [updated] = await db
+      .update(supportTickets)
+      .set({
+        status: 'closed',
+        closedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(supportTickets.id, id))
+      .returning();
+
+    if (!updated) {
+      throw new Error('Failed to close ticket');
+    }
+    return updated;
+  }
+
+  async rateSupportTicket(
+    id: string,
+    userId: string,
+    rating: number,
+    comment?: string
+  ): Promise<SupportTicket> {
+    // Verify ownership
+    const [ticket] = await db
+      .select()
+      .from(supportTickets)
+      .where(eq(supportTickets.id, id));
+
+    if (!ticket) {
+      throw new Error('Ticket not found');
+    }
+
+    if (ticket.userId !== userId) {
+      throw new Error('Unauthorized: You can only rate your own tickets');
+    }
+
+    const [updated] = await db
+      .update(supportTickets)
+      .set({
+        satisfactionRating: rating,
+        satisfactionComment: comment,
+        ratedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(supportTickets.id, id))
+      .returning();
+
+    if (!updated) {
+      throw new Error('Failed to rate ticket');
+    }
+    return updated;
+  }
+
+  // Ticket Message operations (3 methods)
+  async addTicketMessage(message: InsertTicketMessage): Promise<TicketMessage> {
+    const [created] = await db
+      .insert(ticketMessages)
+      .values(message)
+      .returning();
+
+    if (!created) {
+      throw new Error('Failed to add ticket message');
+    }
+
+    // Update ticket's updatedAt timestamp
+    await db
+      .update(supportTickets)
+      .set({ updatedAt: new Date() })
+      .where(eq(supportTickets.id, message.ticketId));
+
+    return created;
+  }
+
+  async getTicketMessages(ticketId: string): Promise<TicketMessage[]> {
+    return await db
+      .select()
+      .from(ticketMessages)
+      .where(eq(ticketMessages.ticketId, ticketId))
+      .orderBy(ticketMessages.createdAt);
+  }
+
+  async addInternalTicketNote(
+    ticketId: string,
+    senderId: string,
+    message: string
+  ): Promise<TicketMessage> {
+    const [created] = await db
+      .insert(ticketMessages)
+      .values({
+        ticketId,
+        senderId,
+        message,
+        isStaffReply: true,
+        isInternal: true,
+      })
+      .returning();
+
+    if (!created) {
+      throw new Error('Failed to add internal note');
+    }
+    return created;
+  }
+
+  // Ticket Attachment operations (3 methods)
+  async addTicketAttachment(attachment: InsertTicketAttachment): Promise<TicketAttachment> {
+    const [created] = await db
+      .insert(ticketAttachments)
+      .values(attachment)
+      .returning();
+
+    if (!created) {
+      throw new Error('Failed to add ticket attachment');
+    }
+    return created;
+  }
+
+  async getTicketAttachments(ticketId: string): Promise<TicketAttachment[]> {
+    return await db
+      .select()
+      .from(ticketAttachments)
+      .where(eq(ticketAttachments.ticketId, ticketId))
+      .orderBy(ticketAttachments.uploadedAt);
+  }
+
+  async deleteTicketAttachment(id: string): Promise<void> {
+    await db.delete(ticketAttachments).where(eq(ticketAttachments.id, id));
+  }
+
+  // ============================================================================
+  // 17. PLATFORM FEEDBACK SYSTEM (18 methods)
+  // ============================================================================
+
+  // Platform Feedback operations (6 methods)
+  async createPlatformFeedback(feedback: InsertPlatformFeedback): Promise<PlatformFeedback> {
+    const [created] = await db
+      .insert(platformFeedback)
+      .values(feedback)
+      .returning();
+
+    if (!created) {
+      throw new Error('Failed to create feedback');
+    }
+    return created;
+  }
+
+  async getPlatformFeedback(id: string): Promise<PlatformFeedback | undefined> {
+    const [feedback] = await db
+      .select()
+      .from(platformFeedback)
+      .where(eq(platformFeedback.id, id));
+    return feedback;
+  }
+
+  async getUserFeedback(userId: string): Promise<PlatformFeedback[]> {
+    return await db
+      .select()
+      .from(platformFeedback)
+      .where(eq(platformFeedback.userId, userId))
+      .orderBy(desc(platformFeedback.createdAt));
+  }
+
+  async getAllFeedback(filters?: {
+    feedbackType?: string;
+    status?: string;
+    category?: string;
+  }): Promise<PlatformFeedback[]> {
+    const conditions = [];
+
+    if (filters?.feedbackType) {
+      conditions.push(eq(platformFeedback.feedbackType, filters.feedbackType));
+    }
+    if (filters?.status) {
+      conditions.push(eq(platformFeedback.status, filters.status));
+    }
+    if (filters?.category) {
+      conditions.push(eq(platformFeedback.category, filters.category));
+    }
+
+    return await db
+      .select()
+      .from(platformFeedback)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(platformFeedback.createdAt));
+  }
+
+  async updateFeedbackStatus(
+    id: string,
+    status: string,
+    reviewedBy?: string,
+    adminNotes?: string
+  ): Promise<PlatformFeedback> {
+    const updateData: any = {
+      status,
+    };
+
+    if (reviewedBy) {
+      updateData.reviewedBy = reviewedBy;
+      updateData.reviewedAt = new Date();
+    }
+
+    if (adminNotes) {
+      updateData.adminNotes = adminNotes;
+    }
+
+    const [updated] = await db
+      .update(platformFeedback)
+      .set(updateData)
+      .where(eq(platformFeedback.id, id))
+      .returning();
+
+    if (!updated) {
+      throw new Error('Failed to update feedback status');
+    }
+    return updated;
+  }
+
+  async deleteFeedback(id: string): Promise<void> {
+    await db.delete(platformFeedback).where(eq(platformFeedback.id, id));
+  }
+
+  // Feature Suggestion operations (6 methods)
+  async createFeatureSuggestion(suggestion: InsertFeatureSuggestion): Promise<FeatureSuggestion> {
+    const [created] = await db
+      .insert(featureSuggestions)
+      .values(suggestion)
+      .returning();
+
+    if (!created) {
+      throw new Error('Failed to create feature suggestion');
+    }
+    return created;
+  }
+
+  async getFeatureSuggestion(id: string): Promise<FeatureSuggestion | undefined> {
+    const [suggestion] = await db
+      .select()
+      .from(featureSuggestions)
+      .where(eq(featureSuggestions.id, id));
+    return suggestion;
+  }
+
+  async getAllFeatureSuggestions(filters?: {
+    status?: string;
+    category?: string;
+  }): Promise<FeatureSuggestion[]> {
+    const conditions = [];
+
+    if (filters?.status) {
+      conditions.push(eq(featureSuggestions.status, filters.status));
+    }
+    if (filters?.category) {
+      conditions.push(eq(featureSuggestions.category, filters.category));
+    }
+
+    return await db
+      .select()
+      .from(featureSuggestions)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(featureSuggestions.voteCount), desc(featureSuggestions.createdAt));
+  }
+
+  async updateFeatureSuggestionStatus(
+    id: string,
+    status: string,
+    reviewedBy?: string,
+    adminResponse?: string
+  ): Promise<FeatureSuggestion> {
+    const updateData: any = {
+      status,
+      updatedAt: new Date(),
+    };
+
+    if (reviewedBy) {
+      updateData.reviewedBy = reviewedBy;
+      updateData.reviewedAt = new Date();
+    }
+
+    if (adminResponse) {
+      updateData.adminResponse = adminResponse;
+    }
+
+    const [updated] = await db
+      .update(featureSuggestions)
+      .set(updateData)
+      .where(eq(featureSuggestions.id, id))
+      .returning();
+
+    if (!updated) {
+      throw new Error('Failed to update feature suggestion status');
+    }
+    return updated;
+  }
+
+  async voteForFeature(featureId: string, userId: string): Promise<void> {
+    // Check if already voted
+    const [existing] = await db
+      .select()
+      .from(featureVotes)
+      .where(
+        and(
+          eq(featureVotes.featureId, featureId),
+          eq(featureVotes.userId, userId)
+        )
+      );
+
+    if (existing) {
+      return; // Already voted
+    }
+
+    // Add vote
+    await db.insert(featureVotes).values({
+      featureId,
+      userId,
+    });
+
+    // Increment vote count
+    const [feature] = await db
+      .select()
+      .from(featureSuggestions)
+      .where(eq(featureSuggestions.id, featureId));
+
+    if (feature) {
+      await db
+        .update(featureSuggestions)
+        .set({
+          voteCount: (feature.voteCount || 0) + 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(featureSuggestions.id, featureId));
+    }
+  }
+
+  async unvoteForFeature(featureId: string, userId: string): Promise<void> {
+    // Remove vote
+    await db
+      .delete(featureVotes)
+      .where(
+        and(
+          eq(featureVotes.featureId, featureId),
+          eq(featureVotes.userId, userId)
+        )
+      );
+
+    // Decrement vote count
+    const [feature] = await db
+      .select()
+      .from(featureSuggestions)
+      .where(eq(featureSuggestions.id, featureId));
+
+    if (feature && feature.voteCount > 0) {
+      await db
+        .update(featureSuggestions)
+        .set({
+          voteCount: feature.voteCount - 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(featureSuggestions.id, featureId));
+    }
+  }
+
+  // Survey operations (4 methods)
+  async createSurvey(survey: InsertUserSurvey): Promise<UserSurvey> {
+    const [created] = await db
+      .insert(userSurveys)
+      .values(survey)
+      .returning();
+
+    if (!created) {
+      throw new Error('Failed to create survey');
+    }
+    return created;
+  }
+
+  async getActiveSurveys(targetAudience?: string): Promise<UserSurvey[]> {
+    const conditions = [eq(userSurveys.status, 'active')];
+
+    if (targetAudience) {
+      conditions.push(eq(userSurveys.targetAudience, targetAudience));
+    }
+
+    return await db
+      .select()
+      .from(userSurveys)
+      .where(and(...conditions))
+      .orderBy(desc(userSurveys.createdAt));
+  }
+
+  async submitSurveyResponse(response: InsertSurveyResponse): Promise<SurveyResponse> {
+    const [created] = await db
+      .insert(surveyResponses)
+      .values(response)
+      .returning();
+
+    if (!created) {
+      throw new Error('Failed to submit survey response');
+    }
+
+    // Increment response count
+    const [survey] = await db
+      .select()
+      .from(userSurveys)
+      .where(eq(userSurveys.id, response.surveyId));
+
+    if (survey) {
+      await db
+        .update(userSurveys)
+        .set({
+          responseCount: (survey.responseCount || 0) + 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(userSurveys.id, response.surveyId));
+    }
+
+    return created;
+  }
+
+  async getSurveyResponses(surveyId: string): Promise<SurveyResponse[]> {
+    return await db
+      .select()
+      .from(surveyResponses)
+      .where(eq(surveyResponses.surveyId, surveyId))
+      .orderBy(surveyResponses.completedAt);
+  }
+
+  // Beta Opt-in operations (3 methods)
+  async optInToBeta(userId: string, featureName: string): Promise<BetaOptIn> {
+    // Check if already opted in
+    const [existing] = await db
+      .select()
+      .from(betaOptIns)
+      .where(
+        and(
+          eq(betaOptIns.userId, userId),
+          eq(betaOptIns.featureName, featureName),
+          sql`${betaOptIns.optedOutAt} IS NULL`
+        )
+      );
+
+    if (existing) {
+      return existing; // Already opted in
+    }
+
+    const [created] = await db
+      .insert(betaOptIns)
+      .values({
+        userId,
+        featureName,
+        optedOutAt: null,
+        feedbackProvided: false,
+      })
+      .returning();
+
+    if (!created) {
+      throw new Error('Failed to opt in to beta');
+    }
+    return created;
+  }
+
+  async optOutOfBeta(userId: string, featureName: string): Promise<void> {
+    await db
+      .update(betaOptIns)
+      .set({ optedOutAt: new Date() })
+      .where(
+        and(
+          eq(betaOptIns.userId, userId),
+          eq(betaOptIns.featureName, featureName)
+        )
+      );
+  }
+
+  async getUserBetaOptIns(userId: string): Promise<BetaOptIn[]> {
+    return await db
+      .select()
+      .from(betaOptIns)
+      .where(
+        and(
+          eq(betaOptIns.userId, userId),
+          sql`${betaOptIns.optedOutAt} IS NULL`
+        )
+      )
+      .orderBy(desc(betaOptIns.optedInAt));
   }
 }
 
