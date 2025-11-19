@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { notificationService } from "./notifications";
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
+import { requireRole, requirePermission, requireAdmin as requireAdminRole } from "./rbac";
 import { wsManager } from "./websocket";
 import { z } from "zod";
 import { registerPaymentRoutes } from "./routes/payments";
@@ -12294,6 +12295,270 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching beta opt-ins:', error);
       res.status(500).json({ message: 'Failed to fetch beta opt-ins' });
+    }
+  });
+
+  // ============================================================================
+  // ADMIN ROLE & RBAC MANAGEMENT
+  // ============================================================================
+
+  // GET /api/admin/roles - Get all admin roles (requires ADMIN_MANAGE_ROLES permission)
+  app.get('/api/admin/roles', isAuthenticated, requirePermission('admin:manage_roles'), async (req: any, res) => {
+    try {
+      // Middleware already enforced super_admin role - no need for manual check
+      const roles = await storage.getAllAdminRoles();
+      
+      // Fetch user details for each role
+      const rolesWithUsers = await Promise.all(
+        roles.map(async (role: any) => {
+          const user = await storage.getUser(role.userId);
+          return {
+            ...role,
+            user: user ? {
+              id: user.id,
+              email: user.email,
+              fullName: user.fullName,
+            } : null,
+          };
+        })
+      );
+
+      res.json(rolesWithUsers);
+    } catch (error) {
+      console.error('Error fetching admin roles:', error);
+      res.status(500).json({ message: 'Failed to fetch admin roles' });
+    }
+  });
+
+  // POST /api/admin/roles - Create/assign admin role (requires ADMIN_MANAGE_ROLES permission)
+  app.post('/api/admin/roles', isAuthenticated, requirePermission('admin:manage_roles'), async (req: any, res) => {
+    try {
+      // Middleware already enforced super_admin role - no need for manual check
+      const adminId = getUserIdFromRequest(req);
+      if (!adminId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { userId, role, customPermissions } = req.body;
+
+      // Validate role
+      const validRoles = ['super_admin', 'moderator', 'support', 'finance', 'analyst', 'category_manager'];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({ message: 'Invalid role' });
+      }
+
+      // Check if user already has an admin role
+      const existingRole = await storage.getAdminRoleByUserId(userId);
+      if (existingRole) {
+        return res.status(400).json({ message: 'User already has an admin role. Use update endpoint instead.' });
+      }
+
+      // Create admin role
+      const newRole = await storage.createAdminRole({
+        userId,
+        role,
+        customPermissions: customPermissions || [],
+        active: true,
+      });
+
+      // Log admin activity
+      await storage.logAdminActivity({
+        adminId,
+        action: 'admin_role_created',
+        targetType: 'admin_role',
+        targetId: newRole.id,
+        details: {
+          userId,
+          role,
+          customPermissions,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+
+      // Fetch user details
+      const user = await storage.getUser(userId);
+      res.json({
+        ...newRole,
+        user: user ? {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+        } : null,
+      });
+    } catch (error) {
+      console.error('Error creating admin role:', error);
+      res.status(500).json({ message: 'Failed to create admin role' });
+    }
+  });
+
+  // PATCH /api/admin/roles/:id - Update admin role (requires ADMIN_MANAGE_ROLES permission)
+  app.patch('/api/admin/roles/:id', isAuthenticated, requirePermission('admin:manage_roles'), async (req: any, res) => {
+    try {
+      // Middleware already enforced super_admin role - no need for manual check
+      const adminId = getUserIdFromRequest(req);
+      if (!adminId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { id } = req.params;
+      const { role, customPermissions, active } = req.body;
+
+      // Validate role if provided
+      if (role) {
+        const validRoles = ['super_admin', 'moderator', 'support', 'finance', 'analyst', 'category_manager'];
+        if (!validRoles.includes(role)) {
+          return res.status(400).json({ message: 'Invalid role' });
+        }
+      }
+
+      // Update admin role
+      const updatedRole = await storage.updateAdminRole(id, {
+        ...(role && { role }),
+        ...(customPermissions !== undefined && { customPermissions }),
+        ...(active !== undefined && { active }),
+      });
+
+      // Log admin activity
+      await storage.logAdminActivity({
+        adminId,
+        action: 'admin_role_updated',
+        targetType: 'admin_role',
+        targetId: id,
+        details: {
+          role,
+          customPermissions,
+          active,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+
+      // Fetch user details
+      const user = await storage.getUser(updatedRole.userId);
+      res.json({
+        ...updatedRole,
+        user: user ? {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+        } : null,
+      });
+    } catch (error) {
+      console.error('Error updating admin role:', error);
+      res.status(500).json({ message: 'Failed to update admin role' });
+    }
+  });
+
+  // DELETE /api/admin/roles/:id - Remove admin role (requires ADMIN_MANAGE_ROLES permission)
+  app.delete('/api/admin/roles/:id', isAuthenticated, requirePermission('admin:manage_roles'), async (req: any, res) => {
+    try {
+      // Middleware already enforced super_admin role - no need for manual check
+      const adminId = getUserIdFromRequest(req);
+      if (!adminId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { id } = req.params;
+
+      // Get role before deleting for logging
+      const role = await storage.getAdminRole(id);
+      if (!role) {
+        return res.status(404).json({ message: 'Admin role not found' });
+      }
+
+      // Prevent deleting own super admin role
+      if (role.userId === adminId && role.role === 'super_admin') {
+        return res.status(400).json({ message: 'Cannot delete your own Super Admin role' });
+      }
+
+      // Delete admin role
+      await storage.deleteAdminRole(id);
+
+      // Log admin activity
+      await storage.logAdminActivity({
+        adminId,
+        action: 'admin_role_deleted',
+        targetType: 'admin_role',
+        targetId: id,
+        details: {
+          userId: role.userId,
+          role: role.role,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+
+      res.json({ success: true, message: 'Admin role removed successfully' });
+    } catch (error) {
+      console.error('Error deleting admin role:', error);
+      res.status(500).json({ message: 'Failed to delete admin role' });
+    }
+  });
+
+  // GET /api/admin/activity-logs - Get admin activity logs (requires ADMIN_VIEW_LOGS permission)
+  app.get('/api/admin/activity-logs', isAuthenticated, requirePermission('admin:view_logs'), async (req: any, res) => {
+    try {
+      // Middleware already enforced admin role - no need for manual check
+      const { adminId, action, targetType, startDate, endDate } = req.query;
+
+      const logs = await storage.getAdminActivityLogs({
+        ...(adminId && { adminId: adminId as string }),
+        ...(action && { action: action as string }),
+        ...(targetType && { targetType: targetType as string }),
+        ...(startDate && { startDate: new Date(startDate as string) }),
+        ...(endDate && { endDate: new Date(endDate as string) }),
+      });
+
+      // Fetch admin details for each log
+      const logsWithAdmins = await Promise.all(
+        logs.map(async (log: any) => {
+          const admin = await storage.getUser(log.adminId);
+          return {
+            ...log,
+            admin: admin ? {
+              id: admin.id,
+              email: admin.email,
+              fullName: admin.fullName,
+            } : null,
+          };
+        })
+      );
+
+      res.json(logsWithAdmins);
+    } catch (error) {
+      console.error('Error fetching admin activity logs:', error);
+      res.status(500).json({ message: 'Failed to fetch activity logs' });
+    }
+  });
+
+  // GET /api/admin/my-permissions - Get current admin's permissions
+  app.get('/api/admin/my-permissions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const adminRole = await storage.getAdminRoleByUserId(userId);
+      if (!adminRole || !adminRole.active) {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      // Get permissions from RBAC system
+      const { getUserPermissions, ROLE_PERMISSIONS } = await import('./rbac');
+      const permissions = await getUserPermissions(userId);
+      const rolePermissions = ROLE_PERMISSIONS[adminRole.role as keyof typeof ROLE_PERMISSIONS] || [];
+
+      res.json({
+        role: adminRole.role,
+        rolePermissions,
+        customPermissions: adminRole.customPermissions || [],
+        allPermissions: permissions,
+      });
+    } catch (error) {
+      console.error('Error fetching admin permissions:', error);
+      res.status(500).json({ message: 'Failed to fetch permissions' });
     }
   });
 

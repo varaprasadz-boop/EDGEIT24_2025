@@ -60,6 +60,23 @@ export const users = pgTable("users", {
   backupCodes: text("backup_codes").array(), // Array of backup recovery codes
   // Privacy settings
   profileVisibility: text("profile_visibility").default('public'), // 'public', 'clients_only', 'private'
+  // Account approval workflow (Super Admin)
+  accountStatus: text("account_status").notNull().default('pending_approval'), // 'pending_approval', 'active', 'rejected', 'pending_info', 'suspended', 'banned'
+  approvalNotes: text("approval_notes"), // Admin notes during review
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
+  requestedInfoDetails: text("requested_info_details"), // What info admin requested
+  // Suspension/Ban management
+  suspendedUntil: timestamp("suspended_until"),
+  suspendedReason: text("suspended_reason"),
+  suspendedBy: varchar("suspended_by").references(() => users.id),
+  bannedAt: timestamp("banned_at"),
+  bannedReason: text("banned_reason"),
+  bannedBy: varchar("banned_by").references(() => users.id),
+  // Risk assessment (auto-calculated)
+  riskScore: integer("risk_score").default(0), // 0-100, lower is better
+  riskFactors: jsonb("risk_factors"), // { invalidDocs: false, suspiciousEmail: false, etc }
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -3860,3 +3877,135 @@ export const insertBetaOptInSchema = createInsertSchema(betaOptIns).omit({
 });
 export type InsertBetaOptIn = z.infer<typeof insertBetaOptInSchema>;
 export type BetaOptIn = typeof betaOptIns.$inferSelect;
+
+// ============================================================================
+// CONTENT MODERATION & FLAGGING SYSTEM
+// ============================================================================
+
+// Flagged Requirements - User-reported or auto-flagged job postings
+export const flaggedRequirements = pgTable("flagged_requirements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requirementId: varchar("requirement_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  reportedBy: varchar("reported_by").references(() => users.id, { onDelete: "set null" }), // Null if auto-flagged
+  reportType: text("report_type").notNull(), // 'user_report', 'auto_flag', 'admin_review'
+  reason: text("reason").notNull(), // 'inappropriate', 'spam', 'misleading', 'duplicate', 'offensive', 'fraud', etc.
+  description: text("description"), // Additional details from reporter
+  status: text("status").default('pending'), // 'pending', 'under_review', 'resolved', 'dismissed'
+  severity: text("severity").default('medium'), // 'low', 'medium', 'high', 'critical'
+  autoFlagScore: integer("auto_flag_score"), // 0-100 confidence score if auto-flagged
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  resolution: text("resolution"), // Admin's decision/notes
+  actionTaken: text("action_taken"), // 'removed', 'edited', 'warning_sent', 'dismissed', 'no_action'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  requirementIdIdx: index("flagged_requirements_requirement_id_idx").on(table.requirementId),
+  statusIdx: index("flagged_requirements_status_idx").on(table.status),
+  severityIdx: index("flagged_requirements_severity_idx").on(table.severity),
+}));
+
+export const insertFlaggedRequirementSchema = createInsertSchema(flaggedRequirements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertFlaggedRequirement = z.infer<typeof insertFlaggedRequirementSchema>;
+export type FlaggedRequirement = typeof flaggedRequirements.$inferSelect;
+
+// Flagged Bids - User-reported or auto-flagged bid submissions
+export const flaggedBids = pgTable("flagged_bids", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bidId: varchar("bid_id").notNull().references(() => bids.id, { onDelete: "cascade" }),
+  reportedBy: varchar("reported_by").references(() => users.id, { onDelete: "set null" }),
+  reportType: text("report_type").notNull(), // 'user_report', 'auto_flag', 'price_anomaly', 'suspicious_pattern'
+  reason: text("reason").notNull(), // 'lowball_bid', 'price_manipulation', 'spam', 'inappropriate', 'fraud'
+  description: text("description"),
+  status: text("status").default('pending'),
+  severity: text("severity").default('medium'),
+  autoFlagScore: integer("auto_flag_score"),
+  priceDeviation: decimal("price_deviation", { precision: 10, scale: 2 }), // % deviation from average
+  suspiciousPatterns: jsonb("suspicious_patterns"), // {rapidBidding: true, unusualPricing: true}
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  resolution: text("resolution"),
+  actionTaken: text("action_taken"), // 'removed', 'warning_sent', 'vendor_suspended', 'dismissed'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  bidIdIdx: index("flagged_bids_bid_id_idx").on(table.bidId),
+  statusIdx: index("flagged_bids_status_idx").on(table.status),
+  severityIdx: index("flagged_bids_severity_idx").on(table.severity),
+}));
+
+export const insertFlaggedBidSchema = createInsertSchema(flaggedBids).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertFlaggedBid = z.infer<typeof insertFlaggedBidSchema>;
+export type FlaggedBid = typeof flaggedBids.$inferSelect;
+
+// Flagged Messages - Inappropriate or policy-violating messages
+export const flaggedMessages = pgTable("flagged_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  reportedBy: varchar("reported_by").references(() => users.id, { onDelete: "set null" }),
+  reportType: text("report_type").notNull(), // 'user_report', 'auto_flag', 'profanity_detected', 'spam_detected'
+  reason: text("reason").notNull(), // 'harassment', 'profanity', 'spam', 'inappropriate', 'scam', 'personal_info'
+  description: text("description"),
+  status: text("status").default('pending'),
+  severity: text("severity").default('medium'),
+  autoFlagScore: integer("auto_flag_score"),
+  detectedPatterns: jsonb("detected_patterns"), // {profanity: true, spam: true, personalInfo: true}
+  messageContent: text("message_content"), // Snapshot of message for review (in case original is edited)
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  resolution: text("resolution"),
+  actionTaken: text("action_taken"), // 'message_removed', 'user_warned', 'user_suspended', 'dismissed'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  messageIdIdx: index("flagged_messages_message_id_idx").on(table.messageId),
+  conversationIdIdx: index("flagged_messages_conversation_id_idx").on(table.conversationId),
+  statusIdx: index("flagged_messages_status_idx").on(table.status),
+  severityIdx: index("flagged_messages_severity_idx").on(table.severity),
+}));
+
+export const insertFlaggedMessageSchema = createInsertSchema(flaggedMessages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertFlaggedMessage = z.infer<typeof insertFlaggedMessageSchema>;
+export type FlaggedMessage = typeof flaggedMessages.$inferSelect;
+
+// Content Filter Rules - Admin-defined rules for auto-flagging
+export const contentFilterRules = pgTable("content_filter_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // Rule name (e.g., "Profanity Filter", "Price Manipulation")
+  contentType: text("content_type").notNull(), // 'requirement', 'bid', 'message'
+  filterType: text("filter_type").notNull(), // 'keyword', 'regex', 'price_threshold', 'pattern'
+  pattern: text("pattern").notNull(), // Keyword, regex pattern, or JSON config
+  action: text("action").notNull(), // 'flag', 'auto_remove', 'require_review', 'notify_admin'
+  severity: text("severity").default('medium'), // Auto-assigned severity
+  enabled: boolean("enabled").default(true),
+  caseSensitive: boolean("case_sensitive").default(false),
+  description: text("description"),
+  createdBy: varchar("created_by").notNull().references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  contentTypeIdx: index("content_filter_rules_content_type_idx").on(table.contentType),
+  enabledIdx: index("content_filter_rules_enabled_idx").on(table.enabled),
+}));
+
+export const insertContentFilterRuleSchema = createInsertSchema(contentFilterRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertContentFilterRule = z.infer<typeof insertContentFilterRuleSchema>;
+export type ContentFilterRule = typeof contentFilterRules.$inferSelect;

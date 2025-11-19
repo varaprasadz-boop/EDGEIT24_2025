@@ -65,9 +65,15 @@ import {
   conversationPins,
   fileVersions,
   rateLimits,
+  adminRoles,
+  adminActivityLogs,
   type User,
   type InsertUser,
   type UpsertUser,
+  type AdminRole,
+  type InsertAdminRole,
+  type AdminActivityLog,
+  type InsertAdminActivityLog,
   type ClientProfile,
   type InsertClientProfile,
   type ConsultantProfile,
@@ -974,6 +980,22 @@ export interface IStorage {
   optInToBeta(userId: string, featureName: string): Promise<BetaOptIn>;
   optOutOfBeta(userId: string, featureName: string): Promise<void>;
   getUserBetaOptIns(userId: string): Promise<BetaOptIn[]>;
+
+  // ============================================================================
+  // 18. ADMIN ROLE & RBAC SYSTEM (8 methods)
+  // ============================================================================
+
+  // Admin Role operations
+  getAdminRole(id: string): Promise<AdminRole | undefined>;
+  getAdminRoleByUserId(userId: string): Promise<AdminRole | undefined>;
+  getAllAdminRoles(): Promise<AdminRole[]>;
+  createAdminRole(role: InsertAdminRole): Promise<AdminRole>;
+  updateAdminRole(id: string, data: Partial<InsertAdminRole>): Promise<AdminRole>;
+  deleteAdminRole(id: string): Promise<void>;
+  
+  // Admin Activity Logging
+  logAdminActivity(activity: InsertAdminActivityLog): Promise<void>;
+  getAdminActivityLogs(filters?: { adminId?: string; action?: string; targetType?: string; startDate?: Date; endDate?: Date }): Promise<AdminActivityLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -8384,6 +8406,114 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(betaOptIns.optedInAt));
+  }
+
+  // ============================================================================
+  // 18. ADMIN ROLE & RBAC SYSTEM (8 methods)
+  // ============================================================================
+
+  async getAdminRole(id: string): Promise<AdminRole | undefined> {
+    const [adminRole] = await db
+      .select()
+      .from(adminRoles)
+      .where(eq(adminRoles.id, id));
+    return adminRole;
+  }
+
+  async getAdminRoleByUserId(userId: string): Promise<AdminRole | undefined> {
+    const [adminRole] = await db
+      .select()
+      .from(adminRoles)
+      .where(eq(adminRoles.userId, userId));
+    return adminRole;
+  }
+
+  async getAllAdminRoles(): Promise<AdminRole[]> {
+    return await db
+      .select()
+      .from(adminRoles)
+      .orderBy(adminRoles.createdAt);
+  }
+
+  async createAdminRole(role: InsertAdminRole): Promise<AdminRole> {
+    const [created] = await db
+      .insert(adminRoles)
+      .values(role)
+      .returning();
+    
+    if (!created) {
+      throw new Error('Failed to create admin role');
+    }
+    
+    return created;
+  }
+
+  async updateAdminRole(id: string, data: Partial<InsertAdminRole>): Promise<AdminRole> {
+    const [updated] = await db
+      .update(adminRoles)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(adminRoles.id, id))
+      .returning();
+    
+    if (!updated) {
+      throw new Error('Admin role not found');
+    }
+    
+    return updated;
+  }
+
+  async deleteAdminRole(id: string): Promise<void> {
+    await db
+      .delete(adminRoles)
+      .where(eq(adminRoles.id, id));
+  }
+
+  async logAdminActivity(activity: InsertAdminActivityLog): Promise<void> {
+    await db
+      .insert(adminActivityLogs)
+      .values(activity);
+  }
+
+  async getAdminActivityLogs(filters?: { 
+    adminId?: string; 
+    action?: string; 
+    targetType?: string; 
+    startDate?: Date; 
+    endDate?: Date 
+  }): Promise<AdminActivityLog[]> {
+    // Accumulate predicates and combine with and() to prevent overwriting (architect fix)
+    const conditions = [];
+    
+    if (filters?.adminId) {
+      conditions.push(eq(adminActivityLogs.adminId, filters.adminId));
+    }
+    
+    if (filters?.action) {
+      conditions.push(eq(adminActivityLogs.action, filters.action));
+    }
+    
+    if (filters?.targetType) {
+      conditions.push(eq(adminActivityLogs.targetType, filters.targetType));
+    }
+    
+    if (filters?.startDate) {
+      conditions.push(sql`${adminActivityLogs.createdAt} >= ${filters.startDate}`);
+    }
+    
+    if (filters?.endDate) {
+      conditions.push(sql`${adminActivityLogs.createdAt} <= ${filters.endDate}`);
+    }
+    
+    let query = db.select().from(adminActivityLogs);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    return await query.orderBy(desc(adminActivityLogs.createdAt));
   }
 }
 
