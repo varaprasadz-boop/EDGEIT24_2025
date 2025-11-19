@@ -12,7 +12,7 @@ import { z } from "zod";
 import { registerPaymentRoutes } from "./routes/payments";
 import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertReviewResponseSchema, insertReviewReportSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema, insertTeamMemberSchema, insertBidSchema } from "@shared/schema";
 import { db } from "./db";
-import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, teamMembers, contentPages, footerLinks, homePageSections, messageFiles, conversations, messages, meetingLinks, reviews, reviewResponses, reviewReports, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema, insertCategorySchema } from "@shared/schema";
+import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, teamMembers, contentPages, footerLinks, homePageSections, messageFiles, conversations, messages, meetingLinks, reviews, reviewResponses, reviewReports, kycDocuments, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema, insertCategorySchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import passport from "passport";
@@ -8503,6 +8503,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error performing bulk action:", error);
       res.status(500).json({ message: "Failed to perform bulk action" });
+    }
+  });
+
+  // ==================== ADMIN KYC DOCUMENT ROUTES ====================
+  
+  // Zod schema for updating KYC document status
+  const updateKycStatusSchema = z.object({
+    status: z.enum(['approved', 'rejected']),
+    reviewNotes: z.string().optional(),
+  });
+
+  // GET /api/admin/users/:id/kyc-documents - Get KYC documents for a user
+  app.get('/api/admin/users/:userId/kyc-documents', isAuthenticated, requirePermission('users.view'), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      
+      const documents = await storage.listUserKycDocuments(userId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching user KYC documents:", error);
+      res.status(500).json({ message: "Failed to fetch KYC documents" });
+    }
+  });
+
+  // PATCH /api/admin/kyc-documents/:id/status - Approve or reject a KYC document
+  app.patch('/api/admin/kyc-documents/:id/status', isAuthenticated, requirePermission('users.manage'), async (req: any, res) => {
+    try {
+      const { id: docId } = req.params;
+      const adminId = getUserIdFromRequest(req);
+      
+      if (!adminId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      // Validate request body
+      const validation = updateKycStatusSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          message: "Invalid request body",
+          errors: validation.error.format(),
+        });
+      }
+      
+      const { status, reviewNotes } = validation.data;
+      
+      // Update document status
+      const updatedDoc = await storage.updateKycDocumentStatus(docId, {
+        status,
+        reviewNotes,
+        reviewedBy: adminId,
+        reviewedAt: new Date(),
+      });
+      
+      // Log admin activity
+      await storage.logAdminActivity({
+        adminId,
+        action: `kyc_document_${status}`,
+        targetType: 'kyc_document',
+        targetId: docId,
+        metadata: { status, reviewNotes },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      res.json(updatedDoc);
+    } catch (error) {
+      console.error("Error updating KYC document status:", error);
+      res.status(500).json({ message: "Failed to update KYC document status" });
+    }
+  });
+
+  // GET /api/admin/kyc-documents/:id/download - Download a KYC document
+  app.get('/api/admin/kyc-documents/:id/download', isAuthenticated, requirePermission('users.view'), async (req: any, res) => {
+    try {
+      const { id: docId } = req.params;
+      
+      // Get document from database to verify it exists and get file path
+      const doc = await db.query.kycDocuments.findFirst({
+        where: eq(kycDocuments.id, docId),
+      });
+      
+      if (!doc) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const filePath = path.join(process.cwd(), 'server', 'uploads', doc.storageKey);
+      
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ message: "File not found on disk" });
+      }
+      
+      // Set content disposition to trigger download
+      res.setHeader('Content-Disposition', `attachment; filename="${doc.originalName}"`);
+      res.setHeader('Content-Type', doc.mimeType);
+      
+      // Stream file to response
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error("Error downloading KYC document:", error);
+      res.status(500).json({ message: "Failed to download KYC document" });
     }
   });
   
