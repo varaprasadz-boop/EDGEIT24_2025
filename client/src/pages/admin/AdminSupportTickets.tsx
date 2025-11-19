@@ -43,7 +43,7 @@ export default function AdminSupportTickets() {
   const filterQuery = new URLSearchParams(filterParams).toString();
 
   // Fetch all tickets with filters
-  const { data: tickets, isLoading } = useQuery({
+  const { data: tickets, isLoading } = useQuery<any[]>({
     queryKey: ['/api/admin/support-tickets', filterQuery],
     queryFn: async () => {
       const url = `/api/admin/support-tickets${filterQuery ? `?${filterQuery}` : ''}`;
@@ -54,7 +54,7 @@ export default function AdminSupportTickets() {
   });
 
   // Fetch messages for selected ticket
-  const { data: messages } = useQuery({
+  const { data: messages } = useQuery<any[]>({
     queryKey: ['/api/support-tickets', selectedTicket?.id, 'messages'],
     enabled: !!selectedTicket,
   });
@@ -62,11 +62,7 @@ export default function AdminSupportTickets() {
   // Update status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async ({ ticketId, status }: { ticketId: string; status: string }) => {
-      return await apiRequest(`/api/admin/support-tickets/${ticketId}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
+      return await apiRequest("PATCH", `/api/admin/support-tickets/${ticketId}/status`, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/support-tickets'] });
@@ -88,9 +84,7 @@ export default function AdminSupportTickets() {
   // Assign ticket mutation
   const assignTicketMutation = useMutation({
     mutationFn: async (ticketId: string) => {
-      return await apiRequest(`/api/admin/support-tickets/${ticketId}/assign`, {
-        method: "POST",
-      });
+      return await apiRequest("POST", `/api/admin/support-tickets/${ticketId}/assign`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/support-tickets'] });
@@ -111,11 +105,7 @@ export default function AdminSupportTickets() {
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async (message: string) => {
-      return await apiRequest(`/api/support-tickets/${selectedTicket.id}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
+      return await apiRequest("POST", `/api/support-tickets/${selectedTicket.id}/messages`, { message });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/support-tickets', selectedTicket.id, 'messages'] });
@@ -138,11 +128,7 @@ export default function AdminSupportTickets() {
   // Add internal note mutation
   const addInternalNoteMutation = useMutation({
     mutationFn: async (message: string) => {
-      return await apiRequest(`/api/admin/support-tickets/${selectedTicket.id}/internal-note`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
+      return await apiRequest("POST", `/api/admin/support-tickets/${selectedTicket.id}/internal-note`, { message });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/support-tickets', selectedTicket.id, 'messages'] });

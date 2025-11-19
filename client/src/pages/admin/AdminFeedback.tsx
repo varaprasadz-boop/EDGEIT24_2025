@@ -32,23 +32,19 @@ export default function AdminFeedback() {
   const [adminResponse, setAdminResponse] = useState("");
 
   // Fetch all feedback
-  const { data: feedback, isLoading: feedbackLoading } = useQuery({
+  const { data: feedback, isLoading: feedbackLoading } = useQuery<any[]>({
     queryKey: ['/api/admin/feedback'],
   });
 
   // Fetch all feature suggestions
-  const { data: features, isLoading: featuresLoading } = useQuery({
+  const { data: features, isLoading: featuresLoading } = useQuery<any[]>({
     queryKey: ['/api/feature-suggestions'],
   });
 
   // Update feedback status mutation
   const updateFeedbackMutation = useMutation({
     mutationFn: async ({ id, status, notes }: { id: string; status: string; notes: string }) => {
-      return await apiRequest(`/api/admin/feedback/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, adminNotes: notes }),
-      });
+      return await apiRequest("PATCH", `/api/admin/feedback/${id}`, { status, adminNotes: notes });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/feedback'] });
@@ -71,11 +67,7 @@ export default function AdminFeedback() {
   // Update feature suggestion mutation
   const updateFeatureMutation = useMutation({
     mutationFn: async ({ id, status, response }: { id: string; status: string; response: string }) => {
-      return await apiRequest(`/api/admin/feature-suggestions/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, adminResponse: response }),
-      });
+      return await apiRequest("PATCH", `/api/admin/feature-suggestions/${id}`, { status, adminResponse: response });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/feature-suggestions'] });
