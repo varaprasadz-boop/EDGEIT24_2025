@@ -77,8 +77,6 @@ export const users = pgTable("users", {
   // Risk assessment (auto-calculated)
   riskScore: integer("risk_score").default(0), // 0-100, lower is better
   riskFactors: jsonb("risk_factors"), // { invalidDocs: false, suspiciousEmail: false, etc }
-  // KYC Documents (uploaded by users for verification)
-  kycDocuments: jsonb("kyc_documents"), // Array of { type, filename, originalName, uploadedAt, status, size }
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -206,15 +204,28 @@ export const kycDocuments = pgTable("kyc_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   profileType: text("profile_type").notNull(), // 'client' or 'consultant'
-  idType: text("id_type"), // 'passport', 'national_id', 'driving_license'
+  // Document metadata
+  documentType: text("document_type").notNull(), // 'commercial_registration', 'tax_certificate', 'national_id', 'authorization_letter', 'business_license', 'other'
+  storageKey: text("storage_key").notNull(), // File path: kyc/<userId>/<uuid>_<sanitized_name>
+  originalName: text("original_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(), // File size in bytes
+  // Legacy fields (keeping for backward compatibility)
+  idType: text("id_type"), // 'passport', 'national_id', 'driving_license' (deprecated - use documentType)
   idNumber: varchar("id_number"),
   validityDate: timestamp("validity_date"),
-  documentUrl: text("document_url"), // Mock upload URL placeholder
-  verified: boolean("verified").default(false),
+  documentUrl: text("document_url"), // Deprecated - use storageKey
+  // Document status and review
+  status: text("status").notNull().default('pending'), // 'pending', 'approved', 'rejected'
+  verified: boolean("verified").default(false), // Legacy field - maps to status='approved'
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewNotes: text("review_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   userIdIdx: index("kyc_documents_user_id_idx").on(table.userId),
+  statusIdx: index("kyc_documents_status_idx").on(table.status),
 }));
 
 // Education Records - Track educational background for consultants

@@ -1013,6 +1013,12 @@ export interface IStorage {
   bulkApproveUsers(userIds: string[], adminId: string, notes?: string): Promise<void>;
   bulkRejectUsers(userIds: string[], adminId: string, reason: string): Promise<void>;
   calculateUserRiskScore(userId: string): Promise<number>;
+  
+  // KYC Document operations
+  listUserKycDocuments(userId: string): Promise<KycDocument[]>;
+  createUserKycDocument(userId: string, metadata: InsertKycDocument): Promise<KycDocument>;
+  deleteUserKycDocument(userId: string, docId: string): Promise<void>;
+  updateKycDocumentStatus(docId: string, status: 'pending' | 'approved' | 'rejected', notes: string, adminId: string): Promise<KycDocument>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -8746,6 +8752,77 @@ export class DatabaseStorage implements IStorage {
     
     // Risk score is 0-100 (0 = lowest risk, 100 = highest risk)
     return Math.min(riskScore, 100);
+  }
+
+  // ============================================================================
+  // KYC DOCUMENT OPERATIONS
+  // ============================================================================
+
+  async listUserKycDocuments(userId: string): Promise<KycDocument[]> {
+    const documents = await db
+      .select()
+      .from(kycDocuments)
+      .where(eq(kycDocuments.userId, userId))
+      .orderBy(desc(kycDocuments.createdAt));
+    
+    return documents;
+  }
+
+  async createUserKycDocument(userId: string, metadata: InsertKycDocument): Promise<KycDocument> {
+    const [document] = await db
+      .insert(kycDocuments)
+      .values({
+        ...metadata,
+        userId,
+      })
+      .returning();
+    
+    return document;
+  }
+
+  async deleteUserKycDocument(userId: string, docId: string): Promise<void> {
+    // Verify ownership before deleting
+    const [document] = await db
+      .select()
+      .from(kycDocuments)
+      .where(and(
+        eq(kycDocuments.id, docId),
+        eq(kycDocuments.userId, userId)
+      ))
+      .limit(1);
+    
+    if (!document) {
+      throw new Error('Document not found or unauthorized');
+    }
+    
+    await db
+      .delete(kycDocuments)
+      .where(eq(kycDocuments.id, docId));
+  }
+
+  async updateKycDocumentStatus(
+    docId: string, 
+    status: 'pending' | 'approved' | 'rejected', 
+    notes: string, 
+    adminId: string
+  ): Promise<KycDocument> {
+    const [document] = await db
+      .update(kycDocuments)
+      .set({
+        status,
+        reviewNotes: notes,
+        reviewedBy: adminId,
+        reviewedAt: new Date(),
+        verified: status === 'approved', // Update legacy field for backward compatibility
+      })
+      .where(eq(kycDocuments.id, docId))
+      .returning();
+    
+    if (!document) {
+      throw new Error('Document not found');
+    }
+    
+    return document;
   }
 }
 
