@@ -11,8 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Lock, Bell, User } from "lucide-react";
+import { Lock, Bell, User, FileText } from "lucide-react";
 import { useForm } from "react-hook-form";
+import KycDocumentUpload from "@/components/KycDocumentUpload";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -362,7 +363,7 @@ export default function Settings() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} data-testid="tabs-settings">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="profile" data-testid="tab-profile">
               <User className="h-4 w-4 mr-2" />
               Profile
@@ -370,6 +371,10 @@ export default function Settings() {
             <TabsTrigger value="account" data-testid="tab-account">
               <Lock className="h-4 w-4 mr-2" />
               Account
+            </TabsTrigger>
+            <TabsTrigger value="documents" data-testid="tab-documents">
+              <FileText className="h-4 w-4 mr-2" />
+              Documents
             </TabsTrigger>
             <TabsTrigger value="notifications" data-testid="tab-notifications">
               <Bell className="h-4 w-4 mr-2" />
@@ -695,6 +700,10 @@ export default function Settings() {
                 </Form>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="documents" className="mt-6">
+            <KycDocumentUpload />
           </TabsContent>
 
           <TabsContent value="notifications" className="mt-6">
