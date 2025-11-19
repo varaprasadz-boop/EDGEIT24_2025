@@ -23,9 +23,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, Info, MoreHorizontal, AlertTriangle } from "lucide-react";
+import { CheckCircle, XCircle, Info, MoreHorizontal, AlertTriangle, Eye, FileText, Download, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface PendingUser {
   id: string;
@@ -42,6 +44,39 @@ interface PendingUser {
 interface ApprovalQueueResponse {
   users: PendingUser[];
   total: number;
+}
+
+interface KycDocument {
+  id: string;
+  userId: string;
+  profileType: 'client' | 'consultant';
+  documentType: string;
+  storageKey: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewNotes?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: Date | null;
+  createdAt: Date;
+}
+
+const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  commercial_registration: 'Commercial Registration',
+  tax_certificate: 'Tax Certificate (VAT)',
+  national_id: 'National ID',
+  authorization_letter: 'Authorization Letter',
+  business_license: 'Business License',
+  other: 'Other Document',
+};
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
 
 export default function AdminApprovalQueue() {
@@ -61,6 +96,8 @@ export default function AdminApprovalQueue() {
   const [notes, setNotes] = useState("");
   const [reason, setReason] = useState("");
   const [infoDetails, setInfoDetails] = useState("");
+  const [userDetailsDialog, setUserDetailsDialog] = useState<{ open: boolean; userId: string | null }>({ open: false, userId: null });
+  const [docReviewNotes, setDocReviewNotes] = useState("");
 
   // Fetch pending users
   const { data, isLoading } = useQuery<ApprovalQueueResponse>({
@@ -89,6 +126,47 @@ export default function AdminApprovalQueue() {
   });
 
   const users = data?.users || [];
+
+  // Fetch KYC documents for user details
+  const { data: kycDocuments = [], isLoading: kycLoading, refetch: refetchKycDocs } = useQuery<KycDocument[]>({
+    queryKey: ["/api/admin/users", userDetailsDialog.userId, "kyc-documents"],
+    queryFn: async () => {
+      if (!userDetailsDialog.userId) return [];
+      const response = await fetch(`/api/admin/users/${userDetailsDialog.userId}/kyc-documents`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to fetch KYC documents');
+      return response.json();
+    },
+    enabled: userDetailsDialog.open && !!userDetailsDialog.userId,
+  });
+
+  // Update KYC document status mutation
+  const updateKycStatusMutation = useMutation({
+    mutationFn: async ({ docId, status, reviewNotes }: { docId: string; status: 'approved' | 'rejected'; reviewNotes?: string }) => {
+      const response = await apiRequest("PATCH", `/api/admin/kyc-documents/${docId}/status`, { status, reviewNotes });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update document status');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchKycDocs();
+      toast({
+        title: "Document Updated",
+        description: "Document status has been updated successfully.",
+      });
+      setDocReviewNotes("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   // Approve user mutation
   const approveMutation = useMutation({
@@ -421,6 +499,13 @@ export default function AdminApprovalQueue() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
+                onClick={() => setUserDetailsDialog({ open: true, userId: user.id })}
+                data-testid={`action-viewdetails-${user.id}`}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                View Details
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 onClick={() => setActionDialog({ open: true, action: 'approve', userId: user.id })}
                 data-testid={`action-approve-${user.id}`}
               >
@@ -592,6 +677,207 @@ export default function AdminApprovalQueue() {
                  !requestInfoMutation.isPending && 
                  !bulkActionMutation.isPending && 
                  'Confirm'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog 
+          open={userDetailsDialog.open} 
+          onOpenChange={(open) => {
+            if (!open) {
+              setUserDetailsDialog({ open: false, userId: null });
+              setDocReviewNotes("");
+            }
+          }}
+        >
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" data-testid="dialog-user-details">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                User Details & KYC Documents
+              </DialogTitle>
+              <DialogDescription>
+                Review user information and uploaded verification documents
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6 py-4">
+              {userDetailsDialog.userId && (
+                <>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">User Information</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const user = users.find(u => u.id === userDetailsDialog.userId);
+                        if (!user) return <p className="text-muted-foreground">Loading user information...</p>;
+                        return (
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <p className="font-medium text-muted-foreground">Email</p>
+                              <p className="font-medium">{user.email}</p>
+                            </div>
+                            <div>
+                              <p className="font-medium text-muted-foreground">Role</p>
+                              <p className="capitalize">{user.role}</p>
+                            </div>
+                            <div>
+                              <p className="font-medium text-muted-foreground">Status</p>
+                              <div className="mt-1">{getStatusBadge(user.accountStatus)}</div>
+                            </div>
+                            <div>
+                              <p className="font-medium text-muted-foreground">Risk Score</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant={getRiskBadgeColor(user.riskScore)}>
+                                  {user.riskScore}
+                                </Badge>
+                                <span className="text-sm">{getRiskLabel(user.riskScore)}</span>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="font-medium text-muted-foreground">Registered</p>
+                              <p>{format(new Date(user.createdAt), "PPp")}</p>
+                            </div>
+                            {user.rejectionReason && (
+                              <div className="col-span-2">
+                                <p className="font-medium text-muted-foreground">Rejection Reason</p>
+                                <p className="text-destructive">{user.rejectionReason}</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        KYC Documents ({kycDocuments.length})
+                      </CardTitle>
+                      <CardDescription>
+                        Uploaded verification documents
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {kycLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        </div>
+                      ) : kycDocuments.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                          <p>No documents uploaded yet</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {kycDocuments.map((doc) => (
+                            <div
+                              key={doc.id}
+                              className="p-4 border rounded-md space-y-3 hover-elevate"
+                              data-testid={`kyc-doc-${doc.id}`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                                    <h4 className="font-medium">{doc.originalName}</h4>
+                                    <Badge variant={
+                                      doc.status === 'approved' ? 'default' : 
+                                      doc.status === 'rejected' ? 'destructive' : 
+                                      'secondary'
+                                    }>
+                                      {doc.status === 'pending' && <Clock className="h-3 w-3 mr-1" />}
+                                      {doc.status === 'approved' && <CheckCircle className="h-3 w-3 mr-1" />}
+                                      {doc.status === 'rejected' && <XCircle className="h-3 w-3 mr-1" />}
+                                      {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-sm text-muted-foreground space-y-1">
+                                    <p>Type: {DOCUMENT_TYPE_LABELS[doc.documentType] || doc.documentType}</p>
+                                    <p>Size: {formatFileSize(doc.size)} • Uploaded: {format(new Date(doc.createdAt), 'MMM d, yyyy')}</p>
+                                  </div>
+                                  {doc.reviewNotes && (
+                                    <div className="mt-2 p-2 bg-muted rounded text-sm">
+                                      <p className="font-medium">Review Notes:</p>
+                                      <p className="text-muted-foreground">{doc.reviewNotes}</p>
+                                    </div>
+                                  )}
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => window.open(`/api/admin/kyc-documents/${doc.id}/download`, '_blank')}
+                                  data-testid={`button-download-${doc.id}`}
+                                >
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download
+                                </Button>
+                              </div>
+
+                              {doc.status === 'pending' && (
+                                <div className="pt-3 border-t space-y-3">
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`review-notes-${doc.id}`}>Review Notes (Optional)</Label>
+                                    <Textarea
+                                      id={`review-notes-${doc.id}`}
+                                      value={docReviewNotes}
+                                      onChange={(e) => setDocReviewNotes(e.target.value)}
+                                      placeholder="Add notes about this document..."
+                                      className="min-h-[60px]"
+                                      data-testid={`textarea-review-notes-${doc.id}`}
+                                    />
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => updateKycStatusMutation.mutate({ 
+                                        docId: doc.id, 
+                                        status: 'approved', 
+                                        reviewNotes: docReviewNotes 
+                                      })}
+                                      disabled={updateKycStatusMutation.isPending}
+                                      data-testid={`button-approve-doc-${doc.id}`}
+                                    >
+                                      <CheckCircle className="h-4 w-4 mr-2" />
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => updateKycStatusMutation.mutate({ 
+                                        docId: doc.id, 
+                                        status: 'rejected', 
+                                        reviewNotes: docReviewNotes 
+                                      })}
+                                      disabled={updateKycStatusMutation.isPending}
+                                      data-testid={`button-reject-doc-${doc.id}`}
+                                    >
+                                      <XCircle className="h-4 w-4 mr-2" />
+                                      Reject
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setUserDetailsDialog({ open: false, userId: null })}
+                data-testid="button-close-details"
+              >
+                Close
               </Button>
             </DialogFooter>
           </DialogContent>
