@@ -599,5 +599,541 @@
     "level0": "Primary Category",
     "level1": "Subcategory",
     "level2": "Specialty"
+  },
+  "form": {
+    "required": "This field is required",
+    "optional": "Optional",
+    "saving": "Saving...",
+    "saveChanges": "Save Changes",
+    "skipForNow": "Skip for Now",
+    "termsAcceptance": "I agree to the",
+    "termsAndConditions": "Terms & Conditions"
+  },
+  "home": {
+    "hero": {
+      "badge": "B2B IT Marketplace",
+      "title": "Connect with Top IT Experts",
+      "subtitle": "Post Requirements • Receive Competitive Bids • Get Your IT Projects Done",
+      "clientButton": "I Need IT Services",
+      "vendorButton": "I'm a Service Provider",
+      "trustedCompanies": "Trusted by 500+ Companies",
+      "itExperts": "1000+ IT Experts",
+      "successRate": "98% Success Rate"
+    },
+    "howItWorks": {
+      "title": "How It Works",
+      "subtitle": "Simple, transparent process to connect with the right IT professionals",
+      "step1": {
+        "title": "1. Post Your Requirement",
+        "description": "Describe your IT project needs, budget, and timeline. Our platform guides you through the process."
+      },
+      "step2": {
+        "title": "2. Review Competitive Bids",
+        "description": "Receive proposals from qualified vendors. Compare pricing, timelines, and expertise."
+      },
+      "step3": {
+        "title": "3. Award & Deliver",
+        "description": "Select the best vendor, collaborate seamlessly, and get your project completed successfully."
+      }
+    },
+    "engagementModels": {
+      "title": "Engagement Models",
+      "subtitle": "Choose the perfect plan for your business needs",
+      "forClients": "For Clients",
+      "forConsultants": "For Consultants",
+      "perMonth": "/month",
+      "free": "Free",
+      "popular": "Popular",
+      "enterprise": "Enterprise",
+      "getStarted": "Get Started",
+      "contactSales": "Contact Sales",
+      "choose": "Choose {{name}}",
+      "failedToLoad": "Failed to load subscription plans",
+      "retry": "Retry"
+    },
+    "services": {
+      "title": "Services We Offer",
+      "subtitle": "Comprehensive IT solutions across all major technology domains",
+      "exploreServices": "Explore Services",
+      "findConsultant": "Find Consultant"
+    },
+    "vendors": {
+      "title": "Top-Rated Service Providers",
+      "subtitle": "Connect with experienced professionals who deliver excellence",
+      "projects": "{{count}} projects",
+      "viewProfile": "View Profile",
+      "viewAll": "View All Service Providers"
+    },
+    "stats": {
+      "projectsCompleted": "Projects Completed",
+      "activeVendors": "Active Vendors",
+      "successRate": "Success Rate",
+      "totalTransactions": "Total Transactions"
+    },
+    "testimonials": {
+      "title": "What Our Clients Say",
+      "subtitle": "Trusted by businesses worldwide for quality IT solutions"
+    },
+    "cta": {
+      "title": "Ready to Start Your Next IT Project?",
+      "subtitle": "Join thousands of satisfied clients and vendors on EDGEIT24",
+      "postButton": "Post Your Requirement Now",
+      "browseButton": "Browse Available Projects"
+    }
+  },
+  "clientDashboard": {
+    "title": "Client Dashboard",
+    "subtitle": "Manage your projects and find the right IT professionals",
+    "stats": {
+      "activeJobs": "Active Jobs",
+      "activeJobsDesc": "{{count, plural, =0 {No active postings} =1 {Currently open} other {Currently open}}",
+      "proposalsReceived": "Proposals Received",
+      "proposalsDesc": "{{count, plural, =0 {No proposals yet} other {Awaiting your review}}",
+      "activeProjects": "Active Projects",
+      "activeProjectsDesc": "{{count, plural, =0 {No active projects} other {In progress}}",
+      "totalSpending": "Total Spending",
+      "allTime": "All time",
+      "completedProjects": "Completed Projects",
+      "completedDesc": "{{count, plural, =0 {No completed projects} other {Successfully completed}}",
+      "avgResponseTime": "Avg Response Time",
+      "responseTimeDesc": "{{hours, plural, =0 {No data yet} other {To respond to bids}}}"
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "description": "Get started with posting your first job",
+      "postJob": "Post a New Job",
+      "browseVendors": "Browse Vendors",
+      "viewMessages": "View Messages"
+    },
+    "pendingActions": {
+      "title": "Pending Actions",
+      "description": "Items requiring your attention",
+      "allCaughtUp": "All caught up!",
+      "noActions": "No pending actions at this time"
+    },
+    "recentActivity": {
+      "title": "Recent Activities",
+      "description": "Your latest platform activities",
+      "noActivities": "No recent activities"
+    },
+    "financialTrends": {
+      "title": "Spending Trends",
+      "description": "Last 6 months",
+      "noData": "No spending data yet"
+    },
+    "activeProjects": {
+      "title": "Active Projects",
+      "description": "Projects you're managing",
+      "noProjects": "No active projects",
+      "noProjectsDesc": "Projects you post will appear here",
+      "client": "Client",
+      "deadline": "Deadline",
+      "progress": "Progress"
+    },
+    "projectsToReview": {
+      "title": "Projects to Review",
+      "description": "Completed projects awaiting your feedback",
+      "leaveReview": "Leave Review",
+      "noProjects": "No projects to review"
+    }
+  },
+  "consultantDashboard": {
+    "title": "Consultant Dashboard",
+    "subtitle": "Find opportunities and grow your business",
+    "stats": {
+      "availableJobs": "Available Jobs",
+      "activeBids": "Active Bids",
+      "activeProjects": "Active Projects",
+      "completedProjects": "Completed Projects",
+      "successRate": "Success Rate",
+      "averageRating": "Average Rating",
+      "monthlyEarnings": "Monthly Earnings",
+      "allTimeEarnings": "All Time Earnings",
+      "performanceScore": "Performance Score"
+    },
+    "quoteRequests": {
+      "title": "Quote Requests",
+      "description": "Client requests for service quotes",
+      "package": "Package",
+      "client": "Client",
+      "respond": "Respond",
+      "showing": "Showing {{shown}} of {{total}} requests",
+      "noRequests": "No quote requests",
+      "noRequestsDesc": "Quote requests from clients will appear here"
+    },
+    "performanceMetrics": {
+      "title": "Performance Metrics",
+      "description": "Your work quality and completion stats",
+      "completionRate": "Completion Rate",
+      "projectsCompleted": "{{completed}} of {{total}} projects",
+      "ratingBreakdown": "Rating Breakdown",
+      "basedOnReviews": "Based on {{count}} review{{s}}",
+      "noReviews": "No reviews yet"
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "description": "Find jobs and manage your work",
+      "browseJobs": "Browse Available Jobs",
+      "viewBids": "View My Bids",
+      "editProfile": "Edit Profile"
+    },
+    "earningsTrends": {
+      "title": "Earnings Trends",
+      "description": "Last 6 months",
+      "noEarnings": "No earnings data yet"
+    },
+    "quoteResponseDialog": {
+      "title": "Respond to Quote Request",
+      "description": "Provide your quote response for {{packageName}}",
+      "clientRequest": "Client Request",
+      "responseMessage": "Response Message",
+      "responseMessagePlaceholder": "Describe your proposal, timeline, and what's included...",
+      "quotedAmount": "Quoted Amount (SAR)",
+      "quotedAmountPlaceholder": "0.00",
+      "validationError": "Validation Error",
+      "validationMessage": "Please provide both a response message and a valid quoted amount.",
+      "sending": "Sending...",
+      "sendResponse": "Send Response"
+    }
+  },
+  "dualRoleDashboard": {
+    "title": "Dashboard",
+    "subtitle": "You have both client and consultant access",
+    "clientDashboard": {
+      "title": "Client Dashboard",
+      "description": "Post jobs and manage projects",
+      "viewButton": "View Client Dashboard"
+    },
+    "consultantDashboard": {
+      "title": "Consultant Dashboard",
+      "description": "Find opportunities and submit bids",
+      "viewButton": "View Consultant Dashboard"
+    }
+  },
+  "profileApproval": {
+    "approved": {
+      "title": "Profile Approved",
+      "uniqueId": "Your unique ID: {{id}}"
+    },
+    "pending": {
+      "title": "Awaiting Admin Review",
+      "description": "Your profile has been submitted for review. We'll notify you once it's approved."
+    },
+    "rejected": {
+      "title": "Profile Rejected",
+      "reason": "Reason: {{notes}}",
+      "updateButton": "Update & Resubmit"
+    },
+    "incomplete": {
+      "title": "Complete Your Profile",
+      "completion": "Profile completion",
+      "completeButton": "Complete Profile"
+    }
+  },
+  "clientProfile": {
+    "title": "Client Profile",
+    "subtitle": "Manage your company information and preferences",
+    "editProfile": "Edit Profile",
+    "createProfile": "Create Profile",
+    "noProfile": "No Client Profile",
+    "noProfileDesc": "You don't have a client profile yet. Create one to start posting requirements and receiving bids.",
+    "editTitle": "Edit Profile Information",
+    "editDescription": "Update your company details and business information",
+    "onboardingWelcome": "Welcome! Complete your profile to get started. You can always skip this and update it later from your dashboard.",
+    "companyInformation": "Company Information",
+    "contactDetails": "Contact Details",
+    "aboutCompany": "About Company",
+    "teamMembers": "Team Members",
+    "fields": {
+      "companyName": "Company Name",
+      "companyNamePlaceholder": "Acme Corporation",
+      "contactEmail": "Contact Email",
+      "contactEmailPlaceholder": "contact@company.com",
+      "contactEmailDesc": "Business contact email",
+      "phoneCountryCode": "Phone Country Code",
+      "phoneCountryCodePlaceholder": "+966",
+      "contactPhone": "Contact Phone Number",
+      "contactPhonePlaceholder": "501234567",
+      "contactPhoneDesc": "Business contact number",
+      "businessType": "Business Type",
+      "businessTypePlaceholder": "Select business type",
+      "industry": "Industry",
+      "industryPlaceholder": "Select industry",
+      "region": "Region",
+      "regionPlaceholder": "Select region",
+      "companySize": "Company Size",
+      "companySizePlaceholder": "Select company size",
+      "website": "Website",
+      "websitePlaceholder": "https://www.example.com",
+      "location": "Location",
+      "locationPlaceholder": "Riyadh, Saudi Arabia",
+      "description": "Company Description",
+      "descriptionPlaceholder": "Tell us about your company...",
+      "descriptionHelp": "A brief description of your company and what services you're looking for."
+    },
+    "businessTypes": {
+      "individual": "Individual",
+      "company": "Company",
+      "enterprise": "Enterprise"
+    },
+    "industries": {
+      "technology": "Technology",
+      "finance": "Finance & Banking",
+      "healthcare": "Healthcare",
+      "manufacturing": "Manufacturing",
+      "retail": "Retail & E-commerce",
+      "education": "Education",
+      "realEstate": "Real Estate",
+      "construction": "Construction",
+      "hospitality": "Hospitality & Tourism",
+      "telecommunications": "Telecommunications",
+      "energy": "Energy & Utilities",
+      "transportation": "Transportation & Logistics",
+      "government": "Government",
+      "nonprofit": "Non-Profit",
+      "other": "Other"
+    },
+    "regions": {
+      "riyadh": "Riyadh Region",
+      "makkah": "Makkah Region",
+      "madinah": "Madinah Region",
+      "eastern": "Eastern Province",
+      "asir": "Asir Region",
+      "tabuk": "Tabuk Region",
+      "hail": "Hail Region",
+      "northernBorders": "Northern Borders",
+      "jazan": "Jazan Region",
+      "najran": "Najran Region",
+      "alBahah": "Al Bahah Region",
+      "alJawf": "Al Jawf Region",
+      "qassim": "Qassim Region"
+    },
+    "companySizes": {
+      "1-10": "1-10 employees",
+      "11-50": "11-50 employees",
+      "51-200": "51-200 employees",
+      "201-500": "201-500 employees",
+      "500+": "500+ employees"
+    },
+    "teamSection": {
+      "title": "Team Members",
+      "description": "Manage your team members and their permissions",
+      "inviteButton": "Invite Member",
+      "noMembers": "No team members yet",
+      "noMembersDesc": "Invite team members to collaborate on projects"
+    },
+    "inviteDialog": {
+      "title": "Invite Team Member",
+      "description": "Send an invitation to add a new member to your team.",
+      "fullName": "Full Name",
+      "fullNamePlaceholder": "John Doe",
+      "email": "Email",
+      "emailPlaceholder": "john@example.com",
+      "role": "Role",
+      "rolePlaceholder": "Select role",
+      "roleDescription": "Admin: Full access. Member: Can manage projects. Viewer: Read-only access.",
+      "sending": "Sending...",
+      "sendInvitation": "Send Invitation"
+    },
+    "editMemberDialog": {
+      "title": "Edit Team Member",
+      "description": "Update the role for {{name}}",
+      "role": "Role"
+    },
+    "memberRoles": {
+      "admin": "Admin",
+      "member": "Member",
+      "viewer": "Viewer"
+    },
+    "memberStatuses": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "revoked": "Revoked"
+    },
+    "viewMode": {
+      "notProvided": "Not provided",
+      "noDescription": "No description provided"
+    },
+    "errors": {
+      "failedToLoad": "Failed to Load Profile",
+      "unableToFetch": "Unable to fetch your profile information. Please try refreshing.",
+      "retry": "Retry"
+    }
+  },
+  "consultantProfile": {
+    "title": "Consultant Profile",
+    "subtitle": "Manage your professional information and services",
+    "editProfile": "Edit Profile",
+    "createProfile": "Create Profile",
+    "noProfile": "No Consultant Profile",
+    "noProfileDesc": "You don't have a consultant profile yet. Create one to start bidding on projects and finding clients.",
+    "editTitle": "Edit Profile Information",
+    "editDescription": "Update your professional details and service offerings",
+    "onboardingWelcome": "Welcome! Complete your profile to get started. You can always skip this and update it later from your dashboard.",
+    "personalInfo": "Personal Information",
+    "servicesSkills": "Services & Skills",
+    "portfolioCertifications": "Portfolio & Certifications",
+    "pricingAvailability": "Pricing & Availability",
+    "businessInfo": "Business Information",
+    "fields": {
+      "fullName": "Full Name",
+      "fullNamePlaceholder": "Your full name",
+      "title": "Professional Title",
+      "titlePlaceholder": "e.g., Senior Full Stack Developer",
+      "bio": "Professional Bio",
+      "bioPlaceholder": "Tell clients about your experience and expertise...",
+      "bioDescription": "A brief introduction highlighting your skills and experience",
+      "skills": "Skills",
+      "skillsPlaceholder": "React, Node.js, AWS, Docker (comma-separated)",
+      "skillsDescription": "Your technical skills and competencies (separated by commas)",
+      "hourlyRate": "Hourly Rate (SAR)",
+      "hourlyRatePlaceholder": "Enter your hourly rate",
+      "experience": "Experience Level",
+      "experiencePlaceholder": "Select your experience level",
+      "certifications": "Certifications",
+      "certificationsPlaceholder": "AWS Certified, Google Cloud Professional (comma-separated)",
+      "certificationsDescription": "Professional certifications you hold (separated by commas)",
+      "location": "Location",
+      "locationPlaceholder": "Riyadh, Saudi Arabia",
+      "availability": "Availability Status",
+      "availabilityPlaceholder": "Select status",
+      "timezone": "Timezone",
+      "timezonePlaceholder": "e.g., Asia/Riyadh",
+      "responseTime": "Average Response Time (hours)",
+      "responseTimePlaceholder": "Enter average response time",
+      "yearEstablished": "Year Established",
+      "yearEstablishedPlaceholder": "2020",
+      "employeeCount": "Employee Count",
+      "employeeCountPlaceholder": "Select employee count",
+      "businessRegistrationNumber": "Business Registration Number",
+      "businessRegistrationPlaceholder": "CR-XXXX-XXXX",
+      "businessRegistrationDescription": "Your company's commercial registration number",
+      "operatingRegions": "Operating Regions",
+      "operatingRegionsPlaceholder": "Saudi Arabia, UAE, Qatar (comma-separated)",
+      "operatingRegionsDescription": "Countries/regions where you provide services (separated by commas)"
+    },
+    "experienceLevels": {
+      "junior": "Junior (0-2 years)",
+      "mid": "Mid-Level (2-5 years)",
+      "senior": "Senior (5-10 years)",
+      "expert": "Expert (10+ years)"
+    },
+    "availabilityStatuses": {
+      "available": "Available",
+      "busy": "Busy",
+      "unavailable": "Unavailable"
+    },
+    "employeeCounts": {
+      "1-10": "1-10 employees",
+      "11-50": "11-50 employees",
+      "51-200": "51-200 employees",
+      "201+": "201+ employees"
+    },
+    "languages": {
+      "title": "Languages",
+      "addLanguage": "Add Language",
+      "language": "Language",
+      "languagePlaceholder": "e.g., English",
+      "proficiency": "Proficiency",
+      "noLanguages": "No languages added yet. Click \"Add Language\" to specify your language proficiencies.",
+      "proficiencyLevels": {
+        "basic": "Basic",
+        "conversational": "Conversational",
+        "fluent": "Fluent",
+        "native": "Native"
+      }
+    },
+    "weeklySchedule": {
+      "title": "Weekly Availability Schedule",
+      "description": "Select your available time slots for each day of the week.",
+      "days": {
+        "monday": "Mon",
+        "tuesday": "Tue",
+        "wednesday": "Wed",
+        "thursday": "Thu",
+        "friday": "Fri",
+        "saturday": "Sat",
+        "sunday": "Sun"
+      },
+      "timeSlots": {
+        "morning": "Morning",
+        "afternoon": "Afternoon",
+        "evening": "Evening"
+      }
+    },
+    "portfolio": {
+      "title": "Portfolio Projects",
+      "addProject": "Add Project",
+      "projectTitle": "Project title",
+      "projectDescription": "Project description",
+      "projectUrl": "Project URL (optional)",
+      "noProjects": "No portfolio projects added yet. Click \"Add Project\" to showcase your work."
+    },
+    "servicePackages": {
+      "title": "Service Packages",
+      "addPackage": "Add Package",
+      "packageName": "Package name (e.g., Basic Website Setup)",
+      "packageDescription": "Package description",
+      "price": "Price (﷼)",
+      "deliveryTime": "Delivery time (e.g., 7 days)",
+      "addOns": "Add-ons (comma-separated, e.g., SEO, Analytics, SSL)",
+      "revisionsIncluded": "Revisions included",
+      "supportDuration": "Support duration (e.g., 30 days)",
+      "noPackages": "No service packages added yet. Click \"Add Package\" to offer predefined services."
+    },
+    "pricingTemplates": {
+      "title": "Pricing Templates",
+      "addTemplate": "Add Template",
+      "templateName": "Template name (e.g., Basic Website Development)",
+      "templateDescription": "Template description",
+      "basePrice": "Base Price (﷼)",
+      "hourlyRate": "Hourly Rate (﷼)",
+      "estimatedHours": "Est. Hours",
+      "save": "Save",
+      "update": "Update",
+      "noTemplates": "No pricing templates added yet. Click \"Add Template\" to create reusable pricing structures.",
+      "validationError": "Template name and base price are required"
+    },
+    "categories": {
+      "title": "Service Categories",
+      "description": "Select the categories where you provide services. Choose your primary category for better visibility.",
+      "saveButton": "Save Categories"
+    },
+    "reviews": {
+      "title": "Client Reviews",
+      "description": "Feedback from your clients",
+      "averageRating": "Average Rating",
+      "totalReviews": "{{count}} review{{s}}",
+      "noReviews": "No reviews yet",
+      "noReviewsDesc": "Client reviews will appear here once you complete projects",
+      "helpful": "Helpful",
+      "response": "Consultant Response",
+      "loadMore": "Load More Reviews"
+    },
+    "viewMode": {
+      "professionalInfo": "Professional Information",
+      "notProvided": "Not provided",
+      "noBio": "No bio provided",
+      "verified": "Verified",
+      "skillsExpertise": "Skills & Expertise",
+      "noSkills": "No skills listed",
+      "certifications": "Certifications",
+      "noCertifications": "No certifications listed",
+      "portfolioProjects": "Portfolio & Projects",
+      "noPortfolio": "No portfolio projects",
+      "viewProject": "View Project",
+      "pricingPackages": "Pricing & Packages",
+      "noPricing": "No pricing information available",
+      "weeklyAvailability": "Weekly Availability",
+      "noSchedule": "No availability schedule set",
+      "businessDetails": "Business Details"
+    },
+    "errors": {
+      "failedToLoad": "Failed to Load Profile",
+      "unableToFetch": "Unable to fetch your profile information. Please try refreshing.",
+      "retry": "Retry",
+      "saveFailed": "Failed to save pricing template",
+      "deleteFailed": "Failed to delete pricing template"
+    }
   }
 }

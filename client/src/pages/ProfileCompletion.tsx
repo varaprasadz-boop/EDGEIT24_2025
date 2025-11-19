@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useTranslation } from "react-i18next";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -31,33 +32,6 @@ import {
 
 type Section = "kyc" | "education" | "bank" | "business";
 
-const sections: { id: Section; title: string; description: string; icon: typeof Building2 }[] = [
-  {
-    id: "kyc",
-    title: "KYC Verification",
-    description: "Identity verification documents",
-    icon: FileText
-  },
-  {
-    id: "education",
-    title: "Education & Certifications",
-    description: "Your qualifications and credentials",
-    icon: GraduationCap
-  },
-  {
-    id: "bank",
-    title: "Bank Information",
-    description: "Payment and withdrawal details",
-    icon: CreditCard
-  },
-  {
-    id: "business",
-    title: "Business Information",
-    description: "Company and service details",
-    icon: Building2
-  }
-];
-
 // Business Info form schema (simplified for MVP)
 const businessInfoSchema = z.object({
   companyName: z.string().optional(),
@@ -76,11 +50,39 @@ const businessInfoSchema = z.object({
 type BusinessInfo = z.infer<typeof businessInfoSchema>;
 
 export default function ProfileCompletion() {
+  const { t } = useTranslation();
   const { user, isAuthenticated, isLoading: authLoading, getProfileStatus, getApprovalStatus } = useAuthContext();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [currentSection, setCurrentSection] = useState<Section>("kyc");
   const [completedSections, setCompletedSections] = useState<Set<Section>>(new Set());
+
+  const sections: { id: Section; title: string; description: string; icon: typeof Building2 }[] = [
+    {
+      id: "kyc",
+      title: t('profileCompletion.sections.kyc.title'),
+      description: t('profileCompletion.sections.kyc.description'),
+      icon: FileText
+    },
+    {
+      id: "education",
+      title: t('profileCompletion.sections.education.title'),
+      description: t('profileCompletion.sections.education.description'),
+      icon: GraduationCap
+    },
+    {
+      id: "bank",
+      title: t('profileCompletion.sections.bank.title'),
+      description: t('profileCompletion.sections.bank.description'),
+      icon: CreditCard
+    },
+    {
+      id: "business",
+      title: t('profileCompletion.sections.business.title'),
+      description: t('profileCompletion.sections.business.description'),
+      icon: Building2
+    }
+  ];
 
   // Check authentication and approval status
   useEffect(() => {
@@ -186,8 +188,8 @@ export default function ProfileCompletion() {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       
       toast({
-        title: "Profile Updated",
-        description: "Your business information has been saved successfully.",
+        title: t('profileCompletion.profileUpdated'),
+        description: t('profileCompletion.profileUpdatedDescription'),
       });
 
       // Mark business section as complete and move to next section (or show submit button)
@@ -229,8 +231,8 @@ export default function ProfileCompletion() {
       }
 
       toast({
-        title: "Profile Submitted",
-        description: "Your profile has been submitted for admin review. You'll be notified once approved.",
+        title: t('profileCompletion.profileSubmitted'),
+        description: t('profileCompletion.profileSubmittedDescription'),
       });
 
       // Refresh user data
@@ -241,8 +243,8 @@ export default function ProfileCompletion() {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Submission Failed",
-        description: "Failed to submit profile for review. Please try again.",
+        title: t('profileCompletion.submissionFailed'),
+        description: t('profileCompletion.submissionFailedDescription'),
       });
     }
   };
@@ -267,13 +269,18 @@ export default function ProfileCompletion() {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold" data-testid="text-profile-title">Complete Your Profile</h1>
+              <h1 className="text-2xl font-bold" data-testid="text-profile-title">
+                {t('profileCompletion.title')}
+              </h1>
               <p className="text-muted-foreground" data-testid="text-profile-subtitle">
-                Provide additional information to activate your account
+                {t('profileCompletion.subtitle')}
               </p>
             </div>
             <Badge variant="outline" data-testid="badge-profile-progress">
-              {completedSections.size} of {sections.length} sections completed
+              {t('profileCompletion.progressBadge', { 
+                completed: completedSections.size, 
+                total: sections.length 
+              })}
             </Badge>
           </div>
           <div className="mt-4">
@@ -288,7 +295,7 @@ export default function ProfileCompletion() {
           <div className="md:col-span-1">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Sections</CardTitle>
+                <CardTitle className="text-lg">{t('profileCompletion.sectionsTitle')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {sections.map((section) => {
@@ -332,14 +339,14 @@ export default function ProfileCompletion() {
             {currentSection === "kyc" && (
               <Card data-testid="card-kyc-section">
                 <CardHeader>
-                  <CardTitle>KYC Verification</CardTitle>
-                  <CardDescription>Identity verification documents (Coming Soon)</CardDescription>
+                  <CardTitle>{t('profileCompletion.sections.kyc.title')}</CardTitle>
+                  <CardDescription>{t('profileCompletion.sections.kyc.cardDescription')}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      KYC document upload functionality will be available soon. You can skip this section for now and complete it later.
+                      {t('profileCompletion.sections.kyc.alertMessage')}
                     </AlertDescription>
                   </Alert>
 
@@ -348,7 +355,7 @@ export default function ProfileCompletion() {
                       onClick={() => handleSectionComplete("kyc")}
                       data-testid="button-skip-kyc"
                     >
-                      Skip for Now
+                      {t('profileCompletion.skipForNow')}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </div>
@@ -360,14 +367,14 @@ export default function ProfileCompletion() {
             {currentSection === "education" && (
               <Card data-testid="card-education-section">
                 <CardHeader>
-                  <CardTitle>Education & Certifications</CardTitle>
-                  <CardDescription>Your qualifications and credentials (Coming Soon)</CardDescription>
+                  <CardTitle>{t('profileCompletion.sections.education.title')}</CardTitle>
+                  <CardDescription>{t('profileCompletion.sections.education.cardDescription')}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      Education and certification management will be available soon. You can skip this section for now and complete it later.
+                      {t('profileCompletion.sections.education.alertMessage')}
                     </AlertDescription>
                   </Alert>
 
@@ -382,13 +389,13 @@ export default function ProfileCompletion() {
                       }}
                       data-testid="button-back-education"
                     >
-                      Back
+                      {t('profileCompletion.back')}
                     </Button>
                     <Button
                       onClick={() => handleSectionComplete("education")}
                       data-testid="button-skip-education"
                     >
-                      Skip for Now
+                      {t('profileCompletion.skipForNow')}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </div>
@@ -400,14 +407,14 @@ export default function ProfileCompletion() {
             {currentSection === "bank" && (
               <Card data-testid="card-bank-section">
                 <CardHeader>
-                  <CardTitle>Bank Information</CardTitle>
-                  <CardDescription>Payment and withdrawal details (Coming Soon)</CardDescription>
+                  <CardTitle>{t('profileCompletion.sections.bank.title')}</CardTitle>
+                  <CardDescription>{t('profileCompletion.sections.bank.cardDescription')}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      Bank account setup for payment processing will be available soon. You can skip this section for now and complete it later.
+                      {t('profileCompletion.sections.bank.alertMessage')}
                     </AlertDescription>
                   </Alert>
 
@@ -422,13 +429,13 @@ export default function ProfileCompletion() {
                       }}
                       data-testid="button-back-bank"
                     >
-                      Back
+                      {t('profileCompletion.back')}
                     </Button>
                     <Button
                       onClick={() => handleSectionComplete("bank")}
                       data-testid="button-skip-bank"
                     >
-                      Skip for Now
+                      {t('profileCompletion.skipForNow')}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </div>
@@ -440,11 +447,11 @@ export default function ProfileCompletion() {
             {currentSection === "business" && (
               <Card data-testid="card-business-section">
                 <CardHeader>
-                  <CardTitle>Business Information</CardTitle>
+                  <CardTitle>{t('profileCompletion.sections.business.title')}</CardTitle>
                   <CardDescription>
-                    {isClient && !isConsultant && "Your company and business details"}
-                    {isConsultant && !isClient && "Your professional profile and service details"}
-                    {isClient && isConsultant && "Your company and professional details"}
+                    {isClient && !isConsultant && t('profileCompletion.sections.business.clientDescription')}
+                    {isConsultant && !isClient && t('profileCompletion.sections.business.consultantDescription')}
+                    {isClient && isConsultant && t('profileCompletion.sections.business.bothDescription')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -458,7 +465,7 @@ export default function ProfileCompletion() {
                             name="companyName"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Company Name</FormLabel>
+                                <FormLabel>{t('profileCompletion.fields.companyName')}</FormLabel>
                                 <FormControl>
                                   <Input {...field} data-testid="input-company-name" />
                                 </FormControl>
@@ -472,20 +479,20 @@ export default function ProfileCompletion() {
                             name="industry"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Industry</FormLabel>
+                                <FormLabel>{t('profileCompletion.fields.industry')}</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
                                   <FormControl>
                                     <SelectTrigger data-testid="select-industry">
-                                      <SelectValue placeholder="Select industry" />
+                                      <SelectValue placeholder={t('profileCompletion.placeholders.selectIndustry')} />
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    <SelectItem value="technology">Technology</SelectItem>
-                                    <SelectItem value="finance">Finance</SelectItem>
-                                    <SelectItem value="healthcare">Healthcare</SelectItem>
-                                    <SelectItem value="retail">Retail</SelectItem>
-                                    <SelectItem value="manufacturing">Manufacturing</SelectItem>
-                                    <SelectItem value="other">Other</SelectItem>
+                                    <SelectItem value="technology">{t('profileCompletion.industries.technology')}</SelectItem>
+                                    <SelectItem value="finance">{t('profileCompletion.industries.finance')}</SelectItem>
+                                    <SelectItem value="healthcare">{t('profileCompletion.industries.healthcare')}</SelectItem>
+                                    <SelectItem value="retail">{t('profileCompletion.industries.retail')}</SelectItem>
+                                    <SelectItem value="manufacturing">{t('profileCompletion.industries.manufacturing')}</SelectItem>
+                                    <SelectItem value="other">{t('profileCompletion.industries.other')}</SelectItem>
                                   </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -498,19 +505,19 @@ export default function ProfileCompletion() {
                             name="companySize"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Company Size</FormLabel>
+                                <FormLabel>{t('profileCompletion.fields.companySize')}</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
                                   <FormControl>
                                     <SelectTrigger data-testid="select-company-size">
-                                      <SelectValue placeholder="Select company size" />
+                                      <SelectValue placeholder={t('profileCompletion.placeholders.selectCompanySize')} />
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    <SelectItem value="1-10">1-10 employees</SelectItem>
-                                    <SelectItem value="11-50">11-50 employees</SelectItem>
-                                    <SelectItem value="51-200">51-200 employees</SelectItem>
-                                    <SelectItem value="201-500">201-500 employees</SelectItem>
-                                    <SelectItem value="500+">500+ employees</SelectItem>
+                                    <SelectItem value="1-10">{t('profileCompletion.companySizes.small')}</SelectItem>
+                                    <SelectItem value="11-50">{t('profileCompletion.companySizes.medium')}</SelectItem>
+                                    <SelectItem value="51-200">{t('profileCompletion.companySizes.large')}</SelectItem>
+                                    <SelectItem value="201-500">{t('profileCompletion.companySizes.veryLarge')}</SelectItem>
+                                    <SelectItem value="500+">{t('profileCompletion.companySizes.enterprise')}</SelectItem>
                                   </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -523,11 +530,11 @@ export default function ProfileCompletion() {
                             name="description"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Company Description</FormLabel>
+                                <FormLabel>{t('profileCompletion.fields.companyDescription')}</FormLabel>
                                 <FormControl>
                                   <Textarea
                                     {...field}
-                                    placeholder="Tell us about your company"
+                                    placeholder={t('profileCompletion.placeholders.companyDescription')}
                                     data-testid="textarea-description"
                                   />
                                 </FormControl>
@@ -546,11 +553,11 @@ export default function ProfileCompletion() {
                             name="title"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Professional Title</FormLabel>
+                                <FormLabel>{t('profileCompletion.fields.professionalTitle')}</FormLabel>
                                 <FormControl>
                                   <Input
                                     {...field}
-                                    placeholder="e.g., Senior Full-Stack Developer"
+                                    placeholder={t('profileCompletion.placeholders.professionalTitle')}
                                     data-testid="input-title"
                                   />
                                 </FormControl>
@@ -564,11 +571,11 @@ export default function ProfileCompletion() {
                             name="bio"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Professional Bio</FormLabel>
+                                <FormLabel>{t('profileCompletion.fields.professionalBio')}</FormLabel>
                                 <FormControl>
                                   <Textarea
                                     {...field}
-                                    placeholder="Tell us about your experience and expertise"
+                                    placeholder={t('profileCompletion.placeholders.professionalBio')}
                                     data-testid="textarea-bio"
                                   />
                                 </FormControl>
@@ -583,7 +590,7 @@ export default function ProfileCompletion() {
                               name="hourlyRate"
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Hourly Rate (SAR)</FormLabel>
+                                  <FormLabel>{t('profileCompletion.fields.hourlyRate')}</FormLabel>
                                   <FormControl>
                                     <Input
                                       {...field}
@@ -603,18 +610,18 @@ export default function ProfileCompletion() {
                               name="experience"
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Experience Level</FormLabel>
+                                  <FormLabel>{t('profileCompletion.fields.experienceLevel')}</FormLabel>
                                   <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                       <SelectTrigger data-testid="select-experience">
-                                        <SelectValue placeholder="Select level" />
+                                        <SelectValue placeholder={t('profileCompletion.placeholders.selectLevel')} />
                                       </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                      <SelectItem value="junior">Junior (0-2 years)</SelectItem>
-                                      <SelectItem value="mid">Mid-Level (2-5 years)</SelectItem>
-                                      <SelectItem value="senior">Senior (5-10 years)</SelectItem>
-                                      <SelectItem value="expert">Expert (10+ years)</SelectItem>
+                                      <SelectItem value="junior">{t('profileCompletion.experienceLevels.junior')}</SelectItem>
+                                      <SelectItem value="mid">{t('profileCompletion.experienceLevels.mid')}</SelectItem>
+                                      <SelectItem value="senior">{t('profileCompletion.experienceLevels.senior')}</SelectItem>
+                                      <SelectItem value="expert">{t('profileCompletion.experienceLevels.expert')}</SelectItem>
                                     </SelectContent>
                                   </Select>
                                   <FormMessage />
@@ -631,12 +638,12 @@ export default function ProfileCompletion() {
                         name="website"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Website</FormLabel>
+                            <FormLabel>{t('profileCompletion.fields.website')}</FormLabel>
                             <FormControl>
                               <Input
                                 {...field}
                                 type="url"
-                                placeholder="https://example.com"
+                                placeholder={t('profileCompletion.placeholders.website')}
                                 data-testid="input-website"
                               />
                             </FormControl>
@@ -650,9 +657,13 @@ export default function ProfileCompletion() {
                         name="location"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Location</FormLabel>
+                            <FormLabel>{t('profileCompletion.fields.location')}</FormLabel>
                             <FormControl>
-                              <Input {...field} placeholder="City, Country" data-testid="input-location" />
+                              <Input 
+                                {...field} 
+                                placeholder={t('profileCompletion.placeholders.location')} 
+                                data-testid="input-location" 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -673,7 +684,7 @@ export default function ProfileCompletion() {
                           }}
                           data-testid="button-back-business"
                         >
-                          Back
+                          {t('profileCompletion.back')}
                         </Button>
                         <Button
                           type="submit"
@@ -683,11 +694,11 @@ export default function ProfileCompletion() {
                           {updateBusinessMutation.isPending ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Saving...
+                              {t('profileCompletion.saving')}
                             </>
                           ) : (
                             <>
-                              Save & Continue
+                              {t('profileCompletion.saveContinue')}
                               <ArrowRight className="ml-2 h-4 w-4" />
                             </>
                           )}
@@ -705,10 +716,10 @@ export default function ProfileCompletion() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <CheckCircle2 className="h-6 w-6 text-primary" />
-                    Profile Complete
+                    {t('profileCompletion.profileComplete')}
                   </CardTitle>
                   <CardDescription>
-                    All sections completed. Submit your profile for admin review to activate your account.
+                    {t('profileCompletion.profileCompleteDescription')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -718,7 +729,7 @@ export default function ProfileCompletion() {
                     className="w-full md:w-auto bg-primary text-primary-foreground"
                     data-testid="button-submit-review"
                   >
-                    Submit for Review
+                    {t('profileCompletion.submitForReview')}
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </CardContent>

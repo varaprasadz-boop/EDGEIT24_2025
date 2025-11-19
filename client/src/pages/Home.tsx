@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link, useLocation, Redirect } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -63,21 +64,21 @@ function createPlanSlug(name: string): string {
 }
 
 // Helper to render plan badge
-function renderPlanBadge(plan: SubscriptionPlan) {
+function renderPlanBadge(plan: SubscriptionPlan, t: any) {
   if (plan.price === "0") {
-    return <Badge variant="outline" data-testid={`badge-${plan.audience}-${createPlanSlug(plan.name)}`}>Free</Badge>;
+    return <Badge variant="outline" data-testid={`badge-${plan.audience}-${createPlanSlug(plan.name)}`}>{t('home.engagementModels.free')}</Badge>;
   }
   if (plan.popular) {
-    return <Badge className="bg-primary text-primary-foreground" data-testid={`badge-${plan.audience}-${createPlanSlug(plan.name)}`}>Popular</Badge>;
+    return <Badge className="bg-primary text-primary-foreground" data-testid={`badge-${plan.audience}-${createPlanSlug(plan.name)}`}>{t('home.engagementModels.popular')}</Badge>;
   }
   if (plan.featured) {
-    return <Badge variant="outline" data-testid={`badge-${plan.audience}-${createPlanSlug(plan.name)}`}>Enterprise</Badge>;
+    return <Badge variant="outline" data-testid={`badge-${plan.audience}-${createPlanSlug(plan.name)}`}>{t('home.engagementModels.enterprise')}</Badge>;
   }
   return null;
 }
 
 // Render a single subscription plan card
-function PlanCard({ plan }: { plan: SubscriptionPlan }) {
+function PlanCard({ plan, t }: { plan: SubscriptionPlan; t: any }) {
   const slug = createPlanSlug(plan.name);
   const features = (plan.features as any)?.list || [];
   const isPopular = plan.popular;
@@ -94,7 +95,7 @@ function PlanCard({ plan }: { plan: SubscriptionPlan }) {
           <CardTitle className="text-2xl" data-testid={`text-${plan.audience}-${slug}-name`}>
             {plan.name}
           </CardTitle>
-          {renderPlanBadge(plan)}
+          {renderPlanBadge(plan, t)}
         </div>
         <CardDescription data-testid={`text-${plan.audience}-${slug}-desc`}>
           {plan.description}
@@ -103,7 +104,7 @@ function PlanCard({ plan }: { plan: SubscriptionPlan }) {
       <CardContent className="space-y-4">
         <div className="text-3xl font-bold" data-testid={`text-${plan.audience}-${slug}-price`}>
           ﷼ {formattedPrice}
-          <span className="text-base font-normal text-muted-foreground">/month</span>
+          <span className="text-base font-normal text-muted-foreground">{t('home.engagementModels.perMonth')}</span>
         </div>
         <ul className="space-y-3">
           {features.map((feature: any, idx: number) => (
@@ -122,7 +123,7 @@ function PlanCard({ plan }: { plan: SubscriptionPlan }) {
           variant={isPopular ? "default" : "outline"} 
           data-testid={`button-${plan.audience}-${slug}`}
         >
-          {priceNum === 0 ? "Get Started" : plan.featured ? "Contact Sales" : `Choose ${plan.name}`}
+          {priceNum === 0 ? t('home.engagementModels.getStarted') : plan.featured ? t('home.engagementModels.contactSales') : t('home.engagementModels.choose', { name: plan.name })}
         </Button>
       </CardContent>
     </Card>
@@ -155,6 +156,7 @@ function PlanCardSkeleton() {
 }
 
 export default function Home() {
+  const { t } = useTranslation();
   const { user, isAuthenticated, isLoading } = useAuthContext();
   const [, setLocation] = useLocation();
 
@@ -204,7 +206,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -224,39 +226,39 @@ export default function Home() {
           <div className="container mx-auto px-4 md:px-6 relative">
             <div className="max-w-4xl mx-auto text-center space-y-8">
               <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/20" data-testid="badge-hero">
-                B2B IT Marketplace
+                {t('home.hero.badge')}
               </Badge>
               <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tight" data-testid="text-hero-title">
-                Connect with Top IT Experts
+                {t('home.hero.title')}
               </h1>
               <p className="text-xl md:text-2xl text-white/60 max-w-2xl mx-auto" data-testid="text-hero-subtitle">
-                Post Requirements • Receive Competitive Bids • Get Your IT Projects Done
+                {t('home.hero.subtitle')}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <Button size="lg" asChild className="bg-primary text-primary-foreground text-lg" data-testid="button-hero-client">
                   <Link href="/register">
-                    I Need IT Services
+                    {t('home.hero.clientButton')}
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
                 <Button size="lg" variant="outline" asChild className="border-white/20 text-white text-lg" data-testid="button-hero-vendor">
                   <Link href="/register">
-                    I'm a Service Provider
+                    {t('home.hero.vendorButton')}
                   </Link>
                 </Button>
               </div>
               <div className="flex flex-wrap justify-center gap-6 md:gap-12 pt-8 text-white/60">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-primary" />
-                  <span className="text-sm" data-testid="text-trust-companies">Trusted by 500+ Companies</span>
+                  <span className="text-sm" data-testid="text-trust-companies">{t('home.hero.trustedCompanies')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-primary" />
-                  <span className="text-sm" data-testid="text-trust-experts">1000+ IT Experts</span>
+                  <span className="text-sm" data-testid="text-trust-experts">{t('home.hero.itExperts')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-primary" />
-                  <span className="text-sm" data-testid="text-trust-success">98% Success Rate</span>
+                  <span className="text-sm" data-testid="text-trust-success">{t('home.hero.successRate')}</span>
                 </div>
               </div>
             </div>
@@ -266,9 +268,9 @@ export default function Home() {
         <section className="py-20 bg-background">
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-how-title">How It Works</h2>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-how-title">{t('home.howItWorks.title')}</h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto" data-testid="text-how-subtitle">
-                Simple, transparent process to connect with the right IT professionals
+                {t('home.howItWorks.subtitle')}
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
@@ -277,11 +279,11 @@ export default function Home() {
                   <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                     <Upload className="h-8 w-8 text-primary" />
                   </div>
-                  <CardTitle data-testid="text-step-1-title">1. Post Your Requirement</CardTitle>
+                  <CardTitle data-testid="text-step-1-title">{t('home.howItWorks.step1.title')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-base" data-testid="text-step-1-desc">
-                    Describe your IT project needs, budget, and timeline. Our platform guides you through the process.
+                    {t('home.howItWorks.step1.description')}
                   </CardDescription>
                 </CardContent>
               </Card>
@@ -291,11 +293,11 @@ export default function Home() {
                   <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                     <MessageSquare className="h-8 w-8 text-primary" />
                   </div>
-                  <CardTitle data-testid="text-step-2-title">2. Review Competitive Bids</CardTitle>
+                  <CardTitle data-testid="text-step-2-title">{t('home.howItWorks.step2.title')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-base" data-testid="text-step-2-desc">
-                    Receive proposals from qualified vendors. Compare pricing, timelines, and expertise.
+                    {t('home.howItWorks.step2.description')}
                   </CardDescription>
                 </CardContent>
               </Card>
@@ -305,11 +307,11 @@ export default function Home() {
                   <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                     <CheckCircle2 className="h-8 w-8 text-primary" />
                   </div>
-                  <CardTitle data-testid="text-step-3-title">3. Award & Deliver</CardTitle>
+                  <CardTitle data-testid="text-step-3-title">{t('home.howItWorks.step3.title')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-base" data-testid="text-step-3-desc">
-                    Select the best vendor, collaborate seamlessly, and get your project completed successfully.
+                    {t('home.howItWorks.step3.description')}
                   </CardDescription>
                 </CardContent>
               </Card>
@@ -320,16 +322,16 @@ export default function Home() {
         <section className="py-20 bg-background">
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-8">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-engagement-title">Engagement Models</h2>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-engagement-title">{t('home.engagementModels.title')}</h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8" data-testid="text-engagement-subtitle">
-                Choose the perfect plan for your business needs
+                {t('home.engagementModels.subtitle')}
               </p>
             </div>
             
             <Tabs defaultValue="clients" className="max-w-6xl mx-auto">
               <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-12" data-testid="tabs-engagement">
-                <TabsTrigger value="clients" data-testid="tab-clients">For Clients</TabsTrigger>
-                <TabsTrigger value="consultants" data-testid="tab-consultants">For Consultants</TabsTrigger>
+                <TabsTrigger value="clients" data-testid="tab-clients">{t('home.engagementModels.forClients')}</TabsTrigger>
+                <TabsTrigger value="consultants" data-testid="tab-consultants">{t('home.engagementModels.forConsultants')}</TabsTrigger>
               </TabsList>
               
               <TabsContent value="clients" data-testid="content-clients">
@@ -341,13 +343,13 @@ export default function Home() {
                   </div>
                 ) : plansError ? (
                   <Card className="p-8 text-center">
-                    <p className="text-muted-foreground mb-4">Failed to load subscription plans</p>
-                    <Button onClick={() => window.location.reload()}>Retry</Button>
+                    <p className="text-muted-foreground mb-4">{t('home.engagementModels.failedToLoad')}</p>
+                    <Button onClick={() => window.location.reload()}>{t('home.engagementModels.retry')}</Button>
                   </Card>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {clientPlans.map(plan => (
-                      <PlanCard key={plan.id} plan={plan} />
+                      <PlanCard key={plan.id} plan={plan} t={t} />
                     ))}
                   </div>
                 )}
@@ -362,13 +364,13 @@ export default function Home() {
                   </div>
                 ) : plansError ? (
                   <Card className="p-8 text-center">
-                    <p className="text-muted-foreground mb-4">Failed to load subscription plans</p>
-                    <Button onClick={() => window.location.reload()}>Retry</Button>
+                    <p className="text-muted-foreground mb-4">{t('home.engagementModels.failedToLoad')}</p>
+                    <Button onClick={() => window.location.reload()}>{t('home.engagementModels.retry')}</Button>
                   </Card>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {consultantPlans.map(plan => (
-                      <PlanCard key={plan.id} plan={plan} />
+                      <PlanCard key={plan.id} plan={plan} t={t} />
                     ))}
                   </div>
                 )}
@@ -380,9 +382,9 @@ export default function Home() {
         <section className="py-20 bg-muted/30">
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-services-title">Services We Offer</h2>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-services-title">{t('home.services.title')}</h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto" data-testid="text-services-subtitle">
-                Comprehensive IT solutions across all major technology domains
+                {t('home.services.subtitle')}
               </p>
             </div>
             
@@ -427,7 +429,7 @@ export default function Home() {
                             data-testid={`button-explore-${category.slug}`}
                           >
                             <Link href={`/services/${category.slug}`}>
-                              Explore Services <ArrowRight className="ml-auto h-4 w-4" />
+                              {t('home.services.exploreServices')} <ArrowRight className="ml-auto h-4 w-4" />
                             </Link>
                           </Button>
                           <Button
@@ -437,7 +439,7 @@ export default function Home() {
                             data-testid={`button-find-consultant-${category.slug}`}
                           >
                             <Link href={`/browse-consultants?category=${category.id}`}>
-                              Find Consultant <Users className="ml-auto h-4 w-4" />
+                              {t('home.services.findConsultant')} <Users className="ml-auto h-4 w-4" />
                             </Link>
                           </Button>
                         </div>
@@ -453,9 +455,9 @@ export default function Home() {
         <section className="py-20 bg-background">
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-vendors-title">Top-Rated Service Providers</h2>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-vendors-title">{t('home.vendors.title')}</h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto" data-testid="text-vendors-subtitle">
-                Connect with experienced professionals who deliver excellence
+                {t('home.vendors.subtitle')}
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
@@ -477,7 +479,7 @@ export default function Home() {
                         <div className="flex items-center gap-1 mt-1">
                           <Star className="h-4 w-4 fill-primary text-primary" />
                           <span className="text-sm font-medium" data-testid={`text-rating-${idx}`}>{vendor.rating}</span>
-                          <span className="text-sm text-muted-foreground" data-testid={`text-projects-${idx}`}>({vendor.projects} projects)</span>
+                          <span className="text-sm text-muted-foreground" data-testid={`text-projects-${idx}`}>({t('home.vendors.projects', { count: vendor.projects })})</span>
                         </div>
                       </div>
                     </div>
@@ -491,7 +493,7 @@ export default function Home() {
                       ))}
                     </div>
                     <Button className="w-full mt-4" variant="outline" data-testid={`button-view-profile-${idx}`}>
-                      View Profile
+                      {t('home.vendors.viewProfile')}
                     </Button>
                   </CardContent>
                 </Card>
@@ -499,7 +501,7 @@ export default function Home() {
             </div>
             <div className="text-center mt-8">
               <Button size="lg" variant="outline" data-testid="button-view-all-vendors">
-                View All Service Providers <ArrowRight className="ml-2 h-5 w-5" />
+                {t('home.vendors.viewAll')} <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </div>
           </div>
@@ -513,28 +515,28 @@ export default function Home() {
                   <TrendingUp className="h-6 w-6 text-primary" />
                   <div className="text-4xl font-bold text-primary" data-testid="text-stat-projects-value">5000+</div>
                 </div>
-                <p className="text-muted-foreground" data-testid="text-stat-projects-label">Projects Completed</p>
+                <p className="text-muted-foreground" data-testid="text-stat-projects-label">{t('home.stats.projectsCompleted')}</p>
               </div>
               <div data-testid="stat-vendors">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Users className="h-6 w-6 text-primary" />
                   <div className="text-4xl font-bold text-primary" data-testid="text-stat-vendors-value">1200+</div>
                 </div>
-                <p className="text-muted-foreground" data-testid="text-stat-vendors-label">Active Vendors</p>
+                <p className="text-muted-foreground" data-testid="text-stat-vendors-label">{t('home.stats.activeVendors')}</p>
               </div>
               <div data-testid="stat-success">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Shield className="h-6 w-6 text-primary" />
                   <div className="text-4xl font-bold text-primary" data-testid="text-stat-success-value">98%</div>
                 </div>
-                <p className="text-muted-foreground" data-testid="text-stat-success-label">Success Rate</p>
+                <p className="text-muted-foreground" data-testid="text-stat-success-label">{t('home.stats.successRate')}</p>
               </div>
               <div data-testid="stat-transactions">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Zap className="h-6 w-6 text-primary" />
                   <div className="text-4xl font-bold text-primary" data-testid="text-stat-transactions-value">$2M+</div>
                 </div>
-                <p className="text-muted-foreground" data-testid="text-stat-transactions-label">Total Transactions</p>
+                <p className="text-muted-foreground" data-testid="text-stat-transactions-label">{t('home.stats.totalTransactions')}</p>
               </div>
             </div>
           </div>
@@ -543,9 +545,9 @@ export default function Home() {
         <section className="py-20 bg-background">
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-testimonials-title">What Our Clients Say</h2>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-testimonials-title">{t('home.testimonials.title')}</h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto" data-testid="text-testimonials-subtitle">
-                Trusted by businesses worldwide for quality IT solutions
+                {t('home.testimonials.subtitle')}
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
@@ -602,21 +604,21 @@ export default function Home() {
           <div className="container mx-auto px-4 md:px-6">
             <div className="max-w-3xl mx-auto text-center space-y-6">
               <h2 className="text-3xl md:text-4xl font-bold" data-testid="text-cta-title">
-                Ready to Start Your Next IT Project?
+                {t('home.cta.title')}
               </h2>
               <p className="text-xl text-white/60" data-testid="text-cta-subtitle">
-                Join thousands of satisfied clients and vendors on EDGEIT24
+                {t('home.cta.subtitle')}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <Button size="lg" asChild className="bg-primary text-primary-foreground text-lg" data-testid="button-cta-post">
                   <Link href="/post-requirement">
-                    Post Your Requirement Now
+                    {t('home.cta.postButton')}
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
                 <Button size="lg" variant="outline" asChild className="border-white/20 text-white text-lg" data-testid="button-cta-browse">
                   <Link href="/browse">
-                    Browse Available Projects
+                    {t('home.cta.browseButton')}
                   </Link>
                 </Button>
               </div>

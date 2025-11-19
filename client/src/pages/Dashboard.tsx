@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { UserLayout } from "@/components/UserLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -87,6 +88,7 @@ interface QuoteRequest {
 }
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const { user, isLoading, getSelectedRole } = useAuthContext();
   const selectedRole = getSelectedRole();
   const [, setLocation] = useLocation();
@@ -239,8 +241,8 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/quotes'] });
       toast({ 
-        title: "Response sent", 
-        description: "Your quote response has been sent to the client." 
+        title: t('consultantDashboard.quoteResponseDialog.successTitle', { defaultValue: 'Response sent' }), 
+        description: t('consultantDashboard.quoteResponseDialog.successDescription', { defaultValue: 'Your quote response has been sent to the client.' }) 
       });
       setResponseDialogOpen(false);
       setSelectedQuote(null);
@@ -249,8 +251,8 @@ export default function Dashboard() {
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to send response. Please try again.",
+        title: t('common.error', { defaultValue: 'Error' }),
+        description: error.message || t('consultantDashboard.quoteResponseDialog.errorDescription', { defaultValue: 'Failed to send response. Please try again.' }),
         variant: "destructive"
       });
     }
@@ -268,7 +270,7 @@ export default function Dashboard() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -278,9 +280,9 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-muted-foreground">Please sign in to view your dashboard</p>
+          <p className="text-muted-foreground">{t('clientDashboard.pleaseSignIn', { defaultValue: 'Please sign in to view your dashboard' })}</p>
           <Button asChild className="mt-4 bg-primary text-primary-foreground">
-            <a href="/api/login">Sign In</a>
+            <a href="/api/login">{t('auth.login')}</a>
           </Button>
         </div>
       </div>
@@ -299,9 +301,9 @@ export default function Dashboard() {
           <CardContent className="flex items-center gap-3 p-4">
             <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
             <div className="flex-1">
-              <p className="font-medium text-primary">Profile Approved</p>
+              <p className="font-medium text-primary">{t('profileApproval.approved.title')}</p>
               <p className="text-sm text-muted-foreground">
-                Your unique ID: <span className="font-mono font-semibold text-foreground">{profileStatus.uniqueId}</span>
+                {t('profileApproval.approved.uniqueId', { id: profileStatus.uniqueId })}
               </p>
             </div>
           </CardContent>
@@ -315,9 +317,9 @@ export default function Dashboard() {
           <CardContent className="flex items-center gap-3 p-4">
             <Clock className="h-5 w-5 text-amber-600 flex-shrink-0" />
             <div className="flex-1">
-              <p className="font-medium text-amber-700 dark:text-amber-500">Awaiting Admin Review</p>
+              <p className="font-medium text-amber-700 dark:text-amber-500">{t('profileApproval.pending.title')}</p>
               <p className="text-sm text-muted-foreground">
-                Your profile has been submitted for review. We'll notify you once it's approved.
+                {t('profileApproval.pending.description')}
               </p>
             </div>
           </CardContent>
@@ -331,10 +333,10 @@ export default function Dashboard() {
           <CardContent className="flex items-center gap-3 p-4">
             <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
             <div className="flex-1">
-              <p className="font-medium text-destructive">Profile Rejected</p>
+              <p className="font-medium text-destructive">{t('profileApproval.rejected.title')}</p>
               {profileStatus.adminNotes && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  Reason: {profileStatus.adminNotes}
+                  {t('profileApproval.rejected.reason', { notes: profileStatus.adminNotes })}
                 </p>
               )}
               <Button 
@@ -343,7 +345,7 @@ export default function Dashboard() {
                 onClick={() => setLocation(profileRoute)}
                 data-testid="button-update-profile"
               >
-                Update & Resubmit
+                {t('profileApproval.rejected.updateButton')}
               </Button>
             </div>
           </CardContent>
@@ -358,10 +360,10 @@ export default function Dashboard() {
           <CardContent className="flex items-center gap-3 p-4">
             <UserCircle className="h-5 w-5 text-blue-600 flex-shrink-0" />
             <div className="flex-1">
-              <p className="font-medium text-blue-700 dark:text-blue-500">Complete Your Profile</p>
+              <p className="font-medium text-blue-700 dark:text-blue-500">{t('profileApproval.incomplete.title')}</p>
               <div className="mt-2 space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Profile completion</span>
+                  <span className="text-muted-foreground">{t('profileApproval.incomplete.completion')}</span>
                   <span className="font-medium">{profileStatus.completionPercentage}%</span>
                 </div>
                 <Progress value={profileStatus.completionPercentage} className="h-2" />
@@ -372,7 +374,7 @@ export default function Dashboard() {
                 onClick={() => setLocation(profileRoute)}
                 data-testid="button-complete-profile-banner"
               >
-                Complete Profile
+                {t('profileApproval.incomplete.completeButton')}
               </Button>
             </div>
           </CardContent>
@@ -399,10 +401,10 @@ export default function Dashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <AlertCircle className="h-5 w-5" />
-                Failed to Load Dashboard
+                {t('clientDashboard.errorLoadFailed', { defaultValue: 'Failed to Load Dashboard' })}
               </CardTitle>
               <CardDescription>
-                Unable to fetch your dashboard statistics. Please try refreshing.
+                {t('clientDashboard.errorLoadDescription', { defaultValue: 'Unable to fetch your dashboard statistics. Please try refreshing.' })}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -411,7 +413,7 @@ export default function Dashboard() {
                 className="w-full bg-primary text-primary-foreground"
                 data-testid="button-retry-dashboard"
               >
-                Retry
+                {t('common.retry', { defaultValue: 'Retry' })}
               </Button>
             </CardContent>
           </Card>
@@ -422,9 +424,9 @@ export default function Dashboard() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">Client Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">{t('clientDashboard.title')}</h1>
           <p className="text-muted-foreground" data-testid="text-dashboard-subtitle">
-            Manage your projects and find the right IT professionals
+            {t('clientDashboard.subtitle')}
           </p>
         </div>
 
@@ -433,7 +435,7 @@ export default function Dashboard() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card data-testid="card-stat-active-jobs">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Jobs</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('clientDashboard.stats.activeJobs')}</CardTitle>
               <Briefcase className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -441,14 +443,14 @@ export default function Dashboard() {
                 {clientStats?.activeJobs || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {clientStats?.activeJobs ? 'Currently open' : 'No active postings'}
+                {t('clientDashboard.stats.activeJobsDesc', { count: clientStats?.activeJobs || 0 })}
               </p>
             </CardContent>
           </Card>
 
           <Card data-testid="card-stat-proposals">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Proposals Received</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('clientDashboard.stats.proposalsReceived')}</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -456,14 +458,14 @@ export default function Dashboard() {
                 {clientStats?.bidsReceived || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {clientStats?.bidsReceived ? 'Awaiting your review' : 'No proposals yet'}
+                {t('clientDashboard.stats.proposalsDesc', { count: clientStats?.bidsReceived || 0 })}
               </p>
             </CardContent>
           </Card>
 
           <Card data-testid="card-stat-active-projects">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('clientDashboard.stats.activeProjects')}</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -471,27 +473,27 @@ export default function Dashboard() {
                 {clientStats?.activeProjects || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {clientStats?.activeProjects ? 'In progress' : 'No active projects'}
+                {t('clientDashboard.stats.activeProjectsDesc', { count: clientStats?.activeProjects || 0 })}
               </p>
             </CardContent>
           </Card>
 
           <Card data-testid="card-stat-spending">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Spending</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('clientDashboard.stats.totalSpending')}</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-spending">
                 ﷼ {parseFloat(clientStats?.allTimeSpending || "0").toFixed(2)}
               </div>
-              <p className="text-xs text-muted-foreground">All time</p>
+              <p className="text-xs text-muted-foreground">{t('clientDashboard.stats.allTime')}</p>
             </CardContent>
           </Card>
 
           <Card data-testid="card-stat-completed-projects">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Completed Projects</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('clientDashboard.stats.completedProjects')}</CardTitle>
               <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -499,14 +501,14 @@ export default function Dashboard() {
                 {clientStats?.completedProjects || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {clientStats?.completedProjects ? 'Successfully completed' : 'No completed projects'}
+                {t('clientDashboard.stats.completedDesc', { count: clientStats?.completedProjects || 0 })}
               </p>
             </CardContent>
           </Card>
 
           <Card data-testid="card-stat-response-time">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('clientDashboard.stats.avgResponseTime')}</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -514,7 +516,7 @@ export default function Dashboard() {
                 {parseFloat(clientStats?.avgResponseTime || "0").toFixed(1)}h
               </div>
               <p className="text-xs text-muted-foreground">
-                {parseFloat(clientStats?.avgResponseTime || "0") > 0 ? 'To respond to bids' : 'No data yet'}
+                {t('clientDashboard.stats.responseTimeDesc', { hours: parseFloat(clientStats?.avgResponseTime || "0") })}
               </p>
             </CardContent>
           </Card>
@@ -523,8 +525,8 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card data-testid="card-quick-actions">
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Get started with posting your first job</CardDescription>
+            <CardTitle>{t('clientDashboard.quickActions.title')}</CardTitle>
+            <CardDescription>{t('clientDashboard.quickActions.description')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <Button 
@@ -533,7 +535,7 @@ export default function Dashboard() {
               data-testid="button-post-job"
             >
               <Briefcase className="mr-2 h-4 w-4" />
-              Post a New Job
+              {t('clientDashboard.quickActions.postJob')}
               <ArrowRight className="ml-auto h-4 w-4" />
             </Button>
             <Button 
@@ -543,12 +545,12 @@ export default function Dashboard() {
               data-testid="button-browse-vendors"
             >
               <Users className="mr-2 h-4 w-4" />
-              Browse Vendors
+              {t('clientDashboard.quickActions.browseVendors')}
               <ArrowRight className="ml-auto h-4 w-4" />
             </Button>
             <Button variant="outline" className="w-full justify-start" data-testid="button-view-messages">
               <MessageSquare className="mr-2 h-4 w-4" />
-              View Messages
+              {t('clientDashboard.quickActions.viewMessages')}
               <ArrowRight className="ml-auto h-4 w-4" />
             </Button>
           </CardContent>
@@ -556,15 +558,15 @@ export default function Dashboard() {
 
         <Card data-testid="card-pending-actions">
           <CardHeader>
-            <CardTitle>Pending Actions</CardTitle>
-            <CardDescription>Items requiring your attention</CardDescription>
+            <CardTitle>{t('clientDashboard.pendingActions.title')}</CardTitle>
+            <CardDescription>{t('clientDashboard.pendingActions.description')}</CardDescription>
           </CardHeader>
           <CardContent>
             {!pendingActions?.actions || pendingActions.actions.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground" data-testid="text-no-actions">
                 <CheckCircle2 className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>All caught up!</p>
-                <p className="text-sm">No pending actions at this time</p>
+                <p>{t('clientDashboard.pendingActions.allCaughtUp')}</p>
+                <p className="text-sm">{t('clientDashboard.pendingActions.noActions')}</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-[300px] overflow-y-auto">
@@ -601,14 +603,14 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card data-testid="card-recent-activities">
           <CardHeader>
-            <CardTitle>Recent Activities</CardTitle>
-            <CardDescription>Your latest platform activities</CardDescription>
+            <CardTitle>{t('clientDashboard.recentActivity.title')}</CardTitle>
+            <CardDescription>{t('clientDashboard.recentActivity.description')}</CardDescription>
           </CardHeader>
           <CardContent>
             {!recentActivities?.activities || recentActivities.activities.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground" data-testid="text-no-activities">
                 <Clock className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No recent activities</p>
+                <p>{t('clientDashboard.recentActivity.noActivities')}</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-[400px] overflow-y-auto">
@@ -655,14 +657,14 @@ export default function Dashboard() {
 
         <Card data-testid="card-spending-trends">
           <CardHeader>
-            <CardTitle>Spending Trends</CardTitle>
-            <CardDescription>Last 6 months</CardDescription>
+            <CardTitle>{t('clientDashboard.financialTrends.title')}</CardTitle>
+            <CardDescription>{t('clientDashboard.financialTrends.description')}</CardDescription>
           </CardHeader>
           <CardContent>
             {!financialTrends?.trends || financialTrends.trends.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No spending data yet</p>
+                <p>{t('clientDashboard.financialTrends.noData')}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -694,15 +696,15 @@ export default function Dashboard() {
 
       <Card data-testid="card-active-projects-summary">
         <CardHeader>
-          <CardTitle>Active Projects</CardTitle>
-          <CardDescription>Projects currently in progress</CardDescription>
+          <CardTitle>{t('clientDashboard.activeProjects.title')}</CardTitle>
+          <CardDescription>{t('clientDashboard.activeProjects.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           {!activeProjectsSummary?.projects || activeProjectsSummary.projects.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground" data-testid="text-no-active-projects">
               <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>No active projects</p>
-              <p className="text-sm">Start by posting a job and hiring a consultant</p>
+              <p>{t('clientDashboard.activeProjects.noProjects')}</p>
+              <p className="text-sm">{t('clientDashboard.activeProjects.noProjectsDesc')}</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -718,7 +720,7 @@ export default function Dashboard() {
                         {project.title}
                       </h4>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Consultant: {project.consultantName}
+                        {t('clientDashboard.activeProjects.consultant', { defaultValue: 'Consultant' })}: {project.consultantName}
                       </p>
                       <div className="flex items-center gap-4 mt-2">
                         <Badge variant="secondary">{project.status.replace('_', ' ')}</Badge>
@@ -727,7 +729,7 @@ export default function Dashboard() {
                     </div>
                     {project.deadline && (
                       <div className="text-right">
-                        <p className="text-xs text-muted-foreground">Deadline</p>
+                        <p className="text-xs text-muted-foreground">{t('clientDashboard.activeProjects.deadline')}</p>
                         <p className="text-sm font-medium">
                           {new Date(project.deadline).toLocaleDateString()}
                         </p>
@@ -737,7 +739,7 @@ export default function Dashboard() {
                   {project.progress !== undefined && (
                     <div className="mt-3 space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Progress</span>
+                        <span className="text-muted-foreground">{t('clientDashboard.activeProjects.progress')}</span>
                         <span className="font-medium">{Math.round(project.progress)}%</span>
                       </div>
                       <Progress value={project.progress} className="h-2" />
@@ -769,10 +771,10 @@ export default function Dashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <AlertCircle className="h-5 w-5" />
-                Failed to Load Dashboard
+                {t('consultantDashboard.errorLoadFailed', { defaultValue: 'Failed to Load Dashboard' })}
               </CardTitle>
               <CardDescription>
-                Unable to fetch your dashboard statistics. Please try refreshing.
+                {t('consultantDashboard.errorLoadDescription', { defaultValue: 'Unable to fetch your dashboard statistics. Please try refreshing.' })}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -781,7 +783,7 @@ export default function Dashboard() {
                 className="w-full bg-primary text-primary-foreground"
                 data-testid="button-retry-dashboard"
               >
-                Retry
+                {t('common.retry', { defaultValue: 'Retry' })}
               </Button>
             </CardContent>
           </Card>
@@ -792,9 +794,9 @@ export default function Dashboard() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">Consultant Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">{t('consultantDashboard.title')}</h1>
           <p className="text-muted-foreground" data-testid="text-dashboard-subtitle">
-            Find opportunities and manage your bids
+            {t('consultantDashboard.subtitle')}
           </p>
         </div>
 
@@ -803,7 +805,7 @@ export default function Dashboard() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card data-testid="card-stat-available-jobs">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Available Jobs</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('consultantDashboard.stats.availableJobs')}</CardTitle>
               <Briefcase className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -811,14 +813,14 @@ export default function Dashboard() {
                 {consultantStats?.availableJobs || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {consultantStats?.availableJobs ? 'Matching your skills' : 'No jobs available'}
+                {t('consultantDashboard.stats.availableJobsDesc', { count: consultantStats?.availableJobs || 0 })}
               </p>
             </CardContent>
           </Card>
 
           <Card data-testid="card-stat-active-bids">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Bids</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('consultantDashboard.stats.activeBids')}</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -826,27 +828,27 @@ export default function Dashboard() {
                 {consultantStats?.activeBids || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {consultantStats?.activeBids ? 'Awaiting client review' : 'No active bids'}
+                {t('consultantDashboard.stats.activeBidsDesc', { count: consultantStats?.activeBids || 0 })}
               </p>
             </CardContent>
           </Card>
 
           <Card data-testid="card-stat-earnings">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('consultantDashboard.stats.allTimeEarnings')}</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-earnings">
                 ﷼ {parseFloat(consultantStats?.allTimeEarnings || "0").toFixed(2)}
               </div>
-              <p className="text-xs text-muted-foreground">All time</p>
+              <p className="text-xs text-muted-foreground">{t('consultantDashboard.stats.allTime', { defaultValue: 'All time' })}</p>
             </CardContent>
           </Card>
 
           <Card data-testid="card-stat-rating">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Rating</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('consultantDashboard.stats.averageRating')}</CardTitle>
               <Star className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -854,14 +856,14 @@ export default function Dashboard() {
                 {parseFloat(consultantStats?.averageRating || "0").toFixed(1) || '-'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {consultantStats && parseFloat(consultantStats.averageRating) > 0 ? 'Average rating' : 'No reviews yet'}
+                {t('consultantDashboard.stats.ratingDesc', { hasRating: consultantStats && parseFloat(consultantStats.averageRating) > 0 })}
               </p>
             </CardContent>
           </Card>
 
           <Card data-testid="card-stat-completed-projects">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Completed Projects</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('consultantDashboard.stats.completedProjects')}</CardTitle>
               <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -869,7 +871,7 @@ export default function Dashboard() {
                 {consultantStats?.completedProjects || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {consultantStats?.completedProjects ? 'Successfully completed' : 'No completed projects'}
+                {t('consultantDashboard.stats.completedDesc', { count: consultantStats?.completedProjects || 0 })}
               </p>
             </CardContent>
           </Card>
@@ -880,8 +882,8 @@ export default function Dashboard() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Overall Performance Score</CardTitle>
-                  <CardDescription>Calculated from ratings, completion rate, and response time</CardDescription>
+                  <CardTitle>{t('consultantDashboard.performanceMetrics.title')}</CardTitle>
+                  <CardDescription>{t('consultantDashboard.performanceMetrics.description')}</CardDescription>
                 </div>
                 <div className="text-4xl font-bold text-primary" data-testid="text-performance-score">
                   {performanceScore.score.toFixed(0)}
@@ -892,7 +894,7 @@ export default function Dashboard() {
             <CardContent>
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium w-32">Rating Score</span>
+                  <span className="text-sm font-medium w-32">{t('consultantDashboard.performanceMetrics.ratingScore')}</span>
                   <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-primary" 
@@ -905,7 +907,7 @@ export default function Dashboard() {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium w-32">Completion Score</span>
+                  <span className="text-sm font-medium w-32">{t('consultantDashboard.performanceMetrics.completionScore')}</span>
                   <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-primary" 
@@ -918,7 +920,7 @@ export default function Dashboard() {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium w-32">Response Score</span>
+                  <span className="text-sm font-medium w-32">{t('consultantDashboard.performanceMetrics.responseScore')}</span>
                   <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-primary" 
@@ -940,9 +942,9 @@ export default function Dashboard() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Package className="h-5 w-5 text-primary" />
-                  Incoming Quote Requests
+                  {t('consultantDashboard.quoteRequests.title')}
                 </CardTitle>
-                <CardDescription>Respond to client quote requests for your service packages</CardDescription>
+                <CardDescription>{t('consultantDashboard.quoteRequests.description')}</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -950,8 +952,8 @@ export default function Dashboard() {
             {!quoteRequests || quoteRequests.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground" data-testid="text-no-quote-requests">
                 <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No quote requests yet</p>
-                <p className="text-sm">Quote requests from clients will appear here</p>
+                <p>{t('consultantDashboard.quoteRequests.noRequests')}</p>
+                <p className="text-sm">{t('consultantDashboard.quoteRequests.noRequestsDesc')}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -990,7 +992,7 @@ export default function Dashboard() {
                           </div>
                           {quote.client && (
                             <p className="text-xs text-muted-foreground mb-1" data-testid={`quote-client-${quote.id}`}>
-                              Client: {quote.client.fullName}
+                              {t('consultantDashboard.quoteRequests.client')}: {quote.client.fullName}
                               {quote.client.companyName && ` (${quote.client.companyName})`}
                             </p>
                           )}
@@ -1012,7 +1014,7 @@ export default function Dashboard() {
                             }}
                             data-testid={`button-respond-quote-${quote.id}`}
                           >
-                            Respond
+                            {t('consultantDashboard.quoteRequests.respond')}
                           </Button>
                         )}
                         {quote.status === 'responded' && quote.quotedAmount && (
@@ -1026,7 +1028,7 @@ export default function Dashboard() {
                 })}
                 {quoteRequests.length > 5 && (
                   <p className="text-center text-sm text-muted-foreground pt-2">
-                    Showing 5 of {quoteRequests.length} requests
+                    {t('consultantDashboard.quoteRequests.showing', { showing: 5, total: quoteRequests.length })}
                   </p>
                 )}
               </div>
@@ -1037,16 +1039,16 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card data-testid="card-performance-metrics">
           <CardHeader>
-            <CardTitle>Performance Metrics</CardTitle>
-            <CardDescription>Your work quality and completion stats</CardDescription>
+            <CardTitle>{t('consultantDashboard.performanceMetrics.cardTitle', { defaultValue: 'Performance Metrics' })}</CardTitle>
+            <CardDescription>{t('consultantDashboard.performanceMetrics.cardDescription', { defaultValue: 'Your work quality and completion stats' })}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 rounded-md border">
                 <div>
-                  <p className="text-sm font-medium">Completion Rate</p>
+                  <p className="text-sm font-medium">{t('consultantDashboard.performanceMetrics.completionRate')}</p>
                   <p className="text-xs text-muted-foreground">
-                    {consultantMetrics?.completedProjects || 0} of {consultantMetrics?.totalProjects || 0} projects
+                    {t('consultantDashboard.performanceMetrics.projectsCompleted', { completed: consultantMetrics?.completedProjects || 0, total: consultantMetrics?.totalProjects || 0 })}
                   </p>
                 </div>
                 <div className="text-2xl font-bold text-primary" data-testid="text-completion-rate">
@@ -1056,7 +1058,7 @@ export default function Dashboard() {
 
               {consultantReviewStats && consultantReviewStats.totalReviews > 0 ? (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Rating Breakdown</p>
+                  <p className="text-sm font-medium">{t('consultantDashboard.performanceMetrics.ratingBreakdown')}</p>
                   {[5, 4, 3, 2, 1].map((rating) => {
                     const count = consultantReviewStats.ratingBreakdown[rating] || 0;
                     const percentage = consultantReviewStats.totalReviews > 0 ? (count / consultantReviewStats.totalReviews) * 100 : 0;
@@ -1074,12 +1076,12 @@ export default function Dashboard() {
                     );
                   })}
                   <p className="text-xs text-muted-foreground text-center pt-1">
-                    Based on {consultantReviewStats.totalReviews} review{consultantReviewStats.totalReviews !== 1 ? 's' : ''}
+                    {t('consultantDashboard.performanceMetrics.basedOnReviews', { count: consultantReviewStats.totalReviews })}
                   </p>
                 </div>
               ) : (
                 <div className="text-center py-4 text-sm text-muted-foreground">
-                  No reviews yet
+                  {t('consultantDashboard.performanceMetrics.noReviews')}
                 </div>
               )}
             </div>
@@ -1088,8 +1090,8 @@ export default function Dashboard() {
 
         <Card data-testid="card-quick-actions">
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Find jobs and manage your work</CardDescription>
+            <CardTitle>{t('consultantDashboard.quickActions.title')}</CardTitle>
+            <CardDescription>{t('consultantDashboard.quickActions.description')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <Button 
@@ -1098,17 +1100,17 @@ export default function Dashboard() {
               data-testid="button-browse-jobs"
             >
               <Briefcase className="mr-2 h-4 w-4" />
-              Browse Available Jobs
+              {t('consultantDashboard.quickActions.browseJobs')}
               <ArrowRight className="ml-auto h-4 w-4" />
             </Button>
             <Button variant="outline" className="w-full justify-start" data-testid="button-view-bids">
               <FileText className="mr-2 h-4 w-4" />
-              View My Bids
+              {t('consultantDashboard.quickActions.viewBids')}
               <ArrowRight className="ml-auto h-4 w-4" />
             </Button>
             <Button variant="outline" className="w-full justify-start" data-testid="button-edit-profile">
               <Users className="mr-2 h-4 w-4" />
-              Edit Profile
+              {t('consultantDashboard.quickActions.editProfile')}
               <ArrowRight className="ml-auto h-4 w-4" />
             </Button>
           </CardContent>
@@ -1118,15 +1120,15 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card data-testid="card-pending-actions">
           <CardHeader>
-            <CardTitle>Pending Actions</CardTitle>
-            <CardDescription>Items requiring your attention</CardDescription>
+            <CardTitle>{t('consultantDashboard.pendingActions.title', { defaultValue: 'Pending Actions' })}</CardTitle>
+            <CardDescription>{t('consultantDashboard.pendingActions.description', { defaultValue: 'Items requiring your attention' })}</CardDescription>
           </CardHeader>
           <CardContent>
             {!pendingActions?.actions || pendingActions.actions.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground" data-testid="text-no-actions">
                 <CheckCircle2 className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>All caught up!</p>
-                <p className="text-sm">No pending actions at this time</p>
+                <p>{t('consultantDashboard.pendingActions.allCaughtUp', { defaultValue: 'All caught up!' })}</p>
+                <p className="text-sm">{t('consultantDashboard.pendingActions.noActions', { defaultValue: 'No pending actions at this time' })}</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-[300px] overflow-y-auto">
@@ -1161,14 +1163,14 @@ export default function Dashboard() {
 
         <Card data-testid="card-recent-activities">
           <CardHeader>
-            <CardTitle>Recent Activities</CardTitle>
-            <CardDescription>Your latest platform activities</CardDescription>
+            <CardTitle>{t('consultantDashboard.recentActivity.title', { defaultValue: 'Recent Activities' })}</CardTitle>
+            <CardDescription>{t('consultantDashboard.recentActivity.description', { defaultValue: 'Your latest platform activities' })}</CardDescription>
           </CardHeader>
           <CardContent>
             {!recentActivities?.activities || recentActivities.activities.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground" data-testid="text-no-activities">
                 <Clock className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No recent activities</p>
+                <p>{t('consultantDashboard.recentActivity.noActivities', { defaultValue: 'No recent activities' })}</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-[300px] overflow-y-auto">
@@ -1217,14 +1219,14 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card data-testid="card-earnings-trends">
           <CardHeader>
-            <CardTitle>Earnings Trends</CardTitle>
-            <CardDescription>Last 6 months</CardDescription>
+            <CardTitle>{t('consultantDashboard.earningsTrends.title')}</CardTitle>
+            <CardDescription>{t('consultantDashboard.earningsTrends.description')}</CardDescription>
           </CardHeader>
           <CardContent>
             {!financialTrends?.trends || financialTrends.trends.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No earnings data yet</p>
+                <p>{t('consultantDashboard.earningsTrends.noEarnings')}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1255,15 +1257,15 @@ export default function Dashboard() {
 
         <Card data-testid="card-active-projects-summary">
           <CardHeader>
-            <CardTitle>Active Projects</CardTitle>
-            <CardDescription>Projects you're currently working on</CardDescription>
+            <CardTitle>{t('consultantDashboard.activeProjects.title', { defaultValue: 'Active Projects' })}</CardTitle>
+            <CardDescription>{t('consultantDashboard.activeProjects.description', { defaultValue: "Projects you're currently working on" })}</CardDescription>
           </CardHeader>
           <CardContent>
             {!activeProjectsSummary?.projects || activeProjectsSummary.projects.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground" data-testid="text-no-active-projects">
                 <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No active projects</p>
-                <p className="text-sm">Projects you're hired for will appear here</p>
+                <p>{t('consultantDashboard.activeProjects.noProjects', { defaultValue: 'No active projects' })}</p>
+                <p className="text-sm">{t('consultantDashboard.activeProjects.noProjectsDesc', { defaultValue: "Projects you're hired for will appear here" })}</p>
               </div>
             ) : (
               <div className="space-y-4 max-h-[300px] overflow-y-auto">
@@ -1279,7 +1281,7 @@ export default function Dashboard() {
                           {project.title}
                         </h4>
                         <p className="text-sm text-muted-foreground mt-1">
-                          Client: {project.clientName}
+                          {t('consultantDashboard.activeProjects.client', { defaultValue: 'Client' })}: {project.clientName}
                         </p>
                         <div className="flex items-center gap-4 mt-2">
                           <Badge variant="secondary">{project.status.replace('_', ' ')}</Badge>
@@ -1288,7 +1290,7 @@ export default function Dashboard() {
                       </div>
                       {project.deadline && (
                         <div className="text-right">
-                          <p className="text-xs text-muted-foreground">Deadline</p>
+                          <p className="text-xs text-muted-foreground">{t('consultantDashboard.activeProjects.deadline', { defaultValue: 'Deadline' })}</p>
                           <p className="text-sm font-medium">
                             {new Date(project.deadline).toLocaleDateString()}
                           </p>
@@ -1298,7 +1300,7 @@ export default function Dashboard() {
                     {project.progress !== undefined && (
                       <div className="mt-3 space-y-1">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">Progress</span>
+                          <span className="text-muted-foreground">{t('consultantDashboard.activeProjects.progress', { defaultValue: 'Progress' })}</span>
                           <span className="font-medium">{Math.round(project.progress)}%</span>
                         </div>
                         <Progress value={project.progress} className="h-2" />
@@ -1317,16 +1319,16 @@ export default function Dashboard() {
       <Dialog open={responseDialogOpen} onOpenChange={setResponseDialogOpen}>
         <DialogContent data-testid="dialog-quote-response">
           <DialogHeader>
-            <DialogTitle>Respond to Quote Request</DialogTitle>
+            <DialogTitle>{t('consultantDashboard.quoteResponseDialog.title')}</DialogTitle>
             <DialogDescription>
-              Provide your quote response for {selectedQuote?.packageName}
+              {t('consultantDashboard.quoteResponseDialog.description', { packageName: selectedQuote?.packageName })}
             </DialogDescription>
           </DialogHeader>
           
           {selectedQuote && (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Client Request</Label>
+                <Label className="text-sm font-medium">{t('consultantDashboard.quoteResponseDialog.clientRequest')}</Label>
                 <p className="text-sm text-muted-foreground p-3 rounded-md border bg-muted/50" data-testid="text-quote-request-details">
                   {selectedQuote.projectDescription}
                 </p>
@@ -1334,11 +1336,11 @@ export default function Dashboard() {
 
               <div className="space-y-2">
                 <Label htmlFor="response-message">
-                  Response Message <span className="text-destructive">*</span>
+                  {t('consultantDashboard.quoteResponseDialog.responseMessage')} <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
                   id="response-message"
-                  placeholder="Describe your proposal, timeline, and what's included..."
+                  placeholder={t('consultantDashboard.quoteResponseDialog.responsePlaceholder')}
                   value={responseMessage}
                   onChange={(e) => setResponseMessage(e.target.value)}
                   rows={5}
@@ -1349,7 +1351,7 @@ export default function Dashboard() {
 
               <div className="space-y-2">
                 <Label htmlFor="quoted-amount">
-                  Quoted Amount (SAR) <span className="text-destructive">*</span>
+                  {t('consultantDashboard.quoteResponseDialog.quotedAmount')} <span className="text-destructive">*</span>
                 </Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -1384,14 +1386,14 @@ export default function Dashboard() {
               disabled={respondToQuoteMutation.isPending}
               data-testid="button-cancel-response"
             >
-              Cancel
+              {t('common.cancel', { defaultValue: 'Cancel' })}
             </Button>
             <Button
               onClick={() => {
                 if (!selectedQuote || !responseMessage.trim() || !quotedAmount || parseFloat(quotedAmount) <= 0) {
                   toast({
-                    title: "Validation Error",
-                    description: "Please provide both a response message and a valid quoted amount.",
+                    title: t('consultantDashboard.quoteResponseDialog.validationError'),
+                    description: t('consultantDashboard.quoteResponseDialog.validationErrorDesc'),
                     variant: "destructive"
                   });
                   return;
@@ -1405,7 +1407,7 @@ export default function Dashboard() {
               disabled={respondToQuoteMutation.isPending || !responseMessage.trim() || !quotedAmount}
               data-testid="button-submit-response"
             >
-              {respondToQuoteMutation.isPending ? "Sending..." : "Send Response"}
+              {respondToQuoteMutation.isPending ? t('consultantDashboard.quoteResponseDialog.sending') : t('consultantDashboard.quoteResponseDialog.sendResponse')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1417,9 +1419,9 @@ export default function Dashboard() {
   const renderDualRoleDashboard = () => (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">{t('dualRoleDashboard.title')}</h1>
         <p className="text-muted-foreground" data-testid="text-dashboard-subtitle">
-          You have both client and consultant access
+          {t('dualRoleDashboard.subtitle')}
         </p>
       </div>
 
@@ -1428,15 +1430,15 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Briefcase className="h-5 w-5 text-primary" />
-              Client Dashboard
+              {t('dualRoleDashboard.clientDashboard.title')}
             </CardTitle>
             <CardDescription>
-              Post jobs and manage projects
+              {t('dualRoleDashboard.clientDashboard.description')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button className="w-full bg-primary text-primary-foreground" data-testid="button-view-client">
-              View Client Dashboard
+              {t('dualRoleDashboard.clientDashboard.viewButton')}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </CardContent>
@@ -1446,15 +1448,15 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
-              Consultant Dashboard
+              {t('dualRoleDashboard.consultantDashboard.title')}
             </CardTitle>
             <CardDescription>
-              Find opportunities and submit bids
+              {t('dualRoleDashboard.consultantDashboard.description')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button className="w-full bg-primary text-primary-foreground" data-testid="button-view-consultant">
-              View Consultant Dashboard
+              {t('dualRoleDashboard.consultantDashboard.viewButton')}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </CardContent>
@@ -1471,10 +1473,10 @@ export default function Dashboard() {
         {selectedRole === 'consultant' && renderConsultantDashboard()}
         {!selectedRole && (
           <div className="text-center py-12">
-            <h1 className="text-2xl font-bold mb-4">Welcome to EDGEIT24!</h1>
-            <p className="text-muted-foreground mb-6">Please complete your profile to get started</p>
+            <h1 className="text-2xl font-bold mb-4">{t('common.welcome', { defaultValue: 'Welcome to EDGEIT24!' })}</h1>
+            <p className="text-muted-foreground mb-6">{t('common.completeProfile', { defaultValue: 'Please complete your profile to get started' })}</p>
             <Button className="bg-primary text-primary-foreground" data-testid="button-setup-profile">
-              Set Up Profile
+              {t('common.setupProfile', { defaultValue: 'Set Up Profile' })}
             </Button>
           </div>
         )}

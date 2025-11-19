@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Lock, CheckCircle2 } from "lucide-react";
 
 export default function ResetPassword() {
+  const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
@@ -28,12 +30,12 @@ export default function ResetPassword() {
     } else {
       toast({
         variant: "destructive",
-        title: "Invalid Link",
-        description: "No reset token found. Please request a new reset link.",
+        title: t('resetPassword.invalidLink'),
+        description: t('resetPassword.noTokenFound'),
       });
       setTimeout(() => setLocation("/forgot-password"), 2000);
     }
-  }, [toast, setLocation]);
+  }, [toast, setLocation, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,8 +43,8 @@ export default function ResetPassword() {
     if (!newPassword || !confirmPassword) {
       toast({
         variant: "destructive",
-        title: "Missing Information",
-        description: "Please fill in all fields",
+        title: t('resetPassword.missingInformation'),
+        description: t('resetPassword.fillAllFields'),
       });
       return;
     }
@@ -50,8 +52,8 @@ export default function ResetPassword() {
     if (newPassword.length < 6) {
       toast({
         variant: "destructive",
-        title: "Invalid Password",
-        description: "Password must be at least 6 characters long",
+        title: t('resetPassword.invalidPassword'),
+        description: t('resetPassword.passwordMinLength'),
       });
       return;
     }
@@ -59,8 +61,8 @@ export default function ResetPassword() {
     if (newPassword !== confirmPassword) {
       toast({
         variant: "destructive",
-        title: "Passwords Don't Match",
-        description: "Please make sure both passwords match",
+        title: t('resetPassword.passwordsDontMatch'),
+        description: t('resetPassword.passwordsMustMatch'),
       });
       return;
     }
@@ -76,24 +78,24 @@ export default function ResetPassword() {
       if (response.ok) {
         setResetSuccess(true);
         toast({
-          title: "Password Reset Successful",
-          description: "You can now log in with your new password.",
+          title: t('resetPassword.success'),
+          description: t('resetPassword.successDescription'),
         });
         setTimeout(() => setLocation("/login"), 3000);
       } else {
         const error = await response.json();
         toast({
           variant: "destructive",
-          title: "Reset Failed",
-          description: error.message || "Failed to reset password",
+          title: t('resetPassword.resetFailed'),
+          description: error.message || t('resetPassword.resetFailedDescription'),
         });
       }
     } catch (error) {
       console.error("Password reset error:", error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to reset password. Please try again.",
+        title: t('common.error'),
+        description: t('resetPassword.resetFailedDescription'),
       });
     } finally {
       setIsSubmitting(false);
@@ -105,7 +107,7 @@ export default function ResetPassword() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Validating reset link...</p>
+          <p className="text-muted-foreground">{t('resetPassword.validatingLink')}</p>
         </div>
       </div>
     );
@@ -119,20 +121,20 @@ export default function ResetPassword() {
         <div className="w-full max-w-md space-y-8">
           <div className="text-center">
             <h1 className="text-3xl md:text-4xl font-bold" data-testid="text-reset-password-title">
-              Reset Your Password
+              {t('resetPassword.title')}
             </h1>
             <p className="mt-2 text-muted-foreground" data-testid="text-reset-password-subtitle">
-              Enter your new password below
+              {t('resetPassword.subtitle')}
             </p>
           </div>
 
           <Card>
             <CardHeader>
-              <CardTitle>Create New Password</CardTitle>
+              <CardTitle>{t('resetPassword.cardTitle')}</CardTitle>
               <CardDescription>
                 {resetSuccess 
-                  ? "Your password has been reset successfully" 
-                  : "Choose a strong password for your account"}
+                  ? t('resetPassword.cardDescriptionSuccess')
+                  : t('resetPassword.cardDescription')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -142,26 +144,26 @@ export default function ResetPassword() {
                     <CheckCircle2 className="h-6 w-6 text-primary" />
                   </div>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Your password has been reset successfully. Redirecting to login...
+                    {t('resetPassword.redirectingToLogin')}
                   </p>
                   <Button
                     onClick={() => setLocation("/login")}
                     className="bg-primary text-primary-foreground"
                     data-testid="button-go-login"
                   >
-                    Go to Login
+                    {t('resetPassword.goToLogin')}
                   </Button>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="newPassword">New Password</Label>
+                    <Label htmlFor="newPassword">{t('resetPassword.newPassword')}</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="newPassword"
                         type="password"
-                        placeholder="Enter new password"
+                        placeholder={t('resetPassword.enterNewPassword')}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         className="pl-10"
@@ -171,18 +173,18 @@ export default function ResetPassword() {
                       />
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Password must be at least 6 characters long
+                      {t('resetPassword.passwordHelperText')}
                     </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <Label htmlFor="confirmPassword">{t('resetPassword.confirmPassword')}</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="confirmPassword"
                         type="password"
-                        placeholder="Confirm new password"
+                        placeholder={t('resetPassword.confirmNewPassword')}
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         className="pl-10"
@@ -204,11 +206,11 @@ export default function ResetPassword() {
                       {isSubmitting ? (
                         <>
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Resetting Password...
+                          {t('resetPassword.resetting')}
                         </>
                       ) : (
                         <>
-                          Reset Password
+                          {t('resetPassword.resetButton')}
                         </>
                       )}
                     </Button>
