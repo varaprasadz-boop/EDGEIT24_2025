@@ -6,6 +6,7 @@ import { insertConsultantProfileSchema, insertPricingTemplateSchema, type Consul
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useLocation, Link } from "wouter";
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,6 +87,7 @@ export default function ConsultantProfile() {
   const { user, isLoading: authLoading, getSelectedRole } = useAuthContext();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [portfolioItems, setPortfolioItems] = useReactState<PortfolioItem[]>([]);
@@ -148,8 +150,8 @@ export default function ConsultantProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant/pricing-templates'] });
       toast({
-        title: "Template created",
-        description: "Pricing template created successfully.",
+        title: t('common.success'),
+        description: t('consultantProfile.pricingTemplates.templateCreated'),
       });
     },
   });
@@ -162,8 +164,8 @@ export default function ConsultantProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant/pricing-templates'] });
       toast({
-        title: "Template updated",
-        description: "Pricing template updated successfully.",
+        title: t('common.success'),
+        description: t('consultantProfile.pricingTemplates.templateUpdated'),
       });
     },
   });
@@ -176,8 +178,8 @@ export default function ConsultantProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant/pricing-templates'] });
       toast({
-        title: "Template deleted",
-        description: "Pricing template deleted successfully.",
+        title: t('common.success'),
+        description: t('consultantProfile.pricingTemplates.templateDeleted'),
       });
     },
   });
@@ -239,8 +241,8 @@ export default function ConsultantProfile() {
     },
     onSuccess: () => {
       toast({
-        title: "Quote requested",
-        description: "Your quote request has been sent to the consultant.",
+        title: t('common.success'),
+        description: t('consultantProfile.quoteRequested'),
       });
       setQuoteDialogOpen(false);
       setProjectDescription('');
@@ -248,8 +250,8 @@ export default function ConsultantProfile() {
     },
     onError: (error: Error) => {
       toast({
-        title: "Request failed",
-        description: error.message || "Failed to send quote request. Please try again.",
+        title: t('common.error'),
+        description: error.message || t('consultantProfile.errors.quoteRequestFailed'),
         variant: "destructive",
       });
     },
@@ -461,8 +463,8 @@ export default function ConsultantProfile() {
         setPricingTemplates(updated);
       } catch (error) {
         toast({
-          title: "Delete failed",
-          description: "Failed to delete pricing template",
+          title: t('common.error'),
+          description: t('consultantProfile.pricingTemplates.deleteFailed'),
           variant: "destructive",
         });
       }
@@ -476,8 +478,8 @@ export default function ConsultantProfile() {
     const template = pricingTemplates[index];
     if (!template.name || !template.basePrice) {
       toast({
-        title: "Validation error",
-        description: "Template name and base price are required",
+        title: t('form.validationError'),
+        description: t('consultantProfile.pricingTemplates.validationError'),
         variant: "destructive",
       });
       return;
@@ -494,8 +496,8 @@ export default function ConsultantProfile() {
       }
     } catch (error) {
       toast({
-        title: "Save failed",
-        description: "Failed to save pricing template",
+        title: t('common.error'),
+        description: t('consultantProfile.pricingTemplates.saveFailed'),
         variant: "destructive",
       });
     }
@@ -511,14 +513,14 @@ export default function ConsultantProfile() {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
       setIsEditing(false);
       toast({
-        title: "Profile updated",
-        description: "Your consultant profile has been updated successfully.",
+        title: t('common.success'),
+        description: t('consultantProfile.subtitle'),
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Update failed",
-        description: error.message || "Failed to update profile. Please try again.",
+        title: t('common.error'),
+        description: error.message || t('consultantProfile.errors.updateFailed'),
         variant: "destructive",
       });
     },
@@ -557,14 +559,14 @@ export default function ConsultantProfile() {
       queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant/categories'] });
       queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant'] });
       toast({
-        title: "Categories saved",
-        description: "Your service categories have been updated successfully.",
+        title: t('common.success'),
+        description: t('consultantProfile.categoriesSaved'),
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Save failed",
-        description: error.message || "Failed to save categories. Please try again.",
+        title: t('common.error'),
+        description: error.message || t('consultantProfile.errors.categoriesSaveFailed'),
         variant: "destructive",
       });
     },
@@ -582,8 +584,8 @@ export default function ConsultantProfile() {
   const onSubmit = (data: UpdateProfile) => {
     if (!termsAccepted) {
       toast({
-        title: "Terms Required",
-        description: "Please accept the Terms & Conditions to continue.",
+        title: t('form.required'),
+        description: t('form.termsAcceptance'),
         variant: "destructive",
       });
       return;
@@ -612,8 +614,8 @@ export default function ConsultantProfile() {
       
       if (projectDescription.length < 50) {
         toast({
-          title: "Validation error",
-          description: "Project description must be at least 50 characters.",
+          title: t('form.validationError'),
+          description: t('consultantProfile.quoteDialog.validationError'),
           variant: "destructive",
         });
         return;
@@ -630,9 +632,9 @@ export default function ConsultantProfile() {
       <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
         <DialogContent className="max-w-2xl" data-testid="dialog-quote-request">
           <DialogHeader>
-            <DialogTitle>Request Quote</DialogTitle>
+            <DialogTitle>{t('consultantProfile.quoteDialog.title')}</DialogTitle>
             <DialogDescription>
-              Submit a quote request for this service package
+              {t('consultantProfile.quoteDialog.description')}
             </DialogDescription>
           </DialogHeader>
           
@@ -721,10 +723,10 @@ export default function ConsultantProfile() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <AlertCircle className="h-5 w-5" />
-                Failed to Load Profile
+                {t('consultantProfile.errors.failedToLoad')}
               </CardTitle>
               <CardDescription>
-                Unable to fetch your profile information. Please try refreshing.
+                {t('consultantProfile.errors.unableToFetch')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -733,7 +735,7 @@ export default function ConsultantProfile() {
                 className="w-full bg-primary text-primary-foreground"
                 data-testid="button-retry-profile"
               >
-                Retry
+                {t('consultantProfile.errors.retry')}
               </Button>
             </CardContent>
           </Card>
@@ -750,9 +752,9 @@ export default function ConsultantProfile() {
           <div className="flex items-center justify-center min-h-[600px]">
             <Card className="max-w-md">
               <CardHeader>
-                <CardTitle>No Consultant Profile</CardTitle>
+                <CardTitle>{t('consultantProfile.noProfile')}</CardTitle>
                 <CardDescription>
-                  You don't have a consultant profile yet. Create one to showcase your expertise and start receiving job opportunities.
+                  {t('consultantProfile.noProfileDesc')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -761,7 +763,7 @@ export default function ConsultantProfile() {
                   className="w-full"
                   data-testid="button-create-profile"
                 >
-                  Create Profile
+                  {t('consultantProfile.createProfile')}
                 </Button>
               </CardContent>
             </Card>
@@ -776,8 +778,8 @@ export default function ConsultantProfile() {
       <div className="container max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-profile-title">Consultant Profile</h1>
-          <p className="text-muted-foreground">Manage your professional information and showcase your expertise</p>
+          <h1 className="text-3xl font-bold" data-testid="text-profile-title">{t('consultantProfile.title')}</h1>
+          <p className="text-muted-foreground">{t('consultantProfile.subtitle')}</p>
         </div>
         {!isEditing && (
           <Button
@@ -786,7 +788,7 @@ export default function ConsultantProfile() {
             data-testid="button-edit-profile"
           >
             <Edit className="h-4 w-4 mr-2" />
-            Edit Profile
+            {t('consultantProfile.editProfile')}
           </Button>
         )}
       </div>
@@ -794,8 +796,8 @@ export default function ConsultantProfile() {
       {isEditing ? (
         <Card>
           <CardHeader>
-            <CardTitle>Edit Profile Information</CardTitle>
-            <CardDescription>Update your professional details and skills</CardDescription>
+            <CardTitle>{t('consultantProfile.editTitle')}</CardTitle>
+            <CardDescription>{t('consultantProfile.editDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -804,7 +806,7 @@ export default function ConsultantProfile() {
                   <Alert className="mb-6" data-testid="alert-onboarding">
                     <Info className="h-4 w-4" />
                     <AlertDescription>
-                      Welcome! Complete your profile to showcase your expertise. You can skip this and update it later from your dashboard.
+                      {t('consultantProfile.onboardingWelcome')}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -814,9 +816,9 @@ export default function ConsultantProfile() {
                   name="fullName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Full Name *</FormLabel>
+                      <FormLabel>{t('consultantProfile.fields.fullName')} *</FormLabel>
                       <FormControl>
-                        <Input placeholder="John Doe" {...field} data-testid="input-fullname" />
+                        <Input placeholder={t('consultantProfile.fields.fullNamePlaceholder')} {...field} data-testid="input-fullname" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -828,9 +830,9 @@ export default function ConsultantProfile() {
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Professional Title</FormLabel>
+                      <FormLabel>{t('consultantProfile.fields.title')}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Senior Full-Stack Developer" {...field} value={field.value ?? ""} data-testid="input-title" />
+                        <Input placeholder={t('consultantProfile.fields.titlePlaceholder')} {...field} value={field.value ?? ""} data-testid="input-title" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -842,10 +844,10 @@ export default function ConsultantProfile() {
                   name="bio"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Bio</FormLabel>
+                      <FormLabel>{t('consultantProfile.fields.bio')}</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Tell clients about yourself and your expertise..."
+                          placeholder={t('consultantProfile.fields.bioPlaceholder')}
                           className="min-h-[120px] resize-none"
                           {...field}
                           value={field.value ?? ""}
@@ -853,7 +855,7 @@ export default function ConsultantProfile() {
                         />
                       </FormControl>
                       <FormDescription>
-                        A brief introduction highlighting your skills and experience.
+                        {t('consultantProfile.fields.bioDescription')}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -866,12 +868,12 @@ export default function ConsultantProfile() {
                     name="hourlyRate"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Hourly Rate (﷼)</FormLabel>
+                        <FormLabel>{t('consultantProfile.fields.hourlyRate')}</FormLabel>
                         <FormControl>
                           <Input 
                             type="number" 
                             step="0.01"
-                            placeholder="150.00" 
+                            placeholder={t('consultantProfile.fields.hourlyRatePlaceholder')} 
                             {...field} 
                             value={field.value ?? ""} 
                             data-testid="input-hourly-rate" 
@@ -887,18 +889,18 @@ export default function ConsultantProfile() {
                     name="experience"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Experience Level</FormLabel>
+                        <FormLabel>{t('consultantProfile.fields.experience')}</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value ?? ""}>
                           <FormControl>
                             <SelectTrigger data-testid="select-experience">
-                              <SelectValue placeholder="Select level" />
+                              <SelectValue placeholder={t('consultantProfile.fields.experiencePlaceholder')} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="junior">Junior</SelectItem>
-                            <SelectItem value="mid">Mid-Level</SelectItem>
-                            <SelectItem value="senior">Senior</SelectItem>
-                            <SelectItem value="expert">Expert</SelectItem>
+                            <SelectItem value="junior">{t('consultantProfile.experienceLevels.junior')}</SelectItem>
+                            <SelectItem value="mid">{t('consultantProfile.experienceLevels.mid')}</SelectItem>
+                            <SelectItem value="senior">{t('consultantProfile.experienceLevels.senior')}</SelectItem>
+                            <SelectItem value="expert">{t('consultantProfile.experienceLevels.expert')}</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -912,10 +914,10 @@ export default function ConsultantProfile() {
                   name="skills"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Skills</FormLabel>
+                      <FormLabel>{t('consultantProfile.fields.skills')}</FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="React, Node.js, PostgreSQL, AWS (comma-separated)" 
+                          placeholder={t('consultantProfile.fields.skillsPlaceholder')} 
                           value={field.value?.join(', ') ?? ""} 
                           onChange={(e) => {
                             const skills = e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
@@ -925,7 +927,7 @@ export default function ConsultantProfile() {
                         />
                       </FormControl>
                       <FormDescription>
-                        Enter your technical skills separated by commas.
+                        {t('consultantProfile.fields.skillsDescription')}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -938,7 +940,7 @@ export default function ConsultantProfile() {
                   render={({ field }) => (
                     <FormItem>
                       <div className="flex items-center justify-between mb-3">
-                        <FormLabel>Languages</FormLabel>
+                        <FormLabel>{t('consultantProfile.languages.title')}</FormLabel>
                         <Button 
                           type="button" 
                           variant="outline" 
@@ -946,14 +948,14 @@ export default function ConsultantProfile() {
                           onClick={addLanguageEntry}
                           data-testid="button-add-language"
                         >
-                          Add Language
+                          {t('consultantProfile.languages.addLanguage')}
                         </Button>
                       </div>
                       <div className="space-y-2">
                         {languageEntries.map((entry, index) => (
                           <div key={index} className="flex gap-2">
                             <Input 
-                              placeholder="Language name"
+                              placeholder={t('consultantProfile.languages.languagePlaceholder')}
                               value={entry.language}
                               onChange={(e) => updateLanguage(index, 'language', e.target.value)}
                               data-testid={`input-language-name-${index}`}
@@ -967,10 +969,10 @@ export default function ConsultantProfile() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="basic">Basic</SelectItem>
-                                <SelectItem value="intermediate">Intermediate</SelectItem>
-                                <SelectItem value="advanced">Advanced</SelectItem>
-                                <SelectItem value="native">Native</SelectItem>
+                                <SelectItem value="basic">{t('consultantProfile.languages.proficiencyLevels.basic')}</SelectItem>
+                                <SelectItem value="conversational">{t('consultantProfile.languages.proficiencyLevels.conversational')}</SelectItem>
+                                <SelectItem value="fluent">{t('consultantProfile.languages.proficiencyLevels.fluent')}</SelectItem>
+                                <SelectItem value="native">{t('consultantProfile.languages.proficiencyLevels.native')}</SelectItem>
                               </SelectContent>
                             </Select>
                             <Button 
@@ -986,7 +988,7 @@ export default function ConsultantProfile() {
                         ))}
                         {languageEntries.length === 0 && (
                           <div className="text-sm text-muted-foreground text-center py-4">
-                            No languages added yet. Click "Add Language" to specify your language proficiencies.
+                            {t('consultantProfile.languages.noLanguages')}
                           </div>
                         )}
                       </div>
@@ -1001,9 +1003,9 @@ export default function ConsultantProfile() {
                     name="location"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Location</FormLabel>
+                        <FormLabel>{t('consultantProfile.fields.location')}</FormLabel>
                         <FormControl>
-                          <Input placeholder="Riyadh, Saudi Arabia" {...field} value={field.value ?? ""} data-testid="input-location" />
+                          <Input placeholder={t('consultantProfile.fields.locationPlaceholder')} {...field} value={field.value ?? ""} data-testid="input-location" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1015,17 +1017,17 @@ export default function ConsultantProfile() {
                     name="availability"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Availability Status</FormLabel>
+                        <FormLabel>{t('consultantProfile.fields.availability')}</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value ?? ""}>
                           <FormControl>
                             <SelectTrigger data-testid="select-availability">
-                              <SelectValue placeholder="Select status" />
+                              <SelectValue placeholder={t('consultantProfile.fields.availabilityPlaceholder')} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="available">Available</SelectItem>
-                            <SelectItem value="busy">Busy</SelectItem>
-                            <SelectItem value="unavailable">Unavailable</SelectItem>
+                            <SelectItem value="available">{t('consultantProfile.availabilityStatuses.available')}</SelectItem>
+                            <SelectItem value="busy">{t('consultantProfile.availabilityStatuses.busy')}</SelectItem>
+                            <SelectItem value="unavailable">{t('consultantProfile.availabilityStatuses.unavailable')}</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -1037,7 +1039,7 @@ export default function ConsultantProfile() {
                 <div>
                   <FormLabel className="flex items-center gap-2 mb-3">
                     <CalendarIcon className="h-4 w-4" />
-                    Weekly Availability Schedule
+                    {t('consultantProfile.weeklySchedule.title')}
                   </FormLabel>
                   <Card>
                     <CardContent className="pt-6">
@@ -1048,7 +1050,7 @@ export default function ConsultantProfile() {
                               <th className="text-left text-sm font-medium p-2 border-b"></th>
                               {TIME_SLOTS.map(slot => (
                                 <th key={slot} className="text-center text-sm font-medium p-2 border-b" data-testid={`header-${slot}`}>
-                                  {TIME_SLOT_LABELS[slot]}
+                                  {t(`consultantProfile.weeklySchedule.timeSlots.${slot}`)}
                                 </th>
                               ))}
                             </tr>
@@ -1057,7 +1059,7 @@ export default function ConsultantProfile() {
                             {WEEKDAYS.map(day => (
                               <tr key={day} className="border-b last:border-b-0">
                                 <td className="text-sm font-medium p-2 w-24" data-testid={`label-${day}`}>
-                                  {WEEKDAY_LABELS[day]}
+                                  {t(`consultantProfile.weeklySchedule.days.${day}`)}
                                 </td>
                                 {TIME_SLOTS.map(slot => (
                                   <td key={slot} className="text-center p-2">
@@ -1074,7 +1076,7 @@ export default function ConsultantProfile() {
                         </table>
                       </div>
                       <p className="text-sm text-muted-foreground mt-3">
-                        Select your available time slots for each day of the week.
+                        {t('consultantProfile.weeklySchedule.description')}
                       </p>
                     </CardContent>
                   </Card>
@@ -1083,7 +1085,7 @@ export default function ConsultantProfile() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Business Information</h3>
+                    <h3 className="text-lg font-semibold">{t('consultantProfile.businessInfo')}</h3>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
@@ -1092,13 +1094,13 @@ export default function ConsultantProfile() {
                       name="yearEstablished"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Year Established</FormLabel>
+                          <FormLabel>{t('consultantProfile.fields.yearEstablished')}</FormLabel>
                           <FormControl>
                             <Input 
                               type="number" 
                               min="1900"
                               max={new Date().getFullYear()}
-                              placeholder={new Date().getFullYear().toString()}
+                              placeholder={t('consultantProfile.fields.yearEstablishedPlaceholder')}
                               {...field}
                               value={field.value ?? ""}
                               onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
@@ -1115,18 +1117,18 @@ export default function ConsultantProfile() {
                       name="employeeCount"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Employee Count</FormLabel>
+                          <FormLabel>{t('consultantProfile.fields.employeeCount')}</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value ?? ""}>
                             <FormControl>
                               <SelectTrigger data-testid="select-employee-count">
-                                <SelectValue placeholder="Select employee count" />
+                                <SelectValue placeholder={t('consultantProfile.fields.employeeCountPlaceholder')} />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="1-10">1-10 employees</SelectItem>
-                              <SelectItem value="11-50">11-50 employees</SelectItem>
-                              <SelectItem value="51-200">51-200 employees</SelectItem>
-                              <SelectItem value="201+">201+ employees</SelectItem>
+                              <SelectItem value="1-10">{t('consultantProfile.employeeCounts.1-10')}</SelectItem>
+                              <SelectItem value="11-50">{t('consultantProfile.employeeCounts.11-50')}</SelectItem>
+                              <SelectItem value="51-200">{t('consultantProfile.employeeCounts.51-200')}</SelectItem>
+                              <SelectItem value="201+">{t('consultantProfile.employeeCounts.201+')}</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -1140,17 +1142,17 @@ export default function ConsultantProfile() {
                     name="businessRegistrationNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Business Registration Number</FormLabel>
+                        <FormLabel>{t('consultantProfile.fields.businessRegistrationNumber')}</FormLabel>
                         <FormControl>
                           <Input 
-                            placeholder="CR-XXXX-XXXX" 
+                            placeholder={t('consultantProfile.fields.businessRegistrationPlaceholder')} 
                             {...field} 
                             value={field.value ?? ""} 
                             data-testid="input-business-registration" 
                           />
                         </FormControl>
                         <FormDescription>
-                          Your company's commercial registration number
+                          {t('consultantProfile.fields.businessRegistrationDescription')}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -1162,10 +1164,10 @@ export default function ConsultantProfile() {
                     name="operatingRegions"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Operating Regions</FormLabel>
+                        <FormLabel>{t('consultantProfile.fields.operatingRegions')}</FormLabel>
                         <FormControl>
                           <Input 
-                            placeholder="Saudi Arabia, UAE, Qatar (comma-separated)" 
+                            placeholder={t('consultantProfile.fields.operatingRegionsPlaceholder')} 
                             value={field.value?.join(', ') ?? ""} 
                             onChange={(e) => {
                               const regions = e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
@@ -1175,7 +1177,7 @@ export default function ConsultantProfile() {
                           />
                         </FormControl>
                         <FormDescription>
-                          Countries/regions where you provide services (separated by commas)
+                          {t('consultantProfile.fields.operatingRegionsDescription')}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -1185,7 +1187,7 @@ export default function ConsultantProfile() {
 
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <FormLabel>Portfolio Projects</FormLabel>
+                    <FormLabel>{t('consultantProfile.portfolio.title')}</FormLabel>
                     <Button 
                       type="button" 
                       variant="outline" 
@@ -1193,7 +1195,7 @@ export default function ConsultantProfile() {
                       onClick={addPortfolioItem}
                       data-testid="button-add-portfolio"
                     >
-                      Add Project
+                      {t('consultantProfile.portfolio.addProject')}
                     </Button>
                   </div>
                   <div className="space-y-4">
@@ -1203,20 +1205,20 @@ export default function ConsultantProfile() {
                           <div className="flex items-start gap-3">
                             <div className="flex-1 space-y-3">
                               <Input
-                                placeholder="Project title"
+                                placeholder={t('consultantProfile.portfolio.projectTitle')}
                                 value={item.title}
                                 onChange={(e) => updatePortfolioItem(index, 'title', e.target.value)}
                                 data-testid={`input-portfolio-title-${index}`}
                               />
                               <Textarea
-                                placeholder="Project description"
+                                placeholder={t('consultantProfile.portfolio.projectDescription')}
                                 value={item.description}
                                 onChange={(e) => updatePortfolioItem(index, 'description', e.target.value)}
                                 className="min-h-[80px] resize-none"
                                 data-testid={`input-portfolio-description-${index}`}
                               />
                               <Input
-                                placeholder="Project URL (optional)"
+                                placeholder={t('consultantProfile.portfolio.projectUrl')}
                                 value={item.url || ""}
                                 onChange={(e) => updatePortfolioItem(index, 'url', e.target.value)}
                                 data-testid={`input-portfolio-url-${index}`}
@@ -1237,7 +1239,7 @@ export default function ConsultantProfile() {
                     ))}
                     {portfolioItems.length === 0 && (
                       <div className="text-sm text-muted-foreground text-center py-4">
-                        No portfolio projects added yet. Click "Add Project" to showcase your work.
+                        {t('consultantProfile.portfolio.noProjects')}
                       </div>
                     )}
                   </div>
@@ -1245,7 +1247,7 @@ export default function ConsultantProfile() {
 
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <FormLabel>Service Packages</FormLabel>
+                    <FormLabel>{t('consultantProfile.servicePackages.title')}</FormLabel>
                     <Button 
                       type="button" 
                       variant="outline" 
@@ -1253,7 +1255,7 @@ export default function ConsultantProfile() {
                       onClick={addServicePackage}
                       data-testid="button-add-service-package"
                     >
-                      Add Package
+                      {t('consultantProfile.servicePackages.addPackage')}
                     </Button>
                   </div>
                   <div className="space-y-4">
@@ -1263,13 +1265,13 @@ export default function ConsultantProfile() {
                           <div className="flex items-start gap-3">
                             <div className="flex-1 space-y-3">
                               <Input
-                                placeholder="Package name (e.g., Basic Website Setup)"
+                                placeholder={t('consultantProfile.servicePackages.packageName')}
                                 value={pkg.name}
                                 onChange={(e) => updateServicePackage(index, 'name', e.target.value)}
                                 data-testid={`input-package-name-${index}`}
                               />
                               <Textarea
-                                placeholder="Package description"
+                                placeholder={t('consultantProfile.servicePackages.packageDescription')}
                                 value={pkg.description}
                                 onChange={(e) => updateServicePackage(index, 'description', e.target.value)}
                                 className="min-h-[80px] resize-none"
@@ -1278,20 +1280,20 @@ export default function ConsultantProfile() {
                               <div className="grid grid-cols-2 gap-3">
                                 <Input
                                   type="number"
-                                  placeholder="Price (﷼)"
+                                  placeholder={t('consultantProfile.servicePackages.price')}
                                   value={pkg.price}
                                   onChange={(e) => updateServicePackage(index, 'price', e.target.value)}
                                   data-testid={`input-package-price-${index}`}
                                 />
                                 <Input
-                                  placeholder="Delivery time (e.g., 7 days)"
+                                  placeholder={t('consultantProfile.servicePackages.deliveryTime')}
                                   value={pkg.deliveryTime}
                                   onChange={(e) => updateServicePackage(index, 'deliveryTime', e.target.value)}
                                   data-testid={`input-package-delivery-${index}`}
                                 />
                               </div>
                               <Input
-                                placeholder="Add-ons (comma-separated, e.g., SEO, Analytics, SSL)"
+                                placeholder={t('consultantProfile.servicePackages.addOns')}
                                 value={pkg.addOns?.join(', ') ?? ""}
                                 onChange={(e) => updateServicePackageAddOns(index, e.target.value)}
                                 data-testid={`input-package-addons-${index}`}
@@ -1300,13 +1302,13 @@ export default function ConsultantProfile() {
                                 <Input
                                   type="number"
                                   min="0"
-                                  placeholder="Revisions included"
+                                  placeholder={t('consultantProfile.servicePackages.revisionsIncluded')}
                                   value={pkg.revisionsIncluded ?? ""}
                                   onChange={(e) => updateServicePackageNumber(index, 'revisionsIncluded', e.target.value ? parseInt(e.target.value) : undefined)}
                                   data-testid={`input-package-revisions-${index}`}
                                 />
                                 <Input
-                                  placeholder="Support duration (e.g., 30 days)"
+                                  placeholder={t('consultantProfile.servicePackages.supportDuration')}
                                   value={pkg.supportDuration ?? ""}
                                   onChange={(e) => updateServicePackage(index, 'supportDuration', e.target.value)}
                                   data-testid={`input-package-support-${index}`}
@@ -1328,7 +1330,7 @@ export default function ConsultantProfile() {
                     ))}
                     {servicePackages.length === 0 && (
                       <div className="text-sm text-muted-foreground text-center py-4">
-                        No service packages added yet. Click "Add Package" to offer predefined services.
+                        {t('consultantProfile.servicePackages.noPackages')}
                       </div>
                     )}
                   </div>
@@ -1338,7 +1340,7 @@ export default function ConsultantProfile() {
                   <div className="flex items-center justify-between mb-3">
                     <FormLabel className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4" />
-                      Pricing Templates
+                      {t('consultantProfile.pricingTemplates.title')}
                     </FormLabel>
                     <Button 
                       type="button" 
@@ -1347,7 +1349,7 @@ export default function ConsultantProfile() {
                       onClick={addPricingTemplate}
                       data-testid="button-add-pricing-template"
                     >
-                      Add Template
+                      {t('consultantProfile.pricingTemplates.addTemplate')}
                     </Button>
                   </div>
                   <div className="space-y-4">
@@ -1357,13 +1359,13 @@ export default function ConsultantProfile() {
                           <div className="flex items-start gap-3">
                             <div className="flex-1 space-y-3">
                               <Input
-                                placeholder="Template name (e.g., Basic Website Development)"
+                                placeholder={t('consultantProfile.pricingTemplates.templateName')}
                                 value={template.name}
                                 onChange={(e) => updatePricingTemplate(index, 'name', e.target.value)}
                                 data-testid={`input-template-name-${index}`}
                               />
                               <Textarea
-                                placeholder="Template description"
+                                placeholder={t('consultantProfile.pricingTemplates.templateDescription')}
                                 value={template.description}
                                 onChange={(e) => updatePricingTemplate(index, 'description', e.target.value)}
                                 className="min-h-[80px] resize-none"
@@ -1372,21 +1374,21 @@ export default function ConsultantProfile() {
                               <div className="grid grid-cols-3 gap-3">
                                 <Input
                                   type="number"
-                                  placeholder="Base Price (﷼)"
+                                  placeholder={t('consultantProfile.pricingTemplates.basePrice')}
                                   value={template.basePrice}
                                   onChange={(e) => updatePricingTemplate(index, 'basePrice', e.target.value)}
                                   data-testid={`input-template-baseprice-${index}`}
                                 />
                                 <Input
                                   type="number"
-                                  placeholder="Hourly Rate (﷼)"
+                                  placeholder={t('consultantProfile.pricingTemplates.hourlyRate')}
                                   value={template.hourlyRate}
                                   onChange={(e) => updatePricingTemplate(index, 'hourlyRate', e.target.value)}
                                   data-testid={`input-template-hourlyrate-${index}`}
                                 />
                                 <Input
                                   type="number"
-                                  placeholder="Est. Hours"
+                                  placeholder={t('consultantProfile.pricingTemplates.estimatedHours')}
                                   value={template.estimatedHours}
                                   onChange={(e) => updatePricingTemplate(index, 'estimatedHours', e.target.value)}
                                   data-testid={`input-template-hours-${index}`}
@@ -1402,7 +1404,7 @@ export default function ConsultantProfile() {
                                   data-testid={`button-save-template-${index}`}
                                 >
                                   <Save className="h-3 w-3 mr-1" />
-                                  {template.id ? 'Update' : 'Save'}
+                                  {template.id ? t('consultantProfile.pricingTemplates.update') : t('consultantProfile.pricingTemplates.save')}
                                 </Button>
                               </div>
                             </div>
@@ -1421,7 +1423,7 @@ export default function ConsultantProfile() {
                     ))}
                     {pricingTemplates.length === 0 && (
                       <div className="text-sm text-muted-foreground text-center py-4">
-                        No pricing templates added yet. Click "Add Template" to create reusable pricing structures.
+                        {t('consultantProfile.pricingTemplates.noTemplates')}
                       </div>
                     )}
                   </div>
@@ -1439,9 +1441,9 @@ export default function ConsultantProfile() {
                     className="text-sm text-muted-foreground cursor-pointer"
                     data-testid="label-terms-acceptance"
                   >
-                    I agree to the{" "}
+                    {t('form.agreeToTermsPart1')}{" "}
                     <Link href="/legal/terms-and-conditions" className="text-primary hover:underline" data-testid="link-terms">
-                      Terms & Conditions
+                      {t('form.termsAndConditions')}
                     </Link>
                   </label>
                 </div>
@@ -1455,7 +1457,7 @@ export default function ConsultantProfile() {
                       disabled={updateMutation.isPending}
                       data-testid="button-skip-onboarding"
                     >
-                      Skip for Now
+                      {t('form.skipForNow')}
                     </Button>
                   )}
                   <Button
@@ -1466,7 +1468,7 @@ export default function ConsultantProfile() {
                     data-testid="button-cancel-edit"
                   >
                     <X className="h-4 w-4 mr-2" />
-                    Cancel
+                    {t('form.cancel')}
                   </Button>
                   <Button
                     type="submit"
@@ -1474,7 +1476,7 @@ export default function ConsultantProfile() {
                     data-testid="button-save-profile"
                   >
                     <Save className="h-4 w-4 mr-2" />
-                    {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                    {updateMutation.isPending ? t('form.saving') : t('form.saveChanges')}
                   </Button>
                 </div>
               </form>
@@ -1487,32 +1489,32 @@ export default function ConsultantProfile() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Briefcase className="h-5 w-5 text-primary" />
-                Professional Information
+                {t('consultantProfile.viewMode.professionalInfo')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Full Name</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('consultantProfile.fields.fullName')}</div>
                 <div className="font-medium" data-testid="text-fullname">
-                  {profile?.fullName || "Not provided"}
+                  {profile?.fullName || t('consultantProfile.viewMode.notProvided')}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Title</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('consultantProfile.fields.title')}</div>
                 <div className="font-medium" data-testid="text-title">
-                  {profile?.title || "Not provided"}
+                  {profile?.title || t('consultantProfile.viewMode.notProvided')}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Experience Level</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('consultantProfile.fields.experience')}</div>
                 <div className="font-medium capitalize" data-testid="text-experience">
-                  {profile?.experience || "Not provided"}
+                  {profile?.experience || t('consultantProfile.viewMode.notProvided')}
                 </div>
               </div>
               <div>
                 <div className="text-sm text-muted-foreground mb-2">
                   <Code className="h-4 w-4 inline mr-1" />
-                  Skills
+                  {t('consultantProfile.viewMode.skillsExpertise')}
                 </div>
                 <div className="flex flex-wrap gap-2" data-testid="text-skills">
                   {profile?.skills && profile.skills.length > 0 ? (
@@ -1522,13 +1524,13 @@ export default function ConsultantProfile() {
                       </Badge>
                     ))
                   ) : (
-                    <span className="text-sm text-muted-foreground">No skills listed</span>
+                    <span className="text-sm text-muted-foreground">{t('consultantProfile.viewMode.noSkills')}</span>
                   )}
                 </div>
               </div>
               
               <div>
-                <div className="text-sm text-muted-foreground mb-2">Languages</div>
+                <div className="text-sm text-muted-foreground mb-2">{t('consultantProfile.languages.title')}</div>
                 <div className="flex flex-wrap gap-2">
                   {profile?.languages && Array.isArray(profile.languages) && profile.languages.length > 0 ? (
                     (profile.languages as Language[]).map((lang, index) => (
@@ -1546,7 +1548,7 @@ export default function ConsultantProfile() {
                       </Badge>
                     ))
                   ) : (
-                    <span className="text-sm text-muted-foreground">No languages listed</span>
+                    <span className="text-sm text-muted-foreground">{t('consultantProfile.viewMode.notProvided')}</span>
                   )}
                 </div>
               </div>
@@ -1554,7 +1556,7 @@ export default function ConsultantProfile() {
               <div>
                 <div className="text-sm text-muted-foreground mb-2">
                   <ShieldCheck className="h-4 w-4 inline mr-1" />
-                  Verification Status
+                  {t('consultantProfile.viewMode.verified')}
                 </div>
                 <div className="flex flex-wrap gap-2" data-testid="verification-badges">
                   <VerificationBadge 
@@ -1575,7 +1577,7 @@ export default function ConsultantProfile() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Complete verification steps to build trust with clients
+                  {t('consultantProfile.viewMode.verified')}
                 </p>
               </div>
             </CardContent>
@@ -1585,32 +1587,32 @@ export default function ConsultantProfile() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-primary" />
-                Pricing & Availability
+                {t('consultantProfile.pricingAvailability')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Hourly Rate</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('consultantProfile.fields.hourlyRate')}</div>
                 <div className="font-medium" data-testid="text-hourly-rate">
-                  {profile?.hourlyRate ? `﷼${parseFloat(profile.hourlyRate).toFixed(2)}/hour` : "Not set"}
+                  {profile?.hourlyRate ? `﷼${parseFloat(profile.hourlyRate).toFixed(2)}/hour` : t('consultantProfile.viewMode.notProvided')}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Availability Status</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('consultantProfile.fields.availability')}</div>
                 <Badge 
                   variant={profile?.availability === 'available' ? 'default' : 'secondary'}
                   data-testid="badge-availability"
                 >
-                  {profile?.availability ? profile.availability.charAt(0).toUpperCase() + profile.availability.slice(1) : "Not set"}
+                  {profile?.availability ? profile.availability.charAt(0).toUpperCase() + profile.availability.slice(1) : t('consultantProfile.viewMode.notProvided')}
                 </Badge>
               </div>
               <div>
                 <div className="text-sm text-muted-foreground mb-1">
                   <MapPin className="h-4 w-4 inline mr-1" />
-                  Location
+                  {t('consultantProfile.fields.location')}
                 </div>
                 <div className="font-medium" data-testid="text-location">
-                  {profile?.location || "Not provided"}
+                  {profile?.location || t('consultantProfile.viewMode.notProvided')}
                 </div>
               </div>
             </CardContent>
@@ -1620,30 +1622,30 @@ export default function ConsultantProfile() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-primary" />
-                Business Information
+                {t('consultantProfile.viewMode.businessDetails')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Year Established</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('consultantProfile.fields.yearEstablished')}</div>
                 <div className="font-medium" data-testid="text-year-established">
-                  {profile?.yearEstablished || "Not provided"}
+                  {profile?.yearEstablished || t('consultantProfile.viewMode.notProvided')}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Employee Count</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('consultantProfile.fields.employeeCount')}</div>
                 <div className="font-medium" data-testid="text-employee-count">
-                  {profile?.employeeCount ? profile.employeeCount.replace('-', ' to ').replace('+', ' or more') : "Not provided"}
+                  {profile?.employeeCount ? profile.employeeCount.replace('-', ' to ').replace('+', ' or more') : t('consultantProfile.viewMode.notProvided')}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Business Registration Number</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('consultantProfile.fields.businessRegistrationNumber')}</div>
                 <div className="font-medium" data-testid="text-business-registration">
-                  {profile?.businessRegistrationNumber || "Not provided"}
+                  {profile?.businessRegistrationNumber || t('consultantProfile.viewMode.notProvided')}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Operating Regions</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('consultantProfile.fields.operatingRegions')}</div>
                 <div className="flex flex-wrap gap-2">
                   {profile?.operatingRegions && profile.operatingRegions.length > 0 ? (
                     profile.operatingRegions.map((region, index) => (
@@ -1652,7 +1654,7 @@ export default function ConsultantProfile() {
                       </Badge>
                     ))
                   ) : (
-                    <span className="text-sm text-muted-foreground">Not provided</span>
+                    <span className="text-sm text-muted-foreground">{t('consultantProfile.viewMode.notProvided')}</span>
                   )}
                 </div>
               </div>
@@ -1693,11 +1695,11 @@ export default function ConsultantProfile() {
 
           <Card>
             <CardHeader>
-              <CardTitle>About</CardTitle>
+              <CardTitle>{t('consultantProfile.fields.bio')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-sm whitespace-pre-wrap" data-testid="text-bio">
-                {profile?.bio || "No bio provided"}
+                {profile?.bio || t('consultantProfile.viewMode.noBio')}
               </div>
             </CardContent>
           </Card>
@@ -1708,10 +1710,10 @@ export default function ConsultantProfile() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Tag className="h-5 w-5 text-primary" />
-                  Service Categories
+                  {t('consultantProfile.categories.title')}
                 </CardTitle>
                 <CardDescription>
-                  Select up to 10 service categories that describe your expertise
+                  {t('consultantProfile.categories.description')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1737,7 +1739,7 @@ export default function ConsultantProfile() {
                   className="w-full"
                   data-testid="button-save-categories"
                 >
-                  {saveCategoriesMutation.isPending ? "Saving..." : "Save Categories"}
+                  {saveCategoriesMutation.isPending ? t('form.saving') : t('consultantProfile.categories.saveButton')}
                 </Button>
               </div>
             </Card>
@@ -1746,7 +1748,7 @@ export default function ConsultantProfile() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Tag className="h-5 w-5 text-primary" />
-                  Service Categories
+                  {t('consultantProfile.categories.title')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1772,7 +1774,7 @@ export default function ConsultantProfile() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FolderOpen className="h-5 w-5 text-primary" />
-                  Portfolio
+                  {t('consultantProfile.viewMode.portfolioProjects')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1790,7 +1792,7 @@ export default function ConsultantProfile() {
                         className="text-sm text-primary hover:underline mt-2 inline-block"
                         data-testid={`link-portfolio-url-${index}`}
                       >
-                        View Project →
+                        {t('consultantProfile.viewMode.viewProject')} →
                       </a>
                     )}
                   </div>
@@ -1804,7 +1806,7 @@ export default function ConsultantProfile() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Package className="h-5 w-5 text-primary" />
-                  Service Packages
+                  {t('consultantProfile.viewMode.pricingPackages')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1862,7 +1864,7 @@ export default function ConsultantProfile() {
                           className="w-full"
                           data-testid={`button-request-quote-${index}`}
                         >
-                          Request Quote
+                          {t('quoteRequest.requestQuote')}
                         </Button>
                       )}
                     </CardContent>
@@ -1877,7 +1879,7 @@ export default function ConsultantProfile() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <DollarSign className="h-5 w-5 text-primary" />
-                  Pricing Templates
+                  {t('consultantProfile.pricingTemplates.title')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1893,14 +1895,14 @@ export default function ConsultantProfile() {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Base Price</span>
+                        <span className="text-sm text-muted-foreground">{t('consultantProfile.pricingTemplates.basePrice')}</span>
                         <span className="text-xl font-bold text-primary" data-testid={`text-template-baseprice-${index}`}>
                           ﷼{parseFloat(template.basePrice || '0').toFixed(2)}
                         </span>
                       </div>
                       {template.hourlyRate && (
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Hourly Rate</span>
+                          <span className="text-sm text-muted-foreground">{t('consultantProfile.pricingTemplates.hourlyRate')}</span>
                           <span className="text-sm font-medium" data-testid={`text-template-hourlyrate-${index}`}>
                             ﷼{parseFloat(template.hourlyRate).toFixed(2)}/hr
                           </span>
@@ -1908,7 +1910,7 @@ export default function ConsultantProfile() {
                       )}
                       {template.estimatedHours && (
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Est. Hours</span>
+                          <span className="text-sm text-muted-foreground">{t('consultantProfile.pricingTemplates.estimatedHours')}</span>
                           <span className="text-sm font-medium" data-testid={`text-template-hours-${index}`}>
                             {template.estimatedHours} hours
                           </span>
@@ -1926,7 +1928,7 @@ export default function ConsultantProfile() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Star className="h-5 w-5 text-primary" />
-                  Reviews & Ratings
+                  {t('consultantProfile.reviews.title')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1944,7 +1946,7 @@ export default function ConsultantProfile() {
                       ))}
                     </div>
                     <div className="text-sm text-muted-foreground" data-testid="text-total-reviews">
-                      Based on {reviewStats.totalReviews} review{reviewStats.totalReviews !== 1 ? 's' : ''}
+                      {t('consultantProfile.reviews.totalReviews', { count: reviewStats.totalReviews, s: reviewStats.totalReviews !== 1 ? 's' : '' })}
                     </div>
                   </div>
 
@@ -1970,7 +1972,7 @@ export default function ConsultantProfile() {
 
                 {reviews && reviews.length > 0 && (
                   <div className="space-y-4 border-t pt-6">
-                    <h4 className="font-semibold">Recent Reviews</h4>
+                    <h4 className="font-semibold">{t('consultantProfile.reviews.title')}</h4>
                     {reviews.map((review: any, index: number) => (
                       <Card key={review.id} data-testid={`review-${index}`}>
                         <CardContent className="pt-6 space-y-3">
@@ -2002,7 +2004,7 @@ export default function ConsultantProfile() {
                               disabled={markHelpfulMutation.isPending}
                               data-testid={`button-helpful-${index}`}
                             >
-                              👍 Helpful ({review.helpful || 0})
+                              👍 {t('consultantProfile.reviews.helpful')} ({review.helpful || 0})
                             </Button>
                           </div>
                         </CardContent>
@@ -2018,10 +2020,10 @@ export default function ConsultantProfile() {
                           disabled={reviewsPage === 0}
                           data-testid="button-reviews-prev"
                         >
-                          Previous
+                          {t('pagination.previous')}
                         </Button>
                         <span className="text-sm text-muted-foreground self-center">
-                          Page {reviewsPage + 1} of {Math.ceil(totalReviews / reviewsPerPage)}
+                          {t('pagination.pageOf', { current: reviewsPage + 1, total: Math.ceil(totalReviews / reviewsPerPage) })}
                         </span>
                         <Button
                           variant="outline"
@@ -2030,7 +2032,7 @@ export default function ConsultantProfile() {
                           disabled={(reviewsPage + 1) * reviewsPerPage >= totalReviews}
                           data-testid="button-reviews-next"
                         >
-                          Next
+                          {t('pagination.next')}
                         </Button>
                       </div>
                     )}
@@ -2045,7 +2047,7 @@ export default function ConsultantProfile() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CalendarIcon className="h-5 w-5 text-primary" />
-                  Weekly Availability
+                  {t('consultantProfile.viewMode.weeklyAvailability')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -2057,11 +2059,11 @@ export default function ConsultantProfile() {
                     
                     return (
                       <div key={day} className="flex items-start gap-2" data-testid={`schedule-${day}`}>
-                        <span className="font-medium text-sm min-w-[60px]">{WEEKDAY_LABELS[day]}:</span>
+                        <span className="font-medium text-sm min-w-[60px]">{t(`consultantProfile.weeklySchedule.days.${day}`)}:</span>
                         <div className="flex flex-wrap gap-1">
                           {slots.map(slot => (
                             <Badge key={slot} variant="secondary" className="text-xs">
-                              {TIME_SLOT_LABELS[slot]}
+                              {t(`consultantProfile.weeklySchedule.timeSlots.${slot}`)}
                             </Badge>
                           ))}
                         </div>

@@ -6,6 +6,7 @@ import { insertClientProfileSchema, insertTeamMemberSchema, type ClientProfile, 
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ export default function ClientProfile() {
   const { user, isLoading: authLoading, getSelectedRole } = useAuthContext();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -142,14 +144,14 @@ export default function ClientProfile() {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
       setIsEditing(false);
       toast({
-        title: "Profile updated",
-        description: "Your client profile has been updated successfully.",
+        title: t('common.success'),
+        description: t('clientProfile.subtitle'),
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Update failed",
-        description: error.message || "Failed to update profile. Please try again.",
+        title: t('common.error'),
+        description: error.message || t('clientProfile.errors.unableToFetch'),
         variant: "destructive",
       });
     },
@@ -181,14 +183,14 @@ export default function ClientProfile() {
       setInviteDialogOpen(false);
       inviteForm.reset();
       toast({
-        title: "Invitation sent",
-        description: "Team member invitation has been sent successfully.",
+        title: t('common.success'),
+        description: t('clientProfile.teamSection.inviteButton'),
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Invitation failed",
-        description: error.message || "Failed to send invitation.",
+        title: t('common.error'),
+        description: error.message || t('common.error'),
         variant: "destructive",
       });
     },
@@ -201,14 +203,14 @@ export default function ClientProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/team-members'] });
       toast({
-        title: "Member removed",
-        description: "Team member has been removed successfully.",
+        title: t('common.success'),
+        description: t('common.delete'),
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Remove failed",
-        description: error.message || "Failed to remove team member.",
+        title: t('common.error'),
+        description: error.message || t('common.error'),
         variant: "destructive",
       });
     },
@@ -223,14 +225,14 @@ export default function ClientProfile() {
       setEditingMember(null);
       setSelectedRole("");
       toast({
-        title: "Member updated",
-        description: "Team member has been updated successfully.",
+        title: t('common.success'),
+        description: t('common.update'),
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Update failed",
-        description: error.message || "Failed to update team member.",
+        title: t('common.error'),
+        description: error.message || t('common.error'),
         variant: "destructive",
       });
     },
@@ -239,8 +241,8 @@ export default function ClientProfile() {
   const onSubmit = (data: UpdateProfile) => {
     if (!termsAccepted) {
       toast({
-        title: "Terms Required",
-        description: "Please accept the Terms & Conditions to continue.",
+        title: t('form.required'),
+        description: t('form.termsAcceptance'),
         variant: "destructive",
       });
       return;
@@ -279,10 +281,10 @@ export default function ClientProfile() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <AlertCircle className="h-5 w-5" />
-                Failed to Load Profile
+                {t('clientProfile.errors.failedToLoad')}
               </CardTitle>
               <CardDescription>
-                Unable to fetch your profile information. Please try refreshing.
+                {t('clientProfile.errors.unableToFetch')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -291,7 +293,7 @@ export default function ClientProfile() {
                 className="w-full bg-primary text-primary-foreground"
                 data-testid="button-retry-profile"
               >
-                Retry
+                {t('clientProfile.errors.retry')}
               </Button>
             </CardContent>
           </Card>
@@ -308,9 +310,9 @@ export default function ClientProfile() {
           <div className="flex items-center justify-center min-h-[600px]">
             <Card className="max-w-md">
               <CardHeader>
-                <CardTitle>No Client Profile</CardTitle>
+                <CardTitle>{t('clientProfile.noProfile')}</CardTitle>
                 <CardDescription>
-                  You don't have a client profile yet. Create one to start posting requirements and receiving bids.
+                  {t('clientProfile.noProfileDesc')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -319,7 +321,7 @@ export default function ClientProfile() {
                   className="w-full"
                   data-testid="button-create-profile"
                 >
-                  Create Profile
+                  {t('clientProfile.createProfile')}
                 </Button>
               </CardContent>
             </Card>
@@ -334,8 +336,8 @@ export default function ClientProfile() {
       <div className="container max-w-4xl mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold" data-testid="text-profile-title">Client Profile</h1>
-            <p className="text-muted-foreground">Manage your company information and preferences</p>
+            <h1 className="text-3xl font-bold" data-testid="text-profile-title">{t('clientProfile.title')}</h1>
+            <p className="text-muted-foreground">{t('clientProfile.subtitle')}</p>
           </div>
         {!isEditing && (
           <Button
@@ -344,7 +346,7 @@ export default function ClientProfile() {
             data-testid="button-edit-profile"
           >
             <Edit className="h-4 w-4 mr-2" />
-            Edit Profile
+            {t('clientProfile.editProfile')}
           </Button>
         )}
       </div>
@@ -352,15 +354,15 @@ export default function ClientProfile() {
       {isEditing ? (
         <Card>
           <CardHeader>
-            <CardTitle>Edit Profile Information</CardTitle>
-            <CardDescription>Update your company details and business information</CardDescription>
+            <CardTitle>{t('clientProfile.editTitle')}</CardTitle>
+            <CardDescription>{t('clientProfile.editDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
             {isOnboarding && (
               <Alert className="mb-6" data-testid="alert-onboarding">
                 <Info className="h-4 w-4" />
                 <AlertDescription>
-                  Welcome! Complete your profile to get started. You can always skip this and update it later from your dashboard.
+                  {t('clientProfile.onboardingWelcome')}
                 </AlertDescription>
               </Alert>
             )}
@@ -372,9 +374,9 @@ export default function ClientProfile() {
                   name="companyName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Company Name</FormLabel>
+                      <FormLabel>{t('clientProfile.fields.companyName')}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Acme Corporation" {...field} value={field.value ?? ""} data-testid="input-company-name" />
+                        <Input placeholder={t('clientProfile.fields.companyNamePlaceholder')} {...field} value={field.value ?? ""} data-testid="input-company-name" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -386,17 +388,17 @@ export default function ClientProfile() {
                   name="contactEmail"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Contact Email</FormLabel>
+                      <FormLabel>{t('clientProfile.fields.contactEmail')}</FormLabel>
                       <FormControl>
                         <Input 
                           type="email" 
-                          placeholder="contact@company.com" 
+                          placeholder={t('clientProfile.fields.contactEmailPlaceholder')} 
                           {...field} 
                           value={field.value ?? ""} 
                           data-testid="input-contact-email" 
                         />
                       </FormControl>
-                      <FormDescription>Business contact email</FormDescription>
+                      <FormDescription>{t('clientProfile.fields.contactEmailDesc')}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -408,10 +410,10 @@ export default function ClientProfile() {
                     name="phoneCountryCode"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Phone Country Code</FormLabel>
+                        <FormLabel>{t('clientProfile.fields.phoneCountryCode')}</FormLabel>
                         <FormControl>
                           <Input 
-                            placeholder="+966" 
+                            placeholder={t('clientProfile.fields.phoneCountryCodePlaceholder')} 
                             {...field} 
                             value={field.value ?? ""} 
                             data-testid="input-phone-country-code" 
@@ -427,17 +429,17 @@ export default function ClientProfile() {
                     name="contactPhone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Contact Phone Number</FormLabel>
+                        <FormLabel>{t('clientProfile.fields.contactPhone')}</FormLabel>
                         <FormControl>
                           <Input 
                             type="tel" 
-                            placeholder="501234567" 
+                            placeholder={t('clientProfile.fields.contactPhonePlaceholder')} 
                             {...field} 
                             value={field.value ?? ""} 
                             data-testid="input-contact-phone" 
                           />
                         </FormControl>
-                        <FormDescription>Business contact number</FormDescription>
+                        <FormDescription>{t('clientProfile.fields.contactPhoneDesc')}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -449,17 +451,17 @@ export default function ClientProfile() {
                   name="businessType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Business Type</FormLabel>
+                      <FormLabel>{t('clientProfile.fields.businessType')}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value ?? ""}>
                         <FormControl>
                           <SelectTrigger data-testid="select-business-type">
-                            <SelectValue placeholder="Select business type" />
+                            <SelectValue placeholder={t('clientProfile.fields.businessTypePlaceholder')} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="individual">Individual</SelectItem>
-                          <SelectItem value="company">Company</SelectItem>
-                          <SelectItem value="enterprise">Enterprise</SelectItem>
+                          <SelectItem value="individual">{t('clientProfile.businessTypes.individual')}</SelectItem>
+                          <SelectItem value="company">{t('clientProfile.businessTypes.company')}</SelectItem>
+                          <SelectItem value="enterprise">{t('clientProfile.businessTypes.enterprise')}</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -472,29 +474,29 @@ export default function ClientProfile() {
                   name="industry"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Industry</FormLabel>
+                      <FormLabel>{t('clientProfile.fields.industry')}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value ?? ""}>
                         <FormControl>
                           <SelectTrigger data-testid="select-industry">
-                            <SelectValue placeholder="Select industry" />
+                            <SelectValue placeholder={t('clientProfile.fields.industryPlaceholder')} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="technology">Technology</SelectItem>
-                          <SelectItem value="finance">Finance & Banking</SelectItem>
-                          <SelectItem value="healthcare">Healthcare</SelectItem>
-                          <SelectItem value="manufacturing">Manufacturing</SelectItem>
-                          <SelectItem value="retail">Retail & E-commerce</SelectItem>
-                          <SelectItem value="education">Education</SelectItem>
-                          <SelectItem value="real_estate">Real Estate</SelectItem>
-                          <SelectItem value="construction">Construction</SelectItem>
-                          <SelectItem value="hospitality">Hospitality & Tourism</SelectItem>
-                          <SelectItem value="telecommunications">Telecommunications</SelectItem>
-                          <SelectItem value="energy">Energy & Utilities</SelectItem>
-                          <SelectItem value="transportation">Transportation & Logistics</SelectItem>
-                          <SelectItem value="government">Government</SelectItem>
-                          <SelectItem value="nonprofit">Non-Profit</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
+                          <SelectItem value="technology">{t('clientProfile.industries.technology')}</SelectItem>
+                          <SelectItem value="finance">{t('clientProfile.industries.finance')}</SelectItem>
+                          <SelectItem value="healthcare">{t('clientProfile.industries.healthcare')}</SelectItem>
+                          <SelectItem value="manufacturing">{t('clientProfile.industries.manufacturing')}</SelectItem>
+                          <SelectItem value="retail">{t('clientProfile.industries.retail')}</SelectItem>
+                          <SelectItem value="education">{t('clientProfile.industries.education')}</SelectItem>
+                          <SelectItem value="real_estate">{t('clientProfile.industries.realEstate')}</SelectItem>
+                          <SelectItem value="construction">{t('clientProfile.industries.construction')}</SelectItem>
+                          <SelectItem value="hospitality">{t('clientProfile.industries.hospitality')}</SelectItem>
+                          <SelectItem value="telecommunications">{t('clientProfile.industries.telecommunications')}</SelectItem>
+                          <SelectItem value="energy">{t('clientProfile.industries.energy')}</SelectItem>
+                          <SelectItem value="transportation">{t('clientProfile.industries.transportation')}</SelectItem>
+                          <SelectItem value="government">{t('clientProfile.industries.government')}</SelectItem>
+                          <SelectItem value="nonprofit">{t('clientProfile.industries.nonprofit')}</SelectItem>
+                          <SelectItem value="other">{t('clientProfile.industries.other')}</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -507,27 +509,27 @@ export default function ClientProfile() {
                   name="region"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Region</FormLabel>
+                      <FormLabel>{t('clientProfile.fields.region')}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value ?? ""}>
                         <FormControl>
                           <SelectTrigger data-testid="select-region">
-                            <SelectValue placeholder="Select region" />
+                            <SelectValue placeholder={t('clientProfile.fields.regionPlaceholder')} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="riyadh">Riyadh Region</SelectItem>
-                          <SelectItem value="makkah">Makkah Region</SelectItem>
-                          <SelectItem value="madinah">Madinah Region</SelectItem>
-                          <SelectItem value="eastern">Eastern Province</SelectItem>
-                          <SelectItem value="asir">Asir Region</SelectItem>
-                          <SelectItem value="tabuk">Tabuk Region</SelectItem>
-                          <SelectItem value="hail">Hail Region</SelectItem>
-                          <SelectItem value="northern_borders">Northern Borders</SelectItem>
-                          <SelectItem value="jazan">Jazan Region</SelectItem>
-                          <SelectItem value="najran">Najran Region</SelectItem>
-                          <SelectItem value="al_bahah">Al Bahah Region</SelectItem>
-                          <SelectItem value="al_jawf">Al Jawf Region</SelectItem>
-                          <SelectItem value="qassim">Qassim Region</SelectItem>
+                          <SelectItem value="riyadh">{t('clientProfile.regions.riyadh')}</SelectItem>
+                          <SelectItem value="makkah">{t('clientProfile.regions.makkah')}</SelectItem>
+                          <SelectItem value="madinah">{t('clientProfile.regions.madinah')}</SelectItem>
+                          <SelectItem value="eastern">{t('clientProfile.regions.eastern')}</SelectItem>
+                          <SelectItem value="asir">{t('clientProfile.regions.asir')}</SelectItem>
+                          <SelectItem value="tabuk">{t('clientProfile.regions.tabuk')}</SelectItem>
+                          <SelectItem value="hail">{t('clientProfile.regions.hail')}</SelectItem>
+                          <SelectItem value="northern_borders">{t('clientProfile.regions.northernBorders')}</SelectItem>
+                          <SelectItem value="jazan">{t('clientProfile.regions.jazan')}</SelectItem>
+                          <SelectItem value="najran">{t('clientProfile.regions.najran')}</SelectItem>
+                          <SelectItem value="al_bahah">{t('clientProfile.regions.alBahah')}</SelectItem>
+                          <SelectItem value="al_jawf">{t('clientProfile.regions.alJawf')}</SelectItem>
+                          <SelectItem value="qassim">{t('clientProfile.regions.qassim')}</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -540,19 +542,19 @@ export default function ClientProfile() {
                   name="companySize"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Company Size</FormLabel>
+                      <FormLabel>{t('clientProfile.fields.companySize')}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value ?? ""}>
                         <FormControl>
                           <SelectTrigger data-testid="select-company-size">
-                            <SelectValue placeholder="Select company size" />
+                            <SelectValue placeholder={t('clientProfile.fields.companySizePlaceholder')} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="1-10">1-10 employees</SelectItem>
-                          <SelectItem value="11-50">11-50 employees</SelectItem>
-                          <SelectItem value="51-200">51-200 employees</SelectItem>
-                          <SelectItem value="201-500">201-500 employees</SelectItem>
-                          <SelectItem value="500+">500+ employees</SelectItem>
+                          <SelectItem value="1-10">{t('clientProfile.companySizes.1-10')}</SelectItem>
+                          <SelectItem value="11-50">{t('clientProfile.companySizes.11-50')}</SelectItem>
+                          <SelectItem value="51-200">{t('clientProfile.companySizes.51-200')}</SelectItem>
+                          <SelectItem value="201-500">{t('clientProfile.companySizes.201-500')}</SelectItem>
+                          <SelectItem value="500+">{t('clientProfile.companySizes.500+')}</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -565,9 +567,9 @@ export default function ClientProfile() {
                   name="website"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Website</FormLabel>
+                      <FormLabel>{t('clientProfile.fields.website')}</FormLabel>
                       <FormControl>
-                        <Input placeholder="https://www.example.com" {...field} value={field.value ?? ""} data-testid="input-website" />
+                        <Input placeholder={t('clientProfile.fields.websitePlaceholder')} {...field} value={field.value ?? ""} data-testid="input-website" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -579,9 +581,9 @@ export default function ClientProfile() {
                   name="location"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Location</FormLabel>
+                      <FormLabel>{t('clientProfile.fields.location')}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Riyadh, Saudi Arabia" {...field} value={field.value ?? ""} data-testid="input-location" />
+                        <Input placeholder={t('clientProfile.fields.locationPlaceholder')} {...field} value={field.value ?? ""} data-testid="input-location" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -593,10 +595,10 @@ export default function ClientProfile() {
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Company Description</FormLabel>
+                      <FormLabel>{t('clientProfile.fields.description')}</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Tell us about your company..."
+                          placeholder={t('clientProfile.fields.descriptionPlaceholder')}
                           className="min-h-[120px] resize-none"
                           {...field}
                           value={field.value ?? ""}
@@ -604,7 +606,7 @@ export default function ClientProfile() {
                         />
                       </FormControl>
                       <FormDescription>
-                        A brief description of your company and what services you're looking for.
+                        {t('clientProfile.fields.descriptionHelp')}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -623,9 +625,9 @@ export default function ClientProfile() {
                     className="text-sm text-muted-foreground cursor-pointer"
                     data-testid="label-terms-acceptance"
                   >
-                    I agree to the{" "}
+                    {t('form.termsAcceptance')}{" "}
                     <Link href="/legal/terms-and-conditions" className="text-primary hover:underline" data-testid="link-terms">
-                      Terms & Conditions
+                      {t('form.termsAndConditions')}
                     </Link>
                   </label>
                 </div>
@@ -639,7 +641,7 @@ export default function ClientProfile() {
                       disabled={updateMutation.isPending}
                       data-testid="button-skip-onboarding"
                     >
-                      Skip for Now
+                      {t('form.skipForNow')}
                     </Button>
                   )}
                   <Button
@@ -650,7 +652,7 @@ export default function ClientProfile() {
                     data-testid="button-cancel-edit"
                   >
                     <X className="h-4 w-4 mr-2" />
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                   <Button
                     type="submit"
@@ -658,7 +660,7 @@ export default function ClientProfile() {
                     data-testid="button-save-profile"
                   >
                     <Save className="h-4 w-4 mr-2" />
-                    {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                    {updateMutation.isPending ? t('form.saving') : t('form.saveChanges')}
                   </Button>
                 </div>
               </form>
@@ -671,38 +673,38 @@ export default function ClientProfile() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-primary" />
-                Company Information
+                {t('clientProfile.companyInformation')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Company Name</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('clientProfile.fields.companyName')}</div>
                 <div className="font-medium" data-testid="text-company-name">
-                  {profile?.companyName || "Not provided"}
+                  {profile?.companyName || t('clientProfile.viewMode.notProvided')}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Business Type</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('clientProfile.fields.businessType')}</div>
                 <div className="font-medium capitalize" data-testid="text-business-type">
-                  {profile?.businessType || "Not provided"}
+                  {profile?.businessType ? t(`clientProfile.businessTypes.${profile.businessType}`) : t('clientProfile.viewMode.notProvided')}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Industry</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('clientProfile.fields.industry')}</div>
                 <div className="font-medium capitalize" data-testid="text-industry">
-                  {profile?.industry ? profile.industry.replace(/_/g, ' ') : "Not provided"}
+                  {profile?.industry ? t(`clientProfile.industries.${profile.industry}`) : t('clientProfile.viewMode.notProvided')}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Region</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('clientProfile.fields.region')}</div>
                 <div className="font-medium capitalize" data-testid="text-region">
-                  {profile?.region ? profile.region.replace(/_/g, ' ') : "Not provided"}
+                  {profile?.region ? t(`clientProfile.regions.${profile.region}`) : t('clientProfile.viewMode.notProvided')}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Company Size</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('clientProfile.fields.companySize')}</div>
                 <div className="font-medium" data-testid="text-company-size">
-                  {profile?.companySize ? profile.companySize.replace(/-/g, ' to ').replace('+', ' or more') : "Not provided"}
+                  {profile?.companySize ? t(`clientProfile.companySizes.${profile.companySize}`) : t('clientProfile.viewMode.notProvided')}
                 </div>
               </div>
             </CardContent>
@@ -712,29 +714,29 @@ export default function ClientProfile() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="h-5 w-5 text-primary" />
-                Contact Details
+                {t('clientProfile.contactDetails')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <div className="text-sm text-muted-foreground mb-1">Website</div>
+                <div className="text-sm text-muted-foreground mb-1">{t('clientProfile.fields.website')}</div>
                 <div className="font-medium" data-testid="text-website">
                   {profile?.website ? (
                     <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                       {profile.website}
                     </a>
                   ) : (
-                    "Not provided"
+                    t('clientProfile.viewMode.notProvided')
                   )}
                 </div>
               </div>
               <div>
                 <div className="text-sm text-muted-foreground mb-1">
                   <MapPin className="h-4 w-4 inline mr-1" />
-                  Location
+                  {t('clientProfile.fields.location')}
                 </div>
                 <div className="font-medium" data-testid="text-location">
-                  {profile?.location || "Not provided"}
+                  {profile?.location || t('clientProfile.viewMode.notProvided')}
                 </div>
               </div>
             </CardContent>
@@ -742,11 +744,11 @@ export default function ClientProfile() {
 
           <Card>
             <CardHeader>
-              <CardTitle>About Company</CardTitle>
+              <CardTitle>{t('clientProfile.aboutCompany')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-sm whitespace-pre-wrap" data-testid="text-description">
-                {profile?.description || "No description provided"}
+                {profile?.description || t('clientProfile.viewMode.noDescription')}
               </div>
             </CardContent>
           </Card>
@@ -760,20 +762,20 @@ export default function ClientProfile() {
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-primary" />
-                Team Members
+                {t('clientProfile.teamMembers')}
               </CardTitle>
               <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" data-testid="button-invite-member">
                     <UserPlus className="h-4 w-4 mr-2" />
-                    Invite Member
+                    {t('clientProfile.teamSection.inviteButton')}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Invite Team Member</DialogTitle>
+                    <DialogTitle>{t('clientProfile.inviteDialog.title')}</DialogTitle>
                     <DialogDescription>
-                      Send an invitation to add a new member to your team.
+                      {t('clientProfile.inviteDialog.description')}
                     </DialogDescription>
                   </DialogHeader>
                   <Form {...inviteForm}>
@@ -783,9 +785,9 @@ export default function ClientProfile() {
                         name="fullName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Full Name</FormLabel>
+                            <FormLabel>{t('clientProfile.inviteDialog.fullName')}</FormLabel>
                             <FormControl>
-                              <Input placeholder="John Doe" data-testid="input-member-name" {...field} />
+                              <Input placeholder={t('clientProfile.inviteDialog.fullNamePlaceholder')} data-testid="input-member-name" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -796,9 +798,9 @@ export default function ClientProfile() {
                         name="email"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Email</FormLabel>
+                            <FormLabel>{t('clientProfile.inviteDialog.email')}</FormLabel>
                             <FormControl>
-                              <Input type="email" placeholder="john@example.com" data-testid="input-member-email" {...field} />
+                              <Input type="email" placeholder={t('clientProfile.inviteDialog.emailPlaceholder')} data-testid="input-member-email" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -809,21 +811,21 @@ export default function ClientProfile() {
                         name="role"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Role</FormLabel>
+                            <FormLabel>{t('clientProfile.inviteDialog.role')}</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl>
                                 <SelectTrigger data-testid="select-member-role">
-                                  <SelectValue placeholder="Select role" />
+                                  <SelectValue placeholder={t('clientProfile.inviteDialog.rolePlaceholder')} />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="admin">Admin</SelectItem>
-                                <SelectItem value="member">Member</SelectItem>
-                                <SelectItem value="viewer">Viewer</SelectItem>
+                                <SelectItem value="admin">{t('clientProfile.memberRoles.admin')}</SelectItem>
+                                <SelectItem value="member">{t('clientProfile.memberRoles.member')}</SelectItem>
+                                <SelectItem value="viewer">{t('clientProfile.memberRoles.viewer')}</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormDescription>
-                              Admin: Full access. Member: Can manage projects. Viewer: Read-only access.
+                              {t('clientProfile.inviteDialog.roleDescription')}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
@@ -836,10 +838,10 @@ export default function ClientProfile() {
                           onClick={() => setInviteDialogOpen(false)}
                           data-testid="button-cancel-invite"
                         >
-                          Cancel
+                          {t('common.cancel')}
                         </Button>
                         <Button type="submit" disabled={inviteMutation.isPending} data-testid="button-send-invite">
-                          {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
+                          {inviteMutation.isPending ? t('clientProfile.inviteDialog.sending') : t('clientProfile.inviteDialog.sendInvitation')}
                         </Button>
                       </DialogFooter>
                     </form>
@@ -859,15 +861,15 @@ export default function ClientProfile() {
               >
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Edit Team Member</DialogTitle>
+                    <DialogTitle>{t('clientProfile.editMemberDialog.title')}</DialogTitle>
                     <DialogDescription>
-                      Update the role for {editingMember?.fullName || editingMember?.email}
+                      {t('clientProfile.editMemberDialog.description', { name: editingMember?.fullName || editingMember?.email })}
                     </DialogDescription>
                   </DialogHeader>
                   {editingMember && (
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="edit-role">Role</Label>
+                        <Label htmlFor="edit-role">{t('clientProfile.editMemberDialog.role')}</Label>
                         <Select
                           value={selectedRole || editingMember.role}
                           onValueChange={setSelectedRole}
@@ -876,9 +878,9 @@ export default function ClientProfile() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="member">Member</SelectItem>
-                            <SelectItem value="viewer">Viewer</SelectItem>
+                            <SelectItem value="admin">{t('clientProfile.memberRoles.admin')}</SelectItem>
+                            <SelectItem value="member">{t('clientProfile.memberRoles.member')}</SelectItem>
+                            <SelectItem value="viewer">{t('clientProfile.memberRoles.viewer')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -892,7 +894,7 @@ export default function ClientProfile() {
                           }}
                           data-testid="button-cancel-edit"
                         >
-                          Cancel
+                          {t('common.cancel')}
                         </Button>
                         <Button
                           onClick={() => {
@@ -907,7 +909,7 @@ export default function ClientProfile() {
                           disabled={updateMemberMutation.isPending || editingMember.status === 'revoked'}
                           data-testid="button-save-edit"
                         >
-                          {updateMemberMutation.isPending ? "Saving..." : "Save Changes"}
+                          {updateMemberMutation.isPending ? t('form.saving') : t('form.saveChanges')}
                         </Button>
                       </DialogFooter>
                     </div>
@@ -916,7 +918,7 @@ export default function ClientProfile() {
               </Dialog>
             </div>
             <CardDescription>
-              Manage your team members and their permissions
+              {t('clientProfile.teamSection.description')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -927,8 +929,8 @@ export default function ClientProfile() {
             ) : teamMembers.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground" data-testid="text-no-members">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No team members yet</p>
-                <p className="text-sm">Invite team members to collaborate on projects</p>
+                <p>{t('clientProfile.teamSection.noMembers')}</p>
+                <p className="text-sm">{t('clientProfile.teamSection.noMembersDesc')}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -955,11 +957,11 @@ export default function ClientProfile() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant={member.status === 'accepted' ? 'default' : 'secondary'} data-testid={`badge-status-${member.id}`}>
-                          {member.status}
+                          {t(`clientProfile.memberStatuses.${member.status}`)}
                         </Badge>
                         <Badge variant="outline" data-testid={`badge-role-${member.id}`}>
                           <Shield className="h-3 w-3 mr-1" />
-                          {member.role}
+                          {t(`clientProfile.memberRoles.${member.role}`)}
                         </Badge>
                       </div>
                     </div>
@@ -975,7 +977,7 @@ export default function ClientProfile() {
                           data-testid={`button-edit-member-${member.id}`}
                         >
                           <Edit className="h-4 w-4 mr-2" />
-                          Edit Role
+                          {t('common.edit')}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
@@ -987,7 +989,7 @@ export default function ClientProfile() {
                           data-testid={`button-remove-member-${member.id}`}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
-                          Remove
+                          {t('common.delete')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
