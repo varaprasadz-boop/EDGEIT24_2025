@@ -11,6 +11,8 @@ export default function AdminLogin() {
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [twoFactorToken, setTwoFactorToken] = useState("");
+  const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -26,16 +28,39 @@ export default function AdminLogin() {
       return;
     }
 
+    if (requiresTwoFactor && !twoFactorToken) {
+      toast({
+        title: "Error",
+        description: "Please enter your two-factor authentication code",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       const response = await apiRequest("POST", "/api/admin/login", {
         email,
         password,
+        ...(requiresTwoFactor && { twoFactorToken }),
       });
 
       if (response.ok) {
         const data = await response.json();
+        
+        // Check if 2FA is required
+        if (data.requiresTwoFactor) {
+          setRequiresTwoFactor(true);
+          toast({
+            title: "Two-Factor Authentication Required",
+            description: "Please enter your authentication code",
+          });
+          setIsLoading(false);
+          return;
+        }
+        
+        // Successful login
         toast({
           title: "Welcome back!",
           description: `Logged in as ${data.adminRole.role}`,
@@ -76,36 +101,62 @@ export default function AdminLogin() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email
-              </label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="superadmin@edgeit24.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-                data-testid="input-email"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-                data-testid="input-password"
-                required
-              />
-            </div>
+            {!requiresTwoFactor ? (
+              <>
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium">
+                    Email
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="superadmin@edgeit24.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
+                    data-testid="input-email"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="password" className="text-sm font-medium">
+                    Password
+                  </label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
+                    data-testid="input-password"
+                    required
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <label htmlFor="twoFactorToken" className="text-sm font-medium">
+                  Two-Factor Authentication Code
+                </label>
+                <Input
+                  id="twoFactorToken"
+                  type="text"
+                  placeholder="Enter 6-digit code"
+                  value={twoFactorToken}
+                  onChange={(e) => setTwoFactorToken(e.target.value)}
+                  disabled={isLoading}
+                  data-testid="input-2fa-token"
+                  maxLength={6}
+                  pattern="[0-9]{6}"
+                  required
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter the 6-digit code from your authenticator app
+                </p>
+              </div>
+            )}
             <Button
               type="submit"
               className="w-full"
@@ -115,12 +166,28 @@ export default function AdminLogin() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
+                  {requiresTwoFactor ? "Verifying..." : "Signing in..."}
                 </>
+              ) : requiresTwoFactor ? (
+                "Verify Code"
               ) : (
                 "Sign In"
               )}
             </Button>
+            {requiresTwoFactor && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => {
+                  setRequiresTwoFactor(false);
+                  setTwoFactorToken("");
+                }}
+                data-testid="button-back"
+              >
+                Back to Login
+              </Button>
+            )}
           </form>
           
           <div className="mt-6 text-center text-sm text-muted-foreground">

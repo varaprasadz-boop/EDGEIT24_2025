@@ -6,6 +6,7 @@ import { notificationService } from "./notifications";
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import { isAdmin, hasPermission, hasAnyRole } from "./admin-middleware";
 import { requireRole, requirePermission, requireAdmin as requireAdminRole } from "./rbac";
+import { adminSessionTimeout } from "./middleware/adminSessionTimeout";
 import { wsManager } from "./websocket";
 import { z } from "zod";
 import { registerPaymentRoutes } from "./routes/payments";
@@ -7938,6 +7939,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== ADMIN ROUTES ====================
   
+  // Apply admin session timeout to all /api/admin/* routes except /login
+  app.use('/api/admin', (req, res, next) => {
+    // Skip session timeout for login endpoint (it's the entry point)
+    if (req.path === '/login' && req.method === 'POST') {
+      return next();
+    }
+    // Apply session timeout middleware to all authenticated admin routes
+    if (req.isAuthenticated && req.isAuthenticated()) {
+      adminSessionTimeout(req, res, next);
+    } else {
+      next();
+    }
+  });
+  
   // Admin login - same as regular login but requires admin role
   app.post('/api/admin/login', (req, res, next) => {
     passport.authenticate('local', async (err: any, user: any, info: any) => {
@@ -7966,16 +7981,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Admin access required" });
         }
         
-        req.login(user, (loginErr) => {
+        // Check if 2FA is enabled for this admin user
+        if (user.twoFactorEnabled) {
+          const { twoFactorToken } = req.body;
+          
+          // If no token provided, indicate 2FA is required
+          if (!twoFactorToken) {
+            return res.status(200).json({
+              requiresTwoFactor: true,
+              userId: user.id,
+              message: "Two-factor authentication required"
+            });
+          }
+          
+          // Verify 2FA token
+          const isValid = speakeasy.totp.verify({
+            secret: user.twoFactorSecret,
+            encoding: 'base32',
+            token: twoFactorToken,
+            window: 2
+          });
+          
+          if (!isValid) {
+            return res.status(401).json({ message: "Invalid two-factor authentication code" });
+          }
+        }
+        
+        // Log successful admin login
+        req.login(user, async (loginErr) => {
           if (loginErr) {
             return res.status(500).json({ message: "Login failed" });
           }
+          
+          // Set admin session timeout (30 minutes)
+          if (req.session) {
+            req.session.cookie.maxAge = 30 * 60 * 1000; // 30 minutes
+            req.session.lastAdminActivity = Date.now();
+          }
+          
+          // Log admin login activity
+          await storage.logAdminActivity({
+            adminId: user.id,
+            action: 'admin_login',
+            targetType: 'session',
+            targetId: req.sessionID,
+            metadata: {
+              role: adminRole.role,
+              loginMethod: user.twoFactorEnabled ? '2FA' : 'password'
+            },
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent')
+          });
           
           res.json({
             user: {
               id: user.id,
               email: user.email,
               role: user.role,
+              twoFactorEnabled: user.twoFactorEnabled
             },
             adminRole: {
               role: adminRole.role,
