@@ -6,10 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { Plus, FileText, Eye, Send, Download } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Invoice } from "@shared/schema";
 
 export default function ConsultantInvoicesPage() {
   const { user } = useAuthContext();
+  const { t } = useTranslation();
 
   const { data: invoices, isLoading } = useQuery<Invoice[]>({
     queryKey: ['/api/invoices/consultant', user?.id],
@@ -32,7 +34,7 @@ export default function ConsultantInvoicesPage() {
   };
 
   const formatCurrency = (amount: string) => {
-    return `${parseFloat(amount).toFixed(2)} SAR`;
+    return `${parseFloat(amount).toFixed(2)} ${t('consultantInvoices.currency')}`;
   };
 
   if (isLoading) {
@@ -55,15 +57,15 @@ export default function ConsultantInvoicesPage() {
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold">My Invoices</h1>
+          <h1 className="text-3xl font-bold">{t('consultantInvoices.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Create and manage invoices for your projects
+            {t('consultantInvoices.subtitle')}
           </p>
         </div>
         <Link href="/consultant/invoices/create">
           <Button size="lg" data-testid="button-create-invoice">
             <Plus className="w-4 h-4 mr-2" />
-            Create Invoice
+            {t('consultantInvoices.createInvoice')}
           </Button>
         </Link>
       </div>
@@ -72,14 +74,14 @@ export default function ConsultantInvoicesPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FileText className="w-16 h-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No invoices yet</h3>
+            <h3 className="text-lg font-semibold mb-2">{t('consultantInvoices.noInvoicesYet')}</h3>
             <p className="text-muted-foreground text-center mb-6">
-              Create your first invoice to get started with billing
+              {t('consultantInvoices.noInvoicesDesc')}
             </p>
             <Link href="/consultant/invoices/create">
               <Button data-testid="button-create-first-invoice">
                 <Plus className="w-4 h-4 mr-2" />
-                Create Invoice
+                {t('consultantInvoices.createFirstInvoice')}
               </Button>
             </Link>
           </CardContent>
@@ -96,13 +98,13 @@ export default function ConsultantInvoicesPage() {
                         {invoice.invoiceNumber}
                       </CardTitle>
                       <Badge className={getStatusColor(invoice.status)} data-testid={`badge-status-${invoice.id}`}>
-                        {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                        {t(`invoiceStatus.${invoice.status}`)}
                       </Badge>
                     </div>
                     <CardDescription className="mt-2">
-                      Issued: {new Date(invoice.issueDate).toLocaleDateString('en-SA')}
+                      {t('consultantInvoices.issued')}: {new Date(invoice.issueDate).toLocaleDateString('en-SA')}
                       {' • '}
-                      Due: {new Date(invoice.dueDate).toLocaleDateString('en-SA')}
+                      {t('consultantInvoices.due')}: {new Date(invoice.dueDate).toLocaleDateString('en-SA')}
                     </CardDescription>
                   </div>
                   <div className="text-right">
@@ -120,14 +122,14 @@ export default function ConsultantInvoicesPage() {
                   <Link href={`/consultant/invoices/${invoice.id}`}>
                     <Button variant="outline" size="sm" data-testid={`button-view-${invoice.id}`}>
                       <Eye className="w-4 h-4 mr-2" />
-                      View Details
+                      {t('consultantInvoices.viewDetails')}
                     </Button>
                   </Link>
                   {invoice.status === 'draft' && (
                     <Link href={`/consultant/invoices/${invoice.id}`}>
                       <Button variant="outline" size="sm" data-testid={`button-send-${invoice.id}`}>
                         <Send className="w-4 h-4 mr-2" />
-                        Send Invoice
+                        {t('consultantInvoices.sendEmail')}
                       </Button>
                     </Link>
                   )}
@@ -138,7 +140,7 @@ export default function ConsultantInvoicesPage() {
                     data-testid={`button-download-${invoice.id}`}
                   >
                     <Download className="w-4 h-4 mr-2" />
-                    Download
+                    {t('consultantInvoices.downloadPdf')}
                   </Button>
                 </div>
               </CardContent>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Header } from "@/components/Header";
 import { SavedSearches } from "@/components/SavedSearches";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,6 +59,7 @@ interface SearchFilters {
 }
 
 export default function BrowseConsultants() {
+  const { t } = useTranslation();
   const [filters, setFilters] = useState<SearchFilters>({
     search: "",
     categoryId: null,
@@ -185,10 +187,10 @@ export default function BrowseConsultants() {
             <div className="flex items-center justify-between gap-4 mb-4">
               <div>
                 <h1 className="text-3xl font-bold tracking-tight" data-testid="text-browse-consultants-title">
-                  Find Consultants
+                  {t('browseConsultants.title')}
                 </h1>
                 <p className="text-muted-foreground" data-testid="text-browse-consultants-subtitle">
-                  Browse skilled IT professionals
+                  {t('browseConsultants.subtitle')}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -203,7 +205,7 @@ export default function BrowseConsultants() {
                   data-testid="button-toggle-filters"
                 >
                   <Filter className="h-4 w-4 mr-2" />
-                  {showFilters ? 'Hide' : 'Show'} Filters
+                  {showFilters ? t('browseConsultants.hideFilters') : t('browseConsultants.showFilters')} {t('browseConsultants.toggleFilters')}
                   {activeFilterCount > 0 && (
                     <Badge variant="secondary" className="ml-2" data-testid="badge-filter-count">
                       {activeFilterCount}
@@ -219,7 +221,7 @@ export default function BrowseConsultants() {
               <Card className="lg:col-span-1 h-fit" data-testid="card-filters">
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle>Filters</CardTitle>
+                    <CardTitle>{t('browseConsultants.filters.title')}</CardTitle>
                     {activeFilterCount > 0 && (
                       <Button
                         variant="ghost"
@@ -228,19 +230,19 @@ export default function BrowseConsultants() {
                         data-testid="button-clear-filters"
                       >
                         <X className="h-4 w-4 mr-1" />
-                        Clear
+                        {t('browseConsultants.filters.clear')}
                       </Button>
                     )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="search-input">Search</Label>
+                    <Label htmlFor="search-input">{t('browseConsultants.filters.search')}</Label>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="search-input"
-                        placeholder="Name, bio, or company..."
+                        placeholder={t('browseConsultants.filters.searchPlaceholder')}
                         value={filters.search}
                         onChange={(e) => updateFilter('search', e.target.value)}
                         className="pl-9"
@@ -252,16 +254,16 @@ export default function BrowseConsultants() {
                   <Separator />
 
                   <div className="space-y-2">
-                    <Label htmlFor="category-filter">Category</Label>
+                    <Label htmlFor="category-filter">{t('browseConsultants.filters.category')}</Label>
                     <Select
                       value={filters.categoryId || "all"}
                       onValueChange={(value) => updateFilter('categoryId', value === "all" ? null : value)}
                     >
                       <SelectTrigger id="category-filter" data-testid="select-category">
-                        <SelectValue placeholder="All Categories" />
+                        <SelectValue placeholder={t('browseConsultants.filters.allCategories')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
+                        <SelectItem value="all">{t('browseConsultants.filters.allCategories')}</SelectItem>
                         {allCategories.map((cat) => (
                           <SelectItem key={cat.id} value={cat.id} data-testid={`option-category-${cat.id}`}>
                             {"  ".repeat(cat.depth)}{cat.name}
@@ -272,18 +274,18 @@ export default function BrowseConsultants() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Hourly Rate Range (SAR)</Label>
+                    <Label>{t('browseConsultants.filters.hourlyRateRange')}</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <Input
                         type="number"
-                        placeholder="Min"
+                        placeholder={t('browseConsultants.filters.minPlaceholder')}
                         value={filters.minRate}
                         onChange={(e) => updateFilter('minRate', e.target.value)}
                         data-testid="input-min-rate"
                       />
                       <Input
                         type="number"
-                        placeholder="Max"
+                        placeholder={t('browseConsultants.filters.maxPlaceholder')}
                         value={filters.maxRate}
                         onChange={(e) => updateFilter('maxRate', e.target.value)}
                         data-testid="input-max-rate"
@@ -294,80 +296,80 @@ export default function BrowseConsultants() {
                   <Separator />
 
                   <div className="space-y-2">
-                    <Label htmlFor="skills-input">Skills</Label>
+                    <Label htmlFor="skills-input">{t('browseConsultants.filters.skills')}</Label>
                     <Input
                       id="skills-input"
-                      placeholder="e.g., React, Node.js, Python"
+                      placeholder={t('browseConsultants.filters.skillsPlaceholder')}
                       value={filters.skills}
                       onChange={(e) => updateFilter('skills', e.target.value)}
                       data-testid="input-skills"
                     />
-                    <p className="text-xs text-muted-foreground">Comma-separated</p>
+                    <p className="text-xs text-muted-foreground">{t('browseConsultants.filters.skillsHelper')}</p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="regions-input">Operating Regions</Label>
+                    <Label htmlFor="regions-input">{t('browseConsultants.filters.operatingRegions')}</Label>
                     <Input
                       id="regions-input"
-                      placeholder="e.g., Riyadh, Jeddah, Dammam"
+                      placeholder={t('browseConsultants.filters.regionsPlaceholder')}
                       value={filters.operatingRegions}
                       onChange={(e) => updateFilter('operatingRegions', e.target.value)}
                       data-testid="input-regions"
                     />
-                    <p className="text-xs text-muted-foreground">Comma-separated</p>
+                    <p className="text-xs text-muted-foreground">{t('browseConsultants.filters.regionsHelper')}</p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="experience-level">Experience Level</Label>
+                    <Label htmlFor="experience-level">{t('browseConsultants.filters.experienceLevel')}</Label>
                     <Select
                       value={filters.experience || "all"}
                       onValueChange={(value) => updateFilter('experience', value === "all" ? null : value)}
                     >
                       <SelectTrigger id="experience-level" data-testid="select-experience">
-                        <SelectValue placeholder="Any" />
+                        <SelectValue placeholder={t('browseConsultants.filters.any')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Any</SelectItem>
-                        <SelectItem value="junior">Junior</SelectItem>
-                        <SelectItem value="mid">Mid-Level</SelectItem>
-                        <SelectItem value="senior">Senior</SelectItem>
-                        <SelectItem value="expert">Expert</SelectItem>
+                        <SelectItem value="all">{t('browseConsultants.filters.any')}</SelectItem>
+                        <SelectItem value="junior">{t('browseConsultants.filters.junior')}</SelectItem>
+                        <SelectItem value="mid">{t('browseConsultants.filters.mid')}</SelectItem>
+                        <SelectItem value="senior">{t('browseConsultants.filters.senior')}</SelectItem>
+                        <SelectItem value="expert">{t('browseConsultants.filters.expert')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="min-rating">Minimum Rating</Label>
+                    <Label htmlFor="min-rating">{t('browseConsultants.filters.minRating')}</Label>
                     <Select
                       value={filters.minRating || "all"}
                       onValueChange={(value) => updateFilter('minRating', value === "all" ? "" : value)}
                     >
                       <SelectTrigger id="min-rating" data-testid="select-min-rating">
-                        <SelectValue placeholder="Any" />
+                        <SelectValue placeholder={t('browseConsultants.filters.any')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Any</SelectItem>
-                        <SelectItem value="4">4+ Stars</SelectItem>
-                        <SelectItem value="3">3+ Stars</SelectItem>
-                        <SelectItem value="2">2+ Stars</SelectItem>
+                        <SelectItem value="all">{t('browseConsultants.filters.any')}</SelectItem>
+                        <SelectItem value="4">{t('browseConsultants.filters.stars4plus')}</SelectItem>
+                        <SelectItem value="3">{t('browseConsultants.filters.stars3plus')}</SelectItem>
+                        <SelectItem value="2">{t('browseConsultants.filters.stars2plus')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="availability">Availability</Label>
+                    <Label htmlFor="availability">{t('browseConsultants.filters.availability')}</Label>
                     <Select
                       value={filters.availability || "all"}
                       onValueChange={(value) => updateFilter('availability', value === "all" ? null : value)}
                     >
                       <SelectTrigger id="availability" data-testid="select-availability">
-                        <SelectValue placeholder="Any" />
+                        <SelectValue placeholder={t('browseConsultants.filters.any')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Any</SelectItem>
-                        <SelectItem value="available">Available</SelectItem>
-                        <SelectItem value="busy">Busy</SelectItem>
-                        <SelectItem value="unavailable">Unavailable</SelectItem>
+                        <SelectItem value="all">{t('browseConsultants.filters.any')}</SelectItem>
+                        <SelectItem value="available">{t('browseConsultants.filters.available')}</SelectItem>
+                        <SelectItem value="busy">{t('browseConsultants.filters.busy')}</SelectItem>
+                        <SelectItem value="unavailable">{t('browseConsultants.filters.unavailable')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -380,7 +382,7 @@ export default function BrowseConsultants() {
                       data-testid="checkbox-verified"
                     />
                     <Label htmlFor="verified-only" className="cursor-pointer">
-                      Verified consultants only
+                      {t('browseConsultants.filters.verifiedOnly')}
                     </Label>
                   </div>
                 </CardContent>
@@ -391,7 +393,7 @@ export default function BrowseConsultants() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground" data-testid="text-results-count">
-                    {total} consultant{total !== 1 ? 's' : ''} found
+                    {t(`browseConsultants.results.found_${total === 1 ? 'one' : 'other'}`, { count: total })}
                   </p>
                 </div>
 
@@ -403,7 +405,7 @@ export default function BrowseConsultants() {
                   <Card>
                     <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-consultants">
                       <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No consultants found matching your criteria</p>
+                      <p>{t('browseConsultants.results.noConsultants')}</p>
                       {activeFilterCount > 0 && (
                         <Button
                           variant="outline"
@@ -411,7 +413,7 @@ export default function BrowseConsultants() {
                           onClick={clearFilters}
                           data-testid="button-clear-no-results"
                         >
-                          Clear Filters
+                          {t('browseConsultants.results.clearFilters')}
                         </Button>
                       )}
                     </CardContent>
@@ -437,7 +439,7 @@ export default function BrowseConsultants() {
                                 </div>
                                 <CardDescription className="mt-1" data-testid={`text-consultant-title-${consultant.id}`}>
                                   {consultant.title}
-                                  {consultant.companyName && ` at ${consultant.companyName}`}
+                                  {consultant.companyName && ` ${t('browseConsultants.consultantCard.at')} ${consultant.companyName}`}
                                 </CardDescription>
                               </div>
                               {consultant.hourlyRate && (
@@ -446,7 +448,7 @@ export default function BrowseConsultants() {
                                     <DollarSign className="h-5 w-5" />
                                     ﷼{parseFloat(consultant.hourlyRate).toLocaleString()}
                                   </div>
-                                  <p className="text-xs text-muted-foreground">per hour</p>
+                                  <p className="text-xs text-muted-foreground">{t('browseConsultants.consultantCard.perHour')}</p>
                                 </div>
                               )}
                             </div>
@@ -464,7 +466,7 @@ export default function BrowseConsultants() {
                                   </Badge>
                                 ))}
                                 {consultant.skills.length > 8 && (
-                                  <Badge variant="outline">+{consultant.skills.length - 8} more</Badge>
+                                  <Badge variant="outline">{t('browseConsultants.consultantCard.moreSkills', { count: consultant.skills.length - 8 })}</Badge>
                                 )}
                               </div>
                             )}
@@ -474,14 +476,14 @@ export default function BrowseConsultants() {
                                 <div className="flex items-center gap-2" data-testid={`rating-${consultant.id}`}>
                                   {renderStars(consultant.rating)}
                                   <span className="text-muted-foreground">
-                                    ({consultant.totalReviews} review{consultant.totalReviews !== 1 ? 's' : ''})
+                                    ({t(`browseConsultants.consultantCard.review_${consultant.totalReviews === 1 ? 'one' : 'other'}`, { count: consultant.totalReviews })})
                                   </span>
                                 </div>
                               )}
                               <div className="flex items-center gap-1" data-testid={`projects-${consultant.id}`}>
                                 <Users className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-muted-foreground">
-                                  {consultant.completedProjects} project{consultant.completedProjects !== 1 ? 's' : ''}
+                                  {t(`browseConsultants.consultantCard.project_${consultant.completedProjects === 1 ? 'one' : 'other'}`, { count: consultant.completedProjects })}
                                 </span>
                               </div>
                             </div>
@@ -497,7 +499,7 @@ export default function BrowseConsultants() {
                                   ))}
                                   {consultant.operatingRegions.length > 3 && (
                                     <span className="text-sm text-muted-foreground">
-                                      +{consultant.operatingRegions.length - 3} more
+                                      {t('browseConsultants.consultantCard.moreRegions', { count: consultant.operatingRegions.length - 3 })}
                                     </span>
                                   )}
                                 </div>
@@ -506,11 +508,11 @@ export default function BrowseConsultants() {
 
                             <div className="flex items-center gap-3">
                               <Button className="flex-1 bg-primary text-primary-foreground" data-testid={`button-view-profile-${consultant.id}`}>
-                                View Profile
+                                {t('browseConsultants.consultantCard.viewProfile')}
                               </Button>
                               {consultant.availability === 'available' && (
                                 <Badge variant="outline" className="border-green-500 text-green-600 dark:text-green-400">
-                                  Available
+                                  {t('browseConsultants.consultantCard.available')}
                                 </Badge>
                               )}
                               {consultant.experience && (
@@ -532,7 +534,7 @@ export default function BrowseConsultants() {
                           disabled={currentPage === 1}
                           data-testid="button-prev-page"
                         >
-                          Previous
+                          {t('browseConsultants.pagination.previous')}
                         </Button>
                         <div className="flex items-center gap-1">
                           {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
@@ -557,7 +559,7 @@ export default function BrowseConsultants() {
                           disabled={currentPage === totalPages}
                           data-testid="button-next-page"
                         >
-                          Next
+                          {t('browseConsultants.pagination.next')}
                         </Button>
                       </div>
                     )}

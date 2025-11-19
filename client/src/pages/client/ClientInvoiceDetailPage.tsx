@@ -19,12 +19,14 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { ArrowLeft, CreditCard, Download, FileText } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Invoice } from "@shared/schema";
 
 export default function ClientInvoiceDetailPage() {
   const { id } = useParams();
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const { data: invoice, isLoading } = useQuery<Invoice>({
     queryKey: ['/api/invoices', id],
@@ -46,8 +48,8 @@ export default function ClientInvoiceDetailPage() {
     },
     onSuccess: () => {
       toast({
-        title: "Payment successful",
-        description: "Your payment has been processed successfully",
+        title: t('clientInvoices.paymentSuccess'),
+        description: t('clientInvoices.paymentSuccessDesc'),
       });
       queryClient.invalidateQueries({ queryKey: ['/api/invoices', id] });
       queryClient.invalidateQueries({ queryKey: ['/api/invoices/client'] });
@@ -56,7 +58,7 @@ export default function ClientInvoiceDetailPage() {
     onError: (error: Error) => {
       toast({
         variant: "destructive",
-        title: "Payment failed",
+        title: t('clientInvoices.paymentFailed'),
         description: error.message,
       });
     },
@@ -79,7 +81,7 @@ export default function ClientInvoiceDetailPage() {
 
   const formatCurrency = (amount: string | number) => {
     const numValue = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return `${numValue.toFixed(2)} SAR`;
+    return `${numValue.toFixed(2)} ${t('clientInvoices.currency')}`;
   };
 
   const isOverdue = (invoice: Invoice) => {
@@ -102,9 +104,9 @@ export default function ClientInvoiceDetailPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FileText className="w-16 h-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Invoice not found</h3>
+            <h3 className="text-lg font-semibold mb-2">{t('invoiceDetails.invoiceNotFound')}</h3>
             <Link href="/client/invoices">
-              <Button>Back to Invoices</Button>
+              <Button>{t('invoiceDetails.backToInvoices')}</Button>
             </Link>
           </CardContent>
         </Card>
@@ -120,7 +122,7 @@ export default function ClientInvoiceDetailPage() {
         <Link href="/client/invoices">
           <Button variant="ghost" size="sm" data-testid="button-back">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Invoices
+            {t('invoiceDetails.backToInvoices')}
           </Button>
         </Link>
       </div>
@@ -132,18 +134,18 @@ export default function ClientInvoiceDetailPage() {
               <div className="flex items-center gap-3 flex-wrap">
                 <CardTitle className="text-2xl">{invoice.invoiceNumber}</CardTitle>
                 <Badge className={getStatusColor(invoice.status)} data-testid="badge-status">
-                  {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                  {t(`invoiceStatus.${invoice.status}`)}
                 </Badge>
                 {isOverdue(invoice) && (
                   <Badge variant="destructive" data-testid="badge-overdue">
-                    Overdue
+                    {t('invoiceDetails.overdue')}
                   </Badge>
                 )}
               </div>
               <CardDescription className="mt-2">
-                Issued: {new Date(invoice.issueDate).toLocaleDateString('en-SA')}
+                {t('invoiceDetails.issueDate')}: {new Date(invoice.issueDate).toLocaleDateString('en-SA')}
                 {' • '}
-                Due: {new Date(invoice.dueDate).toLocaleDateString('en-SA')}
+                {t('invoiceDetails.dueDate')}: {new Date(invoice.dueDate).toLocaleDateString('en-SA')}
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -152,26 +154,24 @@ export default function ClientInvoiceDetailPage() {
                   <AlertDialogTrigger asChild>
                     <Button data-testid="button-pay">
                       <CreditCard className="w-4 h-4 mr-2" />
-                      Pay Invoice
+                      {t('invoiceDetails.payInvoice')}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Confirm Payment</AlertDialogTitle>
+                      <AlertDialogTitle>{t('invoiceDetails.confirmPayment')}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Are you sure you want to pay this invoice for{' '}
-                        <span className="font-bold">{formatCurrency(invoice.totalAmount)}</span>?
-                        The amount will be deducted from your wallet balance.
+                        {t('invoiceDetails.confirmPaymentDesc')}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel data-testid="button-cancel-payment">Cancel</AlertDialogCancel>
+                      <AlertDialogCancel data-testid="button-cancel-payment">{t('common.cancel')}</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={() => payMutation.mutate()}
                         disabled={payMutation.isPending}
                         data-testid="button-confirm-payment"
                       >
-                        {payMutation.isPending ? "Processing..." : "Confirm Payment"}
+                        {payMutation.isPending ? t('invoiceDetails.paying') : t('invoiceDetails.confirmPayment')}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -183,7 +183,7 @@ export default function ClientInvoiceDetailPage() {
                 data-testid="button-download"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Download
+                {t('clientInvoices.downloadPdf')}
               </Button>
             </div>
           </div>
@@ -191,7 +191,7 @@ export default function ClientInvoiceDetailPage() {
         <CardContent className="space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <h3 className="font-semibold mb-2">Amount Due</h3>
+              <h3 className="font-semibold mb-2">{t('invoiceDetails.totalAmount')}</h3>
               <div className="text-3xl font-bold" data-testid="text-total">
                 {formatCurrency(invoice.totalAmount)}
               </div>
@@ -199,7 +199,7 @@ export default function ClientInvoiceDetailPage() {
             </div>
             {invoice.paidAt && (
               <div>
-                <h3 className="font-semibold mb-2">Paid On</h3>
+                <h3 className="font-semibold mb-2">{t('invoiceDetails.paidOn')}</h3>
                 <div className="text-lg" data-testid="text-paid-date">
                   {new Date(invoice.paidAt).toLocaleDateString('en-SA')}
                 </div>
@@ -208,15 +208,15 @@ export default function ClientInvoiceDetailPage() {
           </div>
 
           <div>
-            <h3 className="font-semibold mb-3">Invoice Items</h3>
+            <h3 className="font-semibold mb-3">{t('invoiceDetails.items')}</h3>
             <div className="border rounded-lg overflow-hidden">
               <table className="w-full">
                 <thead className="bg-muted">
                   <tr>
-                    <th className="text-left p-3">Description</th>
-                    <th className="text-right p-3">Qty</th>
-                    <th className="text-right p-3">Unit Price</th>
-                    <th className="text-right p-3">Total</th>
+                    <th className="text-left p-3">{t('invoiceDetails.description')}</th>
+                    <th className="text-right p-3">{t('invoiceDetails.quantity')}</th>
+                    <th className="text-right p-3">{t('invoiceDetails.unitPrice')}</th>
+                    <th className="text-right p-3">{t('invoiceDetails.total')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -238,15 +238,15 @@ export default function ClientInvoiceDetailPage() {
           <div className="border-t pt-6">
             <div className="space-y-2 max-w-sm ml-auto">
               <div className="flex justify-between text-sm">
-                <span>Subtotal:</span>
+                <span>{t('invoiceDetails.subtotal')}:</span>
                 <span data-testid="text-subtotal">{formatCurrency(invoice.subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span>VAT (15%):</span>
+                <span>{t('invoiceDetails.vat')}:</span>
                 <span data-testid="text-vat">{formatCurrency(invoice.vatAmount)}</span>
               </div>
               <div className="border-t pt-2 flex justify-between font-bold text-lg">
-                <span>Total:</span>
+                <span>{t('invoiceDetails.total')}:</span>
                 <span data-testid="text-grand-total">{formatCurrency(invoice.totalAmount)}</span>
               </div>
             </div>
@@ -254,7 +254,7 @@ export default function ClientInvoiceDetailPage() {
 
           {invoice.notes && (
             <div>
-              <h3 className="font-semibold mb-2">Notes</h3>
+              <h3 className="font-semibold mb-2">{t('invoiceDetails.notes')}</h3>
               <p className="text-muted-foreground whitespace-pre-wrap" data-testid="text-notes">
                 {invoice.notes}
               </p>

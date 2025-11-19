@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function ClientProjectDetailsPage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const { toast } = useToast();
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
@@ -35,7 +37,7 @@ export default function ClientProjectDetailsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${id}`] });
-      toast({ title: "Deliverable approved" });
+      toast({ title: t('deliverables.deliverableApproved') });
     },
   });
 
@@ -49,7 +51,7 @@ export default function ClientProjectDetailsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${id}`] });
       setSelectedDeliverable(null);
-      toast({ title: "Revision requested" });
+      toast({ title: t('deliverables.revisionRequested') });
     },
   });
 
@@ -63,7 +65,7 @@ export default function ClientProjectDetailsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${id}`] });
       setExtendDialogOpen(false);
-      toast({ title: "Deadline extended successfully" });
+      toast({ title: t('projectDetails.extendDeadline.success') });
     },
   });
 
@@ -76,7 +78,7 @@ export default function ClientProjectDetailsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${id}`] });
-      toast({ title: "Payment released (mocked)" });
+      toast({ title: t('milestones.paymentReleased') });
     },
   });
 
@@ -101,7 +103,7 @@ export default function ClientProjectDetailsPage() {
   if (isLoading || !project) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-muted-foreground">Loading project...</div>
+        <div className="text-muted-foreground">{t('projectDetails.loadingProject')}</div>
       </div>
     );
   }
@@ -116,7 +118,7 @@ export default function ClientProjectDetailsPage() {
         </Link>
         <div className="flex-1">
           <h1 className="text-3xl font-bold" data-testid="text-project-title">{project.title}</h1>
-          <p className="text-muted-foreground">Project ID: {project.id}</p>
+          <p className="text-muted-foreground">{t('projectDetails.projectId')}: {project.id}</p>
         </div>
         <ProjectStatusBadge status={project.status} />
       </div>
@@ -124,7 +126,7 @@ export default function ClientProjectDetailsPage() {
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Budget</CardTitle>
+            <CardTitle className="text-sm">{t('projectDetails.budget')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-budget">
@@ -135,7 +137,7 @@ export default function ClientProjectDetailsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Progress</CardTitle>
+            <CardTitle className="text-sm">{t('projectDetails.progress')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-progress">
@@ -146,40 +148,40 @@ export default function ClientProjectDetailsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Deadline</CardTitle>
+            <CardTitle className="text-sm">{t('projectDetails.deadline')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-sm" data-testid="text-deadline">
-              {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'Not set'}
+              {project.endDate ? new Date(project.endDate).toLocaleDateString() : t('projectDetails.notSet')}
             </div>
             <Dialog open={extendDialogOpen} onOpenChange={setExtendDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline" className="mt-2" data-testid="button-extend-deadline">
                   <CalendarIcon className="w-4 h-4 mr-2" />
-                  Extend
+                  {t('projectDetails.extend')}
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <form onSubmit={handleExtendDeadline}>
                   <DialogHeader>
-                    <DialogTitle>Extend Project Deadline</DialogTitle>
+                    <DialogTitle>{t('projectDetails.extendDeadline.title')}</DialogTitle>
                     <DialogDescription>
-                      Set a new deadline and provide a reason
+                      {t('projectDetails.extendDeadline.description')}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="newEndDate">New End Date</Label>
+                      <Label htmlFor="newEndDate">{t('projectDetails.extendDeadline.newEndDate')}</Label>
                       <Input id="newEndDate" name="newEndDate" type="date" required data-testid="input-new-end-date" />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="reason">Reason</Label>
+                      <Label htmlFor="reason">{t('projectDetails.extendDeadline.reason')}</Label>
                       <Textarea id="reason" name="reason" required data-testid="input-reason" />
                     </div>
                   </div>
                   <DialogFooter>
                     <Button type="submit" disabled={extendDeadlineMutation.isPending} data-testid="button-submit">
-                      {extendDeadlineMutation.isPending ? 'Extending...' : 'Extend Deadline'}
+                      {extendDeadlineMutation.isPending ? t('projectDetails.extendDeadline.extending') : t('projectDetails.extendDeadline.extendButton')}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -191,29 +193,29 @@ export default function ClientProjectDetailsPage() {
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
-          <TabsTrigger value="milestones" data-testid="tab-milestones">Milestones</TabsTrigger>
-          <TabsTrigger value="deliverables" data-testid="tab-deliverables">Deliverables</TabsTrigger>
+          <TabsTrigger value="overview" data-testid="tab-overview">{t('projectDetails.tabs.overview')}</TabsTrigger>
+          <TabsTrigger value="milestones" data-testid="tab-milestones">{t('projectDetails.tabs.milestones')}</TabsTrigger>
+          <TabsTrigger value="deliverables" data-testid="tab-deliverables">{t('projectDetails.tabs.deliverables')}</TabsTrigger>
           <TabsTrigger value="delivery" data-testid="tab-delivery">
             <Package className="w-4 h-4 mr-2" />
-            Delivery
+            {t('projectDetails.tabs.delivery')}
           </TabsTrigger>
-          <TabsTrigger value="activity" data-testid="tab-activity">Activity</TabsTrigger>
+          <TabsTrigger value="activity" data-testid="tab-activity">{t('projectDetails.tabs.activity')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Project Description</CardTitle>
+              <CardTitle>{t('projectDetails.overview.title')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">{project.description || 'No description provided'}</p>
+              <p className="text-muted-foreground">{project.description || t('projectDetails.overview.noDescription')}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Overall Progress</CardTitle>
+              <CardTitle>{t('projectDetails.overview.overallProgress')}</CardTitle>
             </CardHeader>
             <CardContent>
               <ProjectProgressBar 
@@ -233,7 +235,7 @@ export default function ClientProjectDetailsPage() {
                   <div className="flex items-start justify-between">
                     <div>
                       <CardTitle className="text-base">
-                        Milestone {index + 1}: {milestone.title}
+                        {t('milestones.milestone')} {index + 1}: {milestone.title}
                       </CardTitle>
                       {milestone.description && (
                         <CardDescription>{milestone.description}</CardDescription>
@@ -250,7 +252,7 @@ export default function ClientProjectDetailsPage() {
                         data-testid={`button-release-payment-${index}`}
                       >
                         <DollarSign className="w-4 h-4 mr-2" />
-                        Release Payment
+                        {t('milestones.releasePayment')}
                       </Button>
                     )}
                   </div>
@@ -258,7 +260,7 @@ export default function ClientProjectDetailsPage() {
                 <CardContent>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Status: {milestone.status}</span>
+                      <span className="text-muted-foreground">{t('milestones.status')}: {milestone.status}</span>
                       <span className="font-medium">{milestone.progress || 0}%</span>
                     </div>
                   </div>
@@ -278,7 +280,7 @@ export default function ClientProjectDetailsPage() {
                       <div>
                         <CardTitle>{deliverable.title}</CardTitle>
                         <CardDescription>
-                          Milestone {deliverable.milestoneIndex + 1} • {deliverable.status}
+                          {t('deliverables.milestone')} {deliverable.milestoneIndex + 1} • {deliverable.status}
                         </CardDescription>
                       </div>
                       {deliverable.status === 'pending' && (
@@ -290,7 +292,7 @@ export default function ClientProjectDetailsPage() {
                             data-testid={`button-approve-${deliverable.id}`}
                           >
                             <CheckCircle className="w-4 h-4 mr-2" />
-                            Approve
+                            {t('deliverables.approve')}
                           </Button>
                           <Button 
                             size="sm" 
@@ -299,7 +301,7 @@ export default function ClientProjectDetailsPage() {
                             data-testid={`button-request-revision-${deliverable.id}`}
                           >
                             <XCircle className="w-4 h-4 mr-2" />
-                            Request Revision
+                            {t('deliverables.requestRevision')}
                           </Button>
                         </div>
                       )}
@@ -313,7 +315,7 @@ export default function ClientProjectDetailsPage() {
             ) : (
               <Card>
                 <CardContent className="py-8 text-center">
-                  <p className="text-muted-foreground">No deliverables submitted yet</p>
+                  <p className="text-muted-foreground">{t('deliverables.noDeliverables')}</p>
                 </CardContent>
               </Card>
             )}
@@ -324,18 +326,18 @@ export default function ClientProjectDetailsPage() {
               <DialogContent>
                 <form onSubmit={handleRequestRevision}>
                   <DialogHeader>
-                    <DialogTitle>Request Revision</DialogTitle>
+                    <DialogTitle>{t('deliverables.requestRevision')}</DialogTitle>
                     <DialogDescription>
-                      Provide feedback for the consultant to revise the deliverable
+                      {t('deliverables.uploadDeliverable')}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="reviewNotes">Review Notes</Label>
+                      <Label htmlFor="reviewNotes">{t('deliverables.reviewNotes')}</Label>
                       <Textarea 
                         id="reviewNotes" 
                         name="reviewNotes" 
-                        placeholder="Explain what needs to be revised..." 
+                        placeholder={t('deliverables.explainRevision')}
                         required 
                         data-testid="input-review-notes"
                       />
@@ -343,7 +345,7 @@ export default function ClientProjectDetailsPage() {
                   </div>
                   <DialogFooter>
                     <Button type="submit" disabled={requestRevisionMutation.isPending} data-testid="button-submit-revision">
-                      {requestRevisionMutation.isPending ? 'Submitting...' : 'Request Revision'}
+                      {requestRevisionMutation.isPending ? t('deliverables.submitting') : t('deliverables.requestRevisionButton')}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -359,8 +361,8 @@ export default function ClientProjectDetailsPage() {
         <TabsContent value="activity" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Activity Log</CardTitle>
-              <CardDescription>Recent project activities</CardDescription>
+              <CardTitle>{t('projectDetails.activityLog.title')}</CardTitle>
+              <CardDescription>{t('projectDetails.activityLog.description')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -376,7 +378,7 @@ export default function ClientProjectDetailsPage() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">No activity yet</p>
+                  <p className="text-sm text-muted-foreground">{t('projectDetails.activityLog.noActivity')}</p>
                 )}
               </div>
             </CardContent>

@@ -19,12 +19,14 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { ArrowLeft, Send, Download, FileText } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Invoice } from "@shared/schema";
 
 export default function InvoiceDetailPage() {
   const { id } = useParams();
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [sendEmailDialogOpen, setSendEmailDialogOpen] = useState(false);
   const [emailMessage, setEmailMessage] = useState("");
 
@@ -52,8 +54,8 @@ export default function InvoiceDetailPage() {
     },
     onSuccess: () => {
       toast({
-        title: "Email sent",
-        description: "Invoice email has been sent to the client",
+        title: t('consultantInvoices.emailSent'),
+        description: t('consultantInvoices.emailSentDesc'),
       });
       queryClient.invalidateQueries({ queryKey: ['/api/invoices', id] });
       queryClient.invalidateQueries({ queryKey: ['/api/invoices/consultant'] });
@@ -63,7 +65,7 @@ export default function InvoiceDetailPage() {
     onError: (error: Error) => {
       toast({
         variant: "destructive",
-        title: "Error",
+        title: t('common.error'),
         description: error.message,
       });
     },
@@ -86,7 +88,7 @@ export default function InvoiceDetailPage() {
 
   const formatCurrency = (amount: string | number) => {
     const numValue = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return `${numValue.toFixed(2)} SAR`;
+    return `${numValue.toFixed(2)} ${t('consultantInvoices.currency')}`;
   };
 
   if (isLoading) {
@@ -104,9 +106,9 @@ export default function InvoiceDetailPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FileText className="w-16 h-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Invoice not found</h3>
+            <h3 className="text-lg font-semibold mb-2">{t('invoiceDetails.invoiceNotFound')}</h3>
             <Link href="/consultant/invoices">
-              <Button>Back to Invoices</Button>
+              <Button>{t('invoiceDetails.backToInvoices')}</Button>
             </Link>
           </CardContent>
         </Card>
@@ -120,7 +122,7 @@ export default function InvoiceDetailPage() {
         <Link href="/consultant/invoices">
           <Button variant="ghost" size="sm" data-testid="button-back">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Invoices
+            {t('invoiceDetails.backToInvoices')}
           </Button>
         </Link>
       </div>
@@ -132,13 +134,13 @@ export default function InvoiceDetailPage() {
               <div className="flex items-center gap-3 flex-wrap">
                 <CardTitle className="text-2xl">{invoice.invoiceNumber}</CardTitle>
                 <Badge className={getStatusColor(invoice.status)} data-testid="badge-status">
-                  {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                  {t(`invoiceStatus.${invoice.status}`)}
                 </Badge>
               </div>
               <CardDescription className="mt-2">
-                Issued: {new Date(invoice.issueDate).toLocaleDateString('en-SA')}
+                {t('invoiceDetails.issueDate')}: {new Date(invoice.issueDate).toLocaleDateString('en-SA')}
                 {' • '}
-                Due: {new Date(invoice.dueDate).toLocaleDateString('en-SA')}
+                {t('invoiceDetails.dueDate')}: {new Date(invoice.dueDate).toLocaleDateString('en-SA')}
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -149,24 +151,24 @@ export default function InvoiceDetailPage() {
                     data-testid="button-send-email"
                   >
                     <Send className="w-4 h-4 mr-2" />
-                    Send Email
+                    {t('consultantInvoices.sendEmail')}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Send Invoice Email</DialogTitle>
+                    <DialogTitle>{t('consultantInvoices.sendInvoiceEmail')}</DialogTitle>
                     <DialogDescription>
-                      Send this invoice to your client via email
+                      {t('consultantInvoices.sendInvoiceEmailDesc')}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="message">Message (Optional)</Label>
+                      <Label htmlFor="message">{t('consultantInvoices.messageOptional')}</Label>
                       <Textarea
                         id="message"
                         value={emailMessage}
                         onChange={(e) => setEmailMessage(e.target.value)}
-                        placeholder="Add a personal message to the client"
+                        placeholder={t('consultantInvoices.messageOptionalPlaceholder')}
                         rows={4}
                         data-testid="input-email-message"
                       />
@@ -184,14 +186,14 @@ export default function InvoiceDetailPage() {
                         disabled={sendEmailMutation.isPending}
                         data-testid="button-confirm-send"
                       >
-                        {sendEmailMutation.isPending ? "Sending..." : "Send Email"}
+                        {sendEmailMutation.isPending ? t('consultantInvoices.sending') : t('consultantInvoices.sendEmail')}
                       </Button>
                       <Button
                         variant="outline"
                         onClick={() => setSendEmailDialogOpen(false)}
                         data-testid="button-cancel-send"
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </Button>
                     </div>
                   </div>
@@ -203,7 +205,7 @@ export default function InvoiceDetailPage() {
                 data-testid="button-download"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Download
+                {t('consultantInvoices.downloadPdf')}
               </Button>
             </div>
           </div>
@@ -211,7 +213,7 @@ export default function InvoiceDetailPage() {
         <CardContent className="space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <h3 className="font-semibold mb-2">Amount</h3>
+              <h3 className="font-semibold mb-2">{t('invoiceDetails.totalAmount')}</h3>
               <div className="text-3xl font-bold" data-testid="text-total">
                 {formatCurrency(invoice.totalAmount)}
               </div>
@@ -219,7 +221,7 @@ export default function InvoiceDetailPage() {
             </div>
             {invoice.paidAt && (
               <div>
-                <h3 className="font-semibold mb-2">Paid On</h3>
+                <h3 className="font-semibold mb-2">{t('invoiceDetails.paidOn')}</h3>
                 <div className="text-lg" data-testid="text-paid-date">
                   {new Date(invoice.paidAt).toLocaleDateString('en-SA')}
                 </div>
@@ -228,15 +230,15 @@ export default function InvoiceDetailPage() {
           </div>
 
           <div>
-            <h3 className="font-semibold mb-3">Invoice Items</h3>
+            <h3 className="font-semibold mb-3">{t('invoiceDetails.items')}</h3>
             <div className="border rounded-lg overflow-hidden">
               <table className="w-full">
                 <thead className="bg-muted">
                   <tr>
-                    <th className="text-left p-3">Description</th>
-                    <th className="text-right p-3">Qty</th>
-                    <th className="text-right p-3">Unit Price</th>
-                    <th className="text-right p-3">Total</th>
+                    <th className="text-left p-3">{t('invoiceDetails.description')}</th>
+                    <th className="text-right p-3">{t('invoiceDetails.quantity')}</th>
+                    <th className="text-right p-3">{t('invoiceDetails.unitPrice')}</th>
+                    <th className="text-right p-3">{t('invoiceDetails.total')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -258,15 +260,15 @@ export default function InvoiceDetailPage() {
           <div className="border-t pt-6">
             <div className="space-y-2 max-w-sm ml-auto">
               <div className="flex justify-between text-sm">
-                <span>Subtotal:</span>
+                <span>{t('invoiceDetails.subtotal')}:</span>
                 <span data-testid="text-subtotal">{formatCurrency(invoice.subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span>VAT (15%):</span>
+                <span>{t('invoiceDetails.vat')}:</span>
                 <span data-testid="text-vat">{formatCurrency(invoice.vatAmount)}</span>
               </div>
               <div className="border-t pt-2 flex justify-between font-bold text-lg">
-                <span>Total:</span>
+                <span>{t('invoiceDetails.total')}:</span>
                 <span data-testid="text-grand-total">{formatCurrency(invoice.totalAmount)}</span>
               </div>
             </div>
@@ -274,7 +276,7 @@ export default function InvoiceDetailPage() {
 
           {invoice.notes && (
             <div>
-              <h3 className="font-semibold mb-2">Notes</h3>
+              <h3 className="font-semibold mb-2">{t('invoiceDetails.notes')}</h3>
               <p className="text-muted-foreground whitespace-pre-wrap" data-testid="text-notes">
                 {invoice.notes}
               </p>

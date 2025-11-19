@@ -6,10 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { FileText, Eye, CreditCard, Download } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Invoice } from "@shared/schema";
 
 export default function ClientInvoicesPage() {
   const { user } = useAuthContext();
+  const { t } = useTranslation();
 
   const { data: invoices, isLoading } = useQuery<Invoice[]>({
     queryKey: ['/api/invoices/client', user?.id],
@@ -32,7 +34,7 @@ export default function ClientInvoicesPage() {
   };
 
   const formatCurrency = (amount: string) => {
-    return `${parseFloat(amount).toFixed(2)} SAR`;
+    return `${parseFloat(amount).toFixed(2)} ${t('clientInvoices.currency')}`;
   };
 
   const isOverdue = (invoice: Invoice) => {
@@ -58,9 +60,9 @@ export default function ClientInvoicesPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">My Invoices</h1>
+        <h1 className="text-3xl font-bold">{t('clientInvoices.title')}</h1>
         <p className="text-muted-foreground mt-1">
-          View and pay invoices from your consultants
+          {t('clientInvoices.subtitle')}
         </p>
       </div>
 
@@ -68,9 +70,9 @@ export default function ClientInvoicesPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FileText className="w-16 h-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No invoices yet</h3>
+            <h3 className="text-lg font-semibold mb-2">{t('clientInvoices.noInvoicesYet')}</h3>
             <p className="text-muted-foreground text-center">
-              You haven't received any invoices from your consultants
+              {t('clientInvoices.noInvoicesDesc')}
             </p>
           </CardContent>
         </Card>
@@ -90,18 +92,18 @@ export default function ClientInvoicesPage() {
                         {invoice.invoiceNumber}
                       </CardTitle>
                       <Badge className={getStatusColor(invoice.status)} data-testid={`badge-status-${invoice.id}`}>
-                        {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                        {t(`invoiceStatus.${invoice.status}`)}
                       </Badge>
                       {isOverdue(invoice) && (
                         <Badge variant="destructive" data-testid={`badge-overdue-${invoice.id}`}>
-                          Overdue
+                          {t('clientInvoices.overdue')}
                         </Badge>
                       )}
                     </div>
                     <CardDescription className="mt-2">
-                      Issued: {new Date(invoice.issueDate).toLocaleDateString('en-SA')}
+                      {t('clientInvoices.issued')}: {new Date(invoice.issueDate).toLocaleDateString('en-SA')}
                       {' • '}
-                      Due: {new Date(invoice.dueDate).toLocaleDateString('en-SA')}
+                      {t('clientInvoices.due')}: {new Date(invoice.dueDate).toLocaleDateString('en-SA')}
                     </CardDescription>
                   </div>
                   <div className="text-right">
@@ -119,14 +121,14 @@ export default function ClientInvoicesPage() {
                   <Link href={`/client/invoices/${invoice.id}`}>
                     <Button variant="outline" size="sm" data-testid={`button-view-${invoice.id}`}>
                       <Eye className="w-4 h-4 mr-2" />
-                      View Details
+                      {t('clientInvoices.viewDetails')}
                     </Button>
                   </Link>
                   {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
                     <Link href={`/client/invoices/${invoice.id}`}>
                       <Button size="sm" data-testid={`button-pay-${invoice.id}`}>
                         <CreditCard className="w-4 h-4 mr-2" />
-                        Pay Invoice
+                        {t('clientInvoices.payNow')}
                       </Button>
                     </Link>
                   )}
@@ -137,7 +139,7 @@ export default function ClientInvoicesPage() {
                     data-testid={`button-download-${invoice.id}`}
                   >
                     <Download className="w-4 h-4 mr-2" />
-                    Download
+                    {t('clientInvoices.downloadPdf')}
                   </Button>
                 </div>
               </CardContent>

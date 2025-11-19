@@ -6,6 +6,7 @@ import { Helmet } from "react-helmet-async";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -98,6 +99,7 @@ type ConversationParticipant = {
 };
 
 export default function Messages() {
+  const { t } = useTranslation();
   const { user } = useAuthContext();
   const [, setLocation] = useLocation();
   const [match, params] = useRoute("/messages/:conversationId?");
@@ -410,8 +412,8 @@ export default function Messages() {
     },
     onError: (error: any) => {
       toast({
-        title: "Failed to upload file",
-        description: error.message || "An error occurred while uploading the file",
+        title: t('messages.fileUploadFailed'),
+        description: error.message || t('common.error'),
         variant: "destructive",
       });
     },
@@ -459,8 +461,8 @@ export default function Messages() {
     },
     onError: (error: any) => {
       toast({
-        title: "Failed to send message",
-        description: error.message || "An error occurred while sending your message",
+        title: t('messages.messageSent', { defaultValue: 'Failed to send message' }),
+        description: error.message || t('common.error'),
         variant: "destructive",
       });
     },
@@ -488,14 +490,14 @@ export default function Messages() {
         queryKey: ["/api/conversations", variables.conversationId, "meetings"],
       });
       toast({
-        title: "Meeting scheduled",
-        description: "Meeting has been scheduled successfully",
+        title: t('meetings.meetingCreated'),
+        description: t('meetings.meetingCreatedDesc'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Failed to schedule meeting",
-        description: error.message || "An error occurred while scheduling the meeting",
+        title: t('meetings.meetingError'),
+        description: error.message || t('common.error'),
         variant: "destructive",
       });
     },
@@ -519,14 +521,14 @@ export default function Messages() {
         queryKey: ["/api/conversations", selectedConversationId, "meeting-participants"],
       });
       toast({
-        title: "RSVP updated",
-        description: "Your response has been recorded",
+        title: t('meetings.inviteResponded'),
+        description: t('common.success'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Failed to update RSVP",
-        description: error.message || "An error occurred while updating your response",
+        title: t('common.error'),
+        description: error.message || t('common.error'),
         variant: "destructive",
       });
     },
@@ -553,8 +555,8 @@ export default function Messages() {
   return (
     <>
       <Helmet>
-        <title>Messages - EDGEIT24</title>
-        <meta name="description" content="Communicate with clients and consultants on EDGEIT24" />
+        <title>{t('messages.title')} - EDGEIT24</title>
+        <meta name="description" content={t('messages.subtitle')} />
       </Helmet>
 
       <div className="flex h-screen">
@@ -562,14 +564,14 @@ export default function Messages() {
         <div className="w-80 border-r flex flex-col">
           <div className="p-4 border-b space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Messages</h2>
+              <h2 className="text-lg font-semibold">{t('messages.title')}</h2>
               <NewConversationDialog />
             </div>
 
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search conversations..."
+                placeholder={t('messages.searchConversations')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -581,7 +583,7 @@ export default function Messages() {
           <ScrollArea className="flex-1">
             {conversationsLoading ? (
               <div className="p-4 text-center text-muted-foreground">
-                Loading conversations...
+                {t('messages.loadingConversations')}
               </div>
             ) : filteredConversations && filteredConversations.length > 0 ? (
               <div className="divide-y">
@@ -605,7 +607,7 @@ export default function Messages() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <h3 className="font-medium truncate">
-                            {conversation.title || "Untitled Conversation"}
+                            {conversation.title || t('messages.conversationWith', { name: 'User' })}
                           </h3>
                           {conversation.lastMessageAt && (
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -616,7 +618,7 @@ export default function Messages() {
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground truncate">
-                          {conversation.isGroup ? "Group conversation" : "Direct message"}
+                          {conversation.isGroup ? t('messages.groupConversation') : t('messages.conversationWith', { name: 'User' })}
                         </p>
                       </div>
                     </div>
@@ -625,12 +627,12 @@ export default function Messages() {
               </div>
             ) : (
               <div className="p-8 text-center">
-                <p className="text-muted-foreground mb-4">No conversations yet</p>
+                <p className="text-muted-foreground mb-4">{t('messages.noConversations')}</p>
                 <NewConversationDialog
                   trigger={
                     <Button variant="outline" data-testid="button-start-conversation">
                       <MessageSquarePlus className="h-4 w-4 mr-2" />
-                      Start a conversation
+                      {t('messages.newConversation')}
                     </Button>
                   }
                 />
@@ -653,11 +655,10 @@ export default function Messages() {
                   </Avatar>
                   <div>
                     <h2 className="font-semibold" data-testid="conversation-title">
-                      {selectedConversation?.conversation.title || "Untitled Conversation"}
+                      {selectedConversation?.conversation.title || t('messages.conversationWith', { name: 'User' })}
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      {selectedConversation?.participants.length} participant
-                      {selectedConversation?.participants.length !== 1 ? "s" : ""}
+                      {selectedConversation?.participants.length} {t('messages.participants')}
                     </p>
                   </div>
                 </div>
@@ -678,7 +679,7 @@ export default function Messages() {
                         data-testid="button-schedule-meeting"
                       >
                         <Calendar className="h-4 w-4 mr-2" />
-                        Schedule Meeting
+                        {t('meetings.scheduleMeeting')}
                       </Button>
                     }
                   />
@@ -695,10 +696,10 @@ export default function Messages() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem data-testid="menu-view-details">
-                        View details
+                        {t('common.view')} {t('common.details')}
                       </DropdownMenuItem>
                       <DropdownMenuItem data-testid="menu-archive">
-                        Archive conversation
+                        {t('messages.archiveConversation')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -711,7 +712,7 @@ export default function Messages() {
                 {meetings.length > 0 && (
                   <div className="mb-6">
                     <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
-                      Scheduled Meetings
+                      {t('meetings.scheduledMeetings', { defaultValue: 'Scheduled Meetings' })}
                     </h3>
                     <div className="space-y-3">
                       {meetings.map((meeting) => (
@@ -741,7 +742,7 @@ export default function Messages() {
 
                 {messagesLoading ? (
                   <div className="text-center text-muted-foreground">
-                    Loading messages...
+                    {t('messages.loadingMessages')}
                   </div>
                 ) : messages && messages.length > 0 ? (
                   <div className="space-y-4">
@@ -755,7 +756,7 @@ export default function Messages() {
                           disabled={isFetchingNextPage}
                           data-testid="button-load-more-messages"
                         >
-                          {isFetchingNextPage ? "Loading..." : "Load older messages"}
+                          {isFetchingNextPage ? t('messages.loadingMore') : t('messages.loadMore')}
                         </Button>
                       </div>
                     )}
@@ -824,7 +825,7 @@ export default function Messages() {
                   </div>
                 ) : (
                   <div className="text-center text-muted-foreground py-8">
-                    No messages yet. Start the conversation!
+                    {t('messages.noMessagesDesc')}
                   </div>
                 )}
               </ScrollArea>
@@ -832,7 +833,7 @@ export default function Messages() {
               {/* Typing Indicator */}
               {typingUsers.size > 0 && (
                 <div className="px-4 py-2 text-sm text-muted-foreground">
-                  {Array.from(typingUsers.values()).join(", ")} {typingUsers.size === 1 ? "is" : "are"} typing...
+                  {Array.from(typingUsers.values()).join(", ")} {t('messages.typingIndicator')}
                 </div>
               )}
 
@@ -862,9 +863,9 @@ export default function Messages() {
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Attach File</DialogTitle>
+                        <DialogTitle>{t('messages.attachFile')}</DialogTitle>
                         <DialogDescription>
-                          Select a file to attach to your message
+                          {t('messages.fileAttachment')}
                         </DialogDescription>
                       </DialogHeader>
                       <FileUpload
@@ -878,7 +879,7 @@ export default function Messages() {
                   </Dialog>
                   
                   <Textarea
-                    placeholder={selectedConversationId ? "Type a message..." : "Select a conversation to send messages"}
+                    placeholder={selectedConversationId ? t('messages.messageInput') : t('messages.selectConversation')}
                     value={messageInput}
                     onChange={(e) => {
                       setMessageInput(e.target.value);
@@ -919,9 +920,9 @@ export default function Messages() {
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
                 <MessageSquarePlus className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                <h2 className="text-xl font-semibold mb-2">Select a conversation</h2>
+                <h2 className="text-xl font-semibold mb-2">{t('messages.selectConversation')}</h2>
                 <p className="text-muted-foreground">
-                  Choose a conversation from the sidebar to start messaging
+                  {t('messages.selectConversationDesc')}
                 </p>
               </div>
             </div>

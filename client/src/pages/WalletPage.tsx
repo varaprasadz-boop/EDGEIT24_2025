@@ -25,6 +25,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { Wallet, Plus, Minus, ArrowUpDown, Download, Upload } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 
 interface WalletBalance {
   userId: string;
@@ -45,6 +46,7 @@ interface WalletTransaction {
 }
 
 export default function WalletPage() {
+  const { t } = useTranslation();
   const { user } = useAuthContext();
   const { toast } = useToast();
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
@@ -84,8 +86,8 @@ export default function WalletPage() {
     },
     onSuccess: () => {
       toast({
-        title: "Deposit successful",
-        description: "Funds have been added to your wallet",
+        title: t('wallet.depositSuccess'),
+        description: t('wallet.depositSuccessDesc'),
       });
       queryClient.invalidateQueries({ queryKey: ['/api/wallet/balance'] });
       queryClient.invalidateQueries({ queryKey: ['/api/wallet/transactions'] });
@@ -95,7 +97,7 @@ export default function WalletPage() {
     onError: (error: Error) => {
       toast({
         variant: "destructive",
-        title: "Deposit failed",
+        title: t('wallet.depositFailed'),
         description: error.message,
       });
     },
@@ -117,8 +119,8 @@ export default function WalletPage() {
     },
     onSuccess: () => {
       toast({
-        title: "Withdrawal successful",
-        description: "Funds have been withdrawn from your wallet",
+        title: t('wallet.withdrawalSuccess'),
+        description: t('wallet.withdrawalSuccessDesc'),
       });
       queryClient.invalidateQueries({ queryKey: ['/api/wallet/balance'] });
       queryClient.invalidateQueries({ queryKey: ['/api/wallet/transactions'] });
@@ -128,7 +130,7 @@ export default function WalletPage() {
     onError: (error: Error) => {
       toast({
         variant: "destructive",
-        title: "Withdrawal failed",
+        title: t('wallet.withdrawalFailed'),
         description: error.message,
       });
     },
@@ -190,9 +192,9 @@ export default function WalletPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">My Wallet</h1>
+        <h1 className="text-3xl font-bold">{t('wallet.title')}</h1>
         <p className="text-muted-foreground mt-1">
-          Manage your funds and view transaction history
+          {t('wallet.subtitle')}
         </p>
       </div>
 
@@ -200,9 +202,9 @@ export default function WalletPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Wallet className="w-5 h-5" />
-            Wallet Balance
+            {t('wallet.balance')}
           </CardTitle>
-          <CardDescription>Your current available balance</CardDescription>
+          <CardDescription>{t('wallet.balanceDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6">
@@ -211,7 +213,7 @@ export default function WalletPage() {
                 {balance ? formatCurrency(balance.balance) : '0.00 SAR'}
               </div>
               <div className="text-sm text-muted-foreground">
-                Last updated: {balance ? new Date(balance.updatedAt).toLocaleString('en-SA') : 'N/A'}
+                {t('wallet.lastUpdated')}: {balance ? new Date(balance.updatedAt).toLocaleString('en-SA') : 'N/A'}
               </div>
             </div>
             <div className="flex gap-3">
@@ -219,19 +221,19 @@ export default function WalletPage() {
                 <DialogTrigger asChild>
                   <Button data-testid="button-deposit">
                     <Plus className="w-4 h-4 mr-2" />
-                    Deposit
+                    {t('wallet.deposit')}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Deposit Funds</DialogTitle>
+                    <DialogTitle>{t('wallet.depositFunds')}</DialogTitle>
                     <DialogDescription>
-                      Add funds to your wallet
+                      {t('wallet.depositFundsDesc')}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="deposit-amount">Amount (SAR)</Label>
+                      <Label htmlFor="deposit-amount">{t('wallet.amount')}</Label>
                       <Input
                         id="deposit-amount"
                         type="number"
@@ -239,7 +241,7 @@ export default function WalletPage() {
                         min="1"
                         value={depositAmount}
                         onChange={(e) => setDepositAmount(e.target.value)}
-                        placeholder="Enter amount"
+                        placeholder={t('wallet.enterAmount')}
                         data-testid="input-deposit-amount"
                       />
                     </div>
@@ -249,14 +251,14 @@ export default function WalletPage() {
                         disabled={!depositAmount || depositMutation.isPending || parseFloat(depositAmount) <= 0}
                         data-testid="button-confirm-deposit"
                       >
-                        {depositMutation.isPending ? "Processing..." : "Deposit"}
+                        {depositMutation.isPending ? t('wallet.processing') : t('wallet.deposit')}
                       </Button>
                       <Button
                         variant="outline"
                         onClick={() => setDepositDialogOpen(false)}
                         data-testid="button-cancel-deposit"
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </Button>
                     </div>
                   </div>

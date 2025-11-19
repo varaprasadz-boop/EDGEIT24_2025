@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Plus, Trash2, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
+import { useTranslation } from "react-i18next";
 import type { User } from "@shared/schema";
 
 const invoiceItemSchema = z.object({
@@ -42,6 +43,7 @@ type CreateInvoiceForm = z.infer<typeof createInvoiceSchema>;
 export default function CreateInvoicePage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const { data: contracts } = useQuery<any[]>({
     queryKey: ['/api/contracts/consultant'],
@@ -81,8 +83,8 @@ export default function CreateInvoicePage() {
     },
     onSuccess: () => {
       toast({
-        title: "Invoice created",
-        description: "Your invoice has been created successfully",
+        title: t('createInvoice.invoiceCreated'),
+        description: t('createInvoice.invoiceCreatedDesc'),
       });
       queryClient.invalidateQueries({ queryKey: ['/api/invoices/consultant'] });
       navigate('/consultant/invoices');
@@ -90,7 +92,7 @@ export default function CreateInvoicePage() {
     onError: (error: Error) => {
       toast({
         variant: "destructive",
-        title: "Error",
+        title: t('common.error'),
         description: error.message,
       });
     },
@@ -130,34 +132,34 @@ export default function CreateInvoicePage() {
         <Link href="/consultant/invoices">
           <Button variant="ghost" size="sm" data-testid="button-back">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Invoices
+            {t('invoiceDetails.backToInvoices')}
           </Button>
         </Link>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Create New Invoice</CardTitle>
+          <CardTitle className="text-2xl">{t('createInvoice.title')}</CardTitle>
           <CardDescription>
-            Generate a professional invoice for your client
+            {t('createInvoice.subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="contractId">Contract *</Label>
+                <Label htmlFor="contractId">{t('createInvoice.contract')} *</Label>
                 <Select
                   value={form.watch('contractId')}
                   onValueChange={(value) => form.setValue('contractId', value)}
                 >
                   <SelectTrigger id="contractId" data-testid="select-contract">
-                    <SelectValue placeholder="Select contract" />
+                    <SelectValue placeholder={t('createInvoice.selectContract')} />
                   </SelectTrigger>
                   <SelectContent>
                     {contracts?.map((contract) => (
                       <SelectItem key={contract.id} value={contract.id}>
-                        Contract #{contract.id.slice(0, 8)}
+                        {t('createInvoice.contractNumber', { number: contract.id.slice(0, 8) })}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -168,13 +170,13 @@ export default function CreateInvoicePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="clientId">Client *</Label>
+                <Label htmlFor="clientId">{t('createInvoice.client')} *</Label>
                 <Select
                   value={form.watch('clientId')}
                   onValueChange={(value) => form.setValue('clientId', value)}
                 >
                   <SelectTrigger id="clientId" data-testid="select-client">
-                    <SelectValue placeholder="Select client" />
+                    <SelectValue placeholder={t('createInvoice.selectClient')} />
                   </SelectTrigger>
                   <SelectContent>
                     {clients?.map((client) => (
@@ -191,7 +193,7 @@ export default function CreateInvoicePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dueDate">Due Date *</Label>
+              <Label htmlFor="dueDate">{t('createInvoice.dueDate')} *</Label>
               <Input
                 id="dueDate"
                 type="date"
@@ -205,7 +207,7 @@ export default function CreateInvoicePage() {
 
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <Label className="text-lg font-semibold">Invoice Items</Label>
+                <Label className="text-lg font-semibold">{t('createInvoice.invoiceItems')}</Label>
                 <Button
                   type="button"
                   variant="outline"
@@ -214,7 +216,7 @@ export default function CreateInvoicePage() {
                   data-testid="button-add-item"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Add Item
+                  {t('createInvoice.addItem')}
                 </Button>
               </div>
 
@@ -222,11 +224,11 @@ export default function CreateInvoicePage() {
                 <Card key={field.id} className="p-4">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor={`items.${index}.description`}>Description *</Label>
+                      <Label htmlFor={`items.${index}.description`}>{t('createInvoice.description')} *</Label>
                       <Textarea
                         id={`items.${index}.description`}
                         {...form.register(`items.${index}.description`)}
-                        placeholder="Item description"
+                        placeholder={t('createInvoice.itemDescriptionPlaceholder')}
                         data-testid={`input-description-${index}`}
                       />
                       {form.formState.errors.items?.[index]?.description && (
@@ -238,7 +240,7 @@ export default function CreateInvoicePage() {
 
                     <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor={`items.${index}.quantity`}>Quantity *</Label>
+                        <Label htmlFor={`items.${index}.quantity`}>{t('createInvoice.quantity')} *</Label>
                         <Input
                           id={`items.${index}.quantity`}
                           type="number"
@@ -253,7 +255,7 @@ export default function CreateInvoicePage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor={`items.${index}.unitPrice`}>Unit Price (SAR) *</Label>
+                        <Label htmlFor={`items.${index}.unitPrice`}>{t('createInvoice.unitPrice')} *</Label>
                         <Input
                           id={`items.${index}.unitPrice`}
                           type="number"
@@ -268,7 +270,7 @@ export default function CreateInvoicePage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Total (SAR)</Label>
+                        <Label>{t('createInvoice.total')}</Label>
                         <div className="h-10 flex items-center px-3 border rounded-md bg-muted">
                           {(form.watch(`items.${index}.quantity`) * form.watch(`items.${index}.unitPrice`)).toFixed(2)}
                         </div>
@@ -284,7 +286,7 @@ export default function CreateInvoicePage() {
                         data-testid={`button-remove-item-${index}`}
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
-                        Remove Item
+                        {t('createInvoice.removeItem')}
                       </Button>
                     )}
                   </div>
@@ -293,11 +295,11 @@ export default function CreateInvoicePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes (Optional)</Label>
+              <Label htmlFor="notes">{t('createInvoice.notesOptional')}</Label>
               <Textarea
                 id="notes"
                 {...form.register('notes')}
-                placeholder="Additional notes or payment instructions"
+                placeholder={t('createInvoice.notesPlaceholder')}
                 rows={3}
                 data-testid="input-notes"
               />
@@ -307,16 +309,16 @@ export default function CreateInvoicePage() {
               <CardContent className="pt-6">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>Subtotal:</span>
-                    <span data-testid="text-subtotal">{calculateSubtotal().toFixed(2)} SAR</span>
+                    <span>{t('createInvoice.subtotal')}:</span>
+                    <span data-testid="text-subtotal">{calculateSubtotal().toFixed(2)} {t('createInvoice.currency')}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>VAT (15%):</span>
-                    <span data-testid="text-vat">{calculateVAT().toFixed(2)} SAR</span>
+                    <span>{t('createInvoice.vat')}:</span>
+                    <span data-testid="text-vat">{calculateVAT().toFixed(2)} {t('createInvoice.currency')}</span>
                   </div>
                   <div className="border-t pt-2 flex justify-between font-bold text-lg">
-                    <span>Total:</span>
-                    <span data-testid="text-total">{calculateTotal().toFixed(2)} SAR</span>
+                    <span>{t('createInvoice.total')}:</span>
+                    <span data-testid="text-total">{calculateTotal().toFixed(2)} {t('createInvoice.currency')}</span>
                   </div>
                 </div>
               </CardContent>
@@ -328,11 +330,11 @@ export default function CreateInvoicePage() {
                 disabled={createMutation.isPending}
                 data-testid="button-submit"
               >
-                {createMutation.isPending ? "Creating..." : "Create Invoice"}
+                {createMutation.isPending ? t('createInvoice.creating') : t('createInvoice.createInvoice')}
               </Button>
               <Link href="/consultant/invoices">
                 <Button type="button" variant="outline" data-testid="button-cancel">
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </Link>
             </div>

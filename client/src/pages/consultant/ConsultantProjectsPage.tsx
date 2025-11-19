@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,6 +11,7 @@ import { Calendar, DollarSign, User, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function ConsultantProjectsPage() {
+  const { t } = useTranslation();
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { data: projectsData, isLoading } = useQuery({
@@ -34,7 +36,7 @@ export default function ConsultantProjectsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-muted-foreground">Loading projects...</div>
+        <div className="text-muted-foreground">{t('consultantProjects.loadingProjects')}</div>
       </div>
     );
   }
@@ -43,15 +45,15 @@ export default function ConsultantProjectsPage() {
     <div className="container mx-auto py-6 space-y-6" data-testid="page-consultant-projects">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-page-title">My Projects</h1>
-          <p className="text-muted-foreground">Manage your active and completed projects</p>
+          <h1 className="text-3xl font-bold" data-testid="text-page-title">{t('consultantProjects.title')}</h1>
+          <p className="text-muted-foreground">{t('consultantProjects.subtitle')}</p>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('consultantProjects.stats.activeProjects')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-active-projects">{stats.active}</div>
@@ -60,7 +62,7 @@ export default function ConsultantProjectsPage() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('consultantProjects.stats.completedProjects')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-completed-projects">{stats.completed}</div>
@@ -69,7 +71,7 @@ export default function ConsultantProjectsPage() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('consultantProjects.stats.totalEarnings')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-earnings">
@@ -82,15 +84,15 @@ export default function ConsultantProjectsPage() {
       <div className="flex items-center gap-4">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[200px]" data-testid="select-status-filter">
-            <SelectValue placeholder="Filter by status" />
+            <SelectValue placeholder={t('consultantProjects.filters.filterByStatus')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Projects</SelectItem>
-            <SelectItem value="not_started">Not Started</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="awaiting_review">Awaiting Review</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="on_hold">On Hold</SelectItem>
+            <SelectItem value="all">{t('consultantProjects.filters.allProjects')}</SelectItem>
+            <SelectItem value="not_started">{t('projectStatus.not_started')}</SelectItem>
+            <SelectItem value="in_progress">{t('projectStatus.in_progress')}</SelectItem>
+            <SelectItem value="awaiting_review">{t('projectStatus.awaiting_review')}</SelectItem>
+            <SelectItem value="completed">{t('projectStatus.completed')}</SelectItem>
+            <SelectItem value="on_hold">{t('projectStatus.on_hold')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -99,7 +101,7 @@ export default function ConsultantProjectsPage() {
         {projects.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">No projects found</p>
+              <p className="text-muted-foreground">{t('consultantProjects.emptyState')}</p>
             </CardContent>
           </Card>
         ) : (
@@ -130,7 +132,7 @@ export default function ConsultantProjectsPage() {
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4 text-muted-foreground" />
                     <div>
-                      <div className="text-muted-foreground">Client</div>
+                      <div className="text-muted-foreground">{t('consultantProjects.client')}</div>
                       <div className="font-medium">Client #{project.clientId.substring(0, 8)}</div>
                     </div>
                   </div>
@@ -138,7 +140,7 @@ export default function ConsultantProjectsPage() {
                   <div className="flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-muted-foreground" />
                     <div>
-                      <div className="text-muted-foreground">Budget</div>
+                      <div className="text-muted-foreground">{t('consultantProjects.budget')}</div>
                       <div className="font-medium" data-testid={`text-budget-${project.id}`}>
                         {project.currency} {parseFloat(project.budget).toLocaleString()}
                       </div>
@@ -148,9 +150,9 @@ export default function ConsultantProjectsPage() {
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-muted-foreground" />
                     <div>
-                      <div className="text-muted-foreground">Deadline</div>
+                      <div className="text-muted-foreground">{t('consultantProjects.deadline')}</div>
                       <div className="font-medium">
-                        {project.endDate ? formatDistanceToNow(new Date(project.endDate), { addSuffix: true }) : 'Not set'}
+                        {project.endDate ? formatDistanceToNow(new Date(project.endDate), { addSuffix: true }) : t('consultantProjects.notSet')}
                       </div>
                     </div>
                   </div>
@@ -160,7 +162,7 @@ export default function ConsultantProjectsPage() {
                   <Link href={`/consultant/projects/${project.id}`}>
                     <Button variant="outline" size="sm" data-testid={`button-view-project-${project.id}`}>
                       <ExternalLink className="w-4 h-4 mr-2" />
-                      View Details
+                      {t('consultantProjects.viewDetails')}
                     </Button>
                   </Link>
                 </div>

@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { z } from "zod";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -40,6 +41,7 @@ interface ProfileStatus {
 }
 
 export default function PostJob() {
+  const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [categoryPath, setCategoryPath] = useState<string>("");
@@ -114,21 +116,21 @@ export default function PostJob() {
       const response = await apiRequest('POST', '/api/jobs', data);
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to post job');
+        throw new Error(error.message || t('postJob.toast.failed'));
       }
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
       toast({
-        title: "Job posted successfully",
-        description: "Your job has been published and is now visible to consultants.",
+        title: t('postJob.toast.success'),
+        description: t('postJob.toast.successDesc'),
       });
       setLocation('/dashboard');
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to post job",
+        title: t('postJob.toast.failed'),
         description: error.message,
         variant: "destructive",
       });
@@ -139,8 +141,8 @@ export default function PostJob() {
     // Guard against submission if not client
     if (!isClient) {
       toast({
-        title: "Authorization Required",
-        description: "You must have a client profile to post jobs.",
+        title: t('postJob.toast.authRequired'),
+        description: t('postJob.toast.authRequiredDesc'),
         variant: "destructive",
       });
       return;
@@ -148,8 +150,8 @@ export default function PostJob() {
     // Check if terms are accepted
     if (!termsAccepted) {
       toast({
-        title: "Terms Required",
-        description: "Please accept the Terms & Conditions to continue.",
+        title: t('postJob.toast.termsRequired'),
+        description: t('postJob.toast.termsRequiredDesc'),
         variant: "destructive",
       });
       return;
@@ -162,7 +164,7 @@ export default function PostJob() {
     return (
       <div className="container max-w-4xl mx-auto p-6">
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">{t('postJob.loading')}</p>
         </div>
       </div>
     );
@@ -174,28 +176,28 @@ export default function PostJob() {
       <div className="container max-w-4xl mx-auto p-6 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Login Required</CardTitle>
+            <CardTitle>{t('postJob.loginRequired')}</CardTitle>
             <CardDescription>
-              You must be logged in to post a job.
+              {t('postJob.loginRequiredDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Please log in with your client account to post jobs and connect with IT consultants.
+              {t('postJob.loginWithClient')}
             </p>
             <div className="flex gap-2">
               <Button 
                 onClick={() => setLocation(`/login?redirect=${encodeURIComponent('/post-job')}`)}
                 data-testid="button-login"
               >
-                Log In
+                {t('postJob.loginButton')}
               </Button>
               <Button 
                 variant="outline" 
                 onClick={() => setLocation('/register')}
                 data-testid="button-register"
               >
-                Create Account
+                {t('postJob.createAccount')}
               </Button>
             </div>
           </CardContent>
@@ -210,17 +212,17 @@ export default function PostJob() {
       <div className="container max-w-4xl mx-auto p-6 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Client Profile Required</CardTitle>
+            <CardTitle>{t('postJob.clientProfileRequired')}</CardTitle>
             <CardDescription>
-              You need to create a client profile before posting jobs.
+              {t('postJob.clientProfileRequiredDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              As a client, you can post jobs, review bids from consultants, and manage your projects.
+              {t('postJob.clientProfileBenefit')}
             </p>
             <Button onClick={() => setLocation('/profile/client')} data-testid="button-create-profile">
-              Create Client Profile
+              {t('postJob.createClientProfile')}
             </Button>
           </CardContent>
         </Card>
@@ -234,17 +236,17 @@ export default function PostJob() {
       <div className="container max-w-4xl mx-auto p-6 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Client Profile Required</CardTitle>
+            <CardTitle>{t('postJob.clientProfileRequired')}</CardTitle>
             <CardDescription>
-              You need to create a client profile before posting jobs.
+              {t('postJob.clientProfileRequiredDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Create your client profile to start posting jobs and connecting with IT consultants.
+              {t('postJob.clientProfileBenefit')}
             </p>
             <Button onClick={() => setLocation('/profile/client')} data-testid="button-create-profile">
-              Create Client Profile
+              {t('postJob.createClientProfile')}
             </Button>
           </CardContent>
         </Card>
@@ -262,28 +264,28 @@ export default function PostJob() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <UserCircle className="h-5 w-5 text-blue-600" />
-                Complete Your Profile
+                {t('postJob.completeYourProfile')}
               </CardTitle>
               <CardDescription>
-                You need to complete your client profile before posting jobs.
+                {t('postJob.completeProfileDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Profile completion</span>
+                  <span className="text-muted-foreground">{t('postJob.profileCompletion')}</span>
                   <span className="font-medium">{profileStatus.completionPercentage}%</span>
                 </div>
                 <Progress value={profileStatus.completionPercentage} className="h-2" />
               </div>
               <p className="text-sm text-muted-foreground">
-                Complete all required fields in your profile, then submit it for admin approval.
+                {t('postJob.completeAllFields')}
               </p>
               <Button 
                 onClick={() => setLocation('/profile/client')} 
                 data-testid="button-complete-profile"
               >
-                Complete Profile
+                {t('postJob.completeProfile')}
               </Button>
             </CardContent>
           </Card>
@@ -299,16 +301,15 @@ export default function PostJob() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-amber-600" />
-                Profile Under Review
+                {t('postJob.profileUnderReview')}
               </CardTitle>
               <CardDescription>
-                Your profile is being reviewed by our admin team
+                {t('postJob.profileUnderReviewDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Your profile has been submitted for review. You'll be able to post jobs once it's approved. 
-                Meanwhile, you can browse consultants and suppliers.
+                {t('postJob.profileUnderReviewNote')}
               </p>
               <div className="flex gap-2">
                 <Button 
@@ -316,14 +317,14 @@ export default function PostJob() {
                   data-testid="button-browse-consultants"
                 >
                   <Users className="mr-2 h-4 w-4" />
-                  Browse Consultants
+                  {t('postJob.browseConsultants')}
                 </Button>
                 <Button 
                   variant="outline"
                   onClick={() => setLocation('/dashboard')} 
                   data-testid="button-dashboard"
                 >
-                  Go to Dashboard
+                  {t('postJob.goToDashboard')}
                 </Button>
               </div>
             </CardContent>
@@ -340,27 +341,27 @@ export default function PostJob() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-destructive" />
-                Profile Rejected
+                {t('postJob.profileRejected')}
               </CardTitle>
               <CardDescription>
-                Your profile needs updates before you can post jobs
+                {t('postJob.profileRejectedDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {profileStatus.adminNotes && (
                 <div className="p-3 rounded-md bg-muted">
-                  <p className="text-sm font-medium mb-1">Admin feedback:</p>
+                  <p className="text-sm font-medium mb-1">{t('postJob.adminFeedback')}</p>
                   <p className="text-sm text-muted-foreground">{profileStatus.adminNotes}</p>
                 </div>
               )}
               <p className="text-sm text-muted-foreground">
-                Please update your profile based on the admin feedback and resubmit for approval.
+                {t('postJob.updateProfileNote')}
               </p>
               <Button 
                 onClick={() => setLocation('/profile/client')} 
                 data-testid="button-update-profile"
               >
-                Update & Resubmit Profile
+                {t('postJob.updateAndResubmit')}
               </Button>
             </CardContent>
           </Card>
@@ -376,18 +377,18 @@ export default function PostJob() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-amber-600" />
-                Profile Approval Required
+                {t('postJob.profileApprovalRequired')}
               </CardTitle>
               <CardDescription>
-                Your profile needs to be approved before posting jobs
+                {t('postJob.profileApprovalRequiredDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Please complete and submit your profile for admin approval.
+                {t('postJob.completeAndSubmit')}
               </p>
               <Button onClick={() => setLocation('/profile/client')} data-testid="button-view-profile">
-                View Profile
+                {t('postJob.viewProfile')}
               </Button>
             </CardContent>
           </Card>
@@ -409,9 +410,9 @@ export default function PostJob() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold">Post a New Job</h1>
+          <h1 className="text-3xl font-bold">{t('postJob.title')}</h1>
           <p className="text-muted-foreground">
-            Describe your project and find the right consultant
+            {t('postJob.subtitle')}
           </p>
         </div>
       </div>
@@ -422,10 +423,10 @@ export default function PostJob() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Briefcase className="h-5 w-5 text-primary" />
-                Job Details
+                {t('postJob.sections.jobDetails')}
               </CardTitle>
               <CardDescription>
-                Provide clear information about your project requirements
+                {t('postJob.sections.jobDetailsDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -434,7 +435,7 @@ export default function PostJob() {
                 name="categoryId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Service Category</FormLabel>
+                    <FormLabel>{t('postJob.fields.serviceCategory')}</FormLabel>
                     <FormControl>
                       <CascadingCategorySelector
                         value={field.value}
@@ -456,17 +457,17 @@ export default function PostJob() {
                 name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Job Title</FormLabel>
+                    <FormLabel>{t('postJob.fields.jobTitle')}</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
-                        placeholder="e.g., Build a responsive e-commerce website"
+                        placeholder={t('postJob.fields.jobTitlePlaceholder')}
                         disabled={createJobMutation.isPending}
                         data-testid="input-title"
                       />
                     </FormControl>
                     <FormDescription>
-                      A clear, descriptive title for your project
+                      {t('postJob.fields.jobTitleDescription')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -478,18 +479,18 @@ export default function PostJob() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>{t('postJob.fields.description')}</FormLabel>
                     <FormControl>
                       <Textarea
                         {...field}
-                        placeholder="Describe your project requirements, goals, and expectations..."
+                        placeholder={t('postJob.fields.descriptionPlaceholder')}
                         rows={6}
                         disabled={createJobMutation.isPending}
                         data-testid="input-description"
                       />
                     </FormControl>
                     <FormDescription>
-                      Provide detailed information to help consultants understand your needs
+                      {t('postJob.fields.descriptionDescription')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -502,7 +503,7 @@ export default function PostJob() {
                   name="budgetType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Budget Type</FormLabel>
+                      <FormLabel>{t('postJob.fields.budgetType')}</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value || undefined}
@@ -510,13 +511,13 @@ export default function PostJob() {
                       >
                         <FormControl>
                           <SelectTrigger data-testid="select-budget-type">
-                            <SelectValue placeholder="Select budget type" />
+                            <SelectValue placeholder={t('postJob.fields.budgetTypePlaceholder')} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="fixed">Fixed Price</SelectItem>
-                          <SelectItem value="hourly">Hourly Rate</SelectItem>
-                          <SelectItem value="negotiable">Negotiable</SelectItem>
+                          <SelectItem value="fixed">{t('postJob.fields.budgetFixed')}</SelectItem>
+                          <SelectItem value="hourly">{t('postJob.fields.budgetHourly')}</SelectItem>
+                          <SelectItem value="negotiable">{t('postJob.fields.budgetNegotiable')}</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -529,18 +530,18 @@ export default function PostJob() {
                   name="budget"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Budget (SAR)</FormLabel>
+                      <FormLabel>{t('postJob.fields.budget')}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
                           value={field.value || ""}
                           type="number"
-                          placeholder="e.g., 5000"
+                          placeholder={t('postJob.fields.budgetPlaceholder')}
                           disabled={createJobMutation.isPending}
                           data-testid="input-budget"
                         />
                       </FormControl>
-                      <FormDescription>Optional</FormDescription>
+                      <FormDescription>{t('form.optional')}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -555,10 +556,10 @@ export default function PostJob() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Layers className="h-5 w-5 text-primary" />
-                  Additional Requirements
+                  {t('postJob.sections.additionalRequirements')}
                 </CardTitle>
                 <CardDescription>
-                  Category-specific information required for this type of project
+                  {t('postJob.sections.additionalRequirementsDesc')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -583,9 +584,9 @@ export default function PostJob() {
               className="text-sm text-muted-foreground cursor-pointer"
               data-testid="label-terms-acceptance"
             >
-              I agree to the{" "}
+              {t('postJob.terms.iAgree')}{" "}
               <Link href="/legal/terms-and-conditions" className="text-primary hover:underline" data-testid="link-terms">
-                Terms & Conditions
+                {t('postJob.terms.termsAndConditions')}
               </Link>
             </label>
           </div>
@@ -598,14 +599,14 @@ export default function PostJob() {
               disabled={createJobMutation.isPending}
               data-testid="button-cancel"
             >
-              Cancel
+              {t('postJob.buttons.cancel')}
             </Button>
             <Button
               type="submit"
               disabled={createJobMutation.isPending || !isClient}
               data-testid="button-submit"
             >
-              {createJobMutation.isPending ? "Posting..." : "Post Job"}
+              {createJobMutation.isPending ? t('postJob.buttons.submitting') : t('postJob.buttons.submit')}
             </Button>
           </div>
         </form>

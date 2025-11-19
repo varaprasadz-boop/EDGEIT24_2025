@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Header } from "@/components/Header";
 import { SavedSearches } from "@/components/SavedSearches";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,6 +54,7 @@ interface SearchFilters {
 }
 
 export default function BrowseJobs() {
+  const { t } = useTranslation();
   const { getSelectedRole } = useAuthContext();
   const [filters, setFilters] = useState<SearchFilters>({
     search: "",
@@ -192,10 +194,10 @@ export default function BrowseJobs() {
             <div className="flex items-center justify-between gap-4 mb-4">
               <div>
                 <h1 className="text-3xl font-bold tracking-tight" data-testid="text-browse-jobs-title">
-                  Browse Available Jobs
+                  {t('browseJobs.title')}
                 </h1>
                 <p className="text-muted-foreground" data-testid="text-browse-jobs-subtitle">
-                  Find opportunities that match your skills
+                  {t('browseJobs.subtitle')}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -206,7 +208,7 @@ export default function BrowseJobs() {
                     data-testid="button-request-category-access"
                   >
                     <Shield className="h-4 w-4 mr-2" />
-                    Request Access
+                    {t('browseJobs.requestAccess')}
                   </Button>
                 )}
                 <SavedSearches
@@ -220,7 +222,7 @@ export default function BrowseJobs() {
                   data-testid="button-toggle-filters"
                 >
                   <Filter className="h-4 w-4 mr-2" />
-                  {showFilters ? 'Hide' : 'Show'} Filters
+                  {showFilters ? t('browseJobs.hideFilters') : t('browseJobs.showFilters')} {t('browseJobs.toggleFilters')}
                   {activeFilterCount > 0 && (
                     <Badge variant="secondary" className="ml-2" data-testid="badge-filter-count">
                       {activeFilterCount}
@@ -236,7 +238,7 @@ export default function BrowseJobs() {
               <Card className="lg:col-span-1 h-fit" data-testid="card-filters">
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle>Filters</CardTitle>
+                    <CardTitle>{t('browseJobs.filters.title')}</CardTitle>
                     {activeFilterCount > 0 && (
                       <Button
                         variant="ghost"
@@ -245,19 +247,19 @@ export default function BrowseJobs() {
                         data-testid="button-clear-filters"
                       >
                         <X className="h-4 w-4 mr-1" />
-                        Clear
+                        {t('browseJobs.filters.clear')}
                       </Button>
                     )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="search-input">Search</Label>
+                    <Label htmlFor="search-input">{t('browseJobs.filters.search')}</Label>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="search-input"
-                        placeholder="Job title or description..."
+                        placeholder={t('browseJobs.filters.searchPlaceholder')}
                         value={filters.search}
                         onChange={(e) => updateFilter('search', e.target.value)}
                         className="pl-9"
@@ -269,16 +271,16 @@ export default function BrowseJobs() {
                   <Separator />
 
                   <div className="space-y-2">
-                    <Label htmlFor="category-filter">Category</Label>
+                    <Label htmlFor="category-filter">{t('browseJobs.filters.category')}</Label>
                     <Select
                       value={filters.categoryId || "all"}
                       onValueChange={(value) => updateFilter('categoryId', value === "all" ? null : value)}
                     >
                       <SelectTrigger id="category-filter" data-testid="select-category">
-                        <SelectValue placeholder="All Categories" />
+                        <SelectValue placeholder={t('browseJobs.filters.allCategories')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
+                        <SelectItem value="all">{t('browseJobs.filters.allCategories')}</SelectItem>
                         {allCategories.map((cat) => (
                           <SelectItem key={cat.id} value={cat.id} data-testid={`option-category-${cat.id}`}>
                             {"  ".repeat(cat.depth)}{cat.name}
@@ -289,18 +291,18 @@ export default function BrowseJobs() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Budget Range (SAR)</Label>
+                    <Label>{t('browseJobs.filters.budgetRange')}</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <Input
                         type="number"
-                        placeholder="Min"
+                        placeholder={t('browseJobs.filters.minPlaceholder')}
                         value={filters.minBudget}
                         onChange={(e) => updateFilter('minBudget', e.target.value)}
                         data-testid="input-min-budget"
                       />
                       <Input
                         type="number"
-                        placeholder="Max"
+                        placeholder={t('browseJobs.filters.maxPlaceholder')}
                         value={filters.maxBudget}
                         onChange={(e) => updateFilter('maxBudget', e.target.value)}
                         data-testid="input-max-budget"
@@ -309,18 +311,18 @@ export default function BrowseJobs() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="budget-type">Budget Type</Label>
+                    <Label htmlFor="budget-type">{t('browseJobs.filters.budgetType')}</Label>
                     <Select
                       value={filters.budgetType || "all"}
                       onValueChange={(value) => updateFilter('budgetType', value === "all" ? null : value)}
                     >
                       <SelectTrigger id="budget-type" data-testid="select-budget-type">
-                        <SelectValue placeholder="Any" />
+                        <SelectValue placeholder={t('browseJobs.filters.any')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Any</SelectItem>
-                        <SelectItem value="fixed">Fixed Price</SelectItem>
-                        <SelectItem value="hourly">Hourly Rate</SelectItem>
+                        <SelectItem value="all">{t('browseJobs.filters.any')}</SelectItem>
+                        <SelectItem value="fixed">{t('browseJobs.filters.fixed')}</SelectItem>
+                        <SelectItem value="hourly">{t('browseJobs.filters.hourly')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -328,50 +330,50 @@ export default function BrowseJobs() {
                   <Separator />
 
                   <div className="space-y-2">
-                    <Label htmlFor="skills-input">Skills</Label>
+                    <Label htmlFor="skills-input">{t('browseJobs.filters.skills')}</Label>
                     <Input
                       id="skills-input"
-                      placeholder="e.g., React, Node.js, Python"
+                      placeholder={t('browseJobs.filters.skillsPlaceholder')}
                       value={filters.skills}
                       onChange={(e) => updateFilter('skills', e.target.value)}
                       data-testid="input-skills"
                     />
-                    <p className="text-xs text-muted-foreground">Comma-separated</p>
+                    <p className="text-xs text-muted-foreground">{t('browseJobs.filters.skillsHelper')}</p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="experience-level">Experience Level</Label>
+                    <Label htmlFor="experience-level">{t('browseJobs.filters.experienceLevel')}</Label>
                     <Select
                       value={filters.experienceLevel || "all"}
                       onValueChange={(value) => updateFilter('experienceLevel', value === "all" ? null : value)}
                     >
                       <SelectTrigger id="experience-level" data-testid="select-experience">
-                        <SelectValue placeholder="Any" />
+                        <SelectValue placeholder={t('browseJobs.filters.any')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Any</SelectItem>
-                        <SelectItem value="junior">Junior</SelectItem>
-                        <SelectItem value="mid">Mid-Level</SelectItem>
-                        <SelectItem value="senior">Senior</SelectItem>
-                        <SelectItem value="expert">Expert</SelectItem>
+                        <SelectItem value="all">{t('browseJobs.filters.any')}</SelectItem>
+                        <SelectItem value="junior">{t('browseJobs.filters.junior')}</SelectItem>
+                        <SelectItem value="mid">{t('browseJobs.filters.mid')}</SelectItem>
+                        <SelectItem value="senior">{t('browseJobs.filters.senior')}</SelectItem>
+                        <SelectItem value="expert">{t('browseJobs.filters.expert')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="status-filter">Status</Label>
+                    <Label htmlFor="status-filter">{t('browseJobs.filters.status')}</Label>
                     <Select
                       value={filters.status || "all"}
                       onValueChange={(value) => updateFilter('status', value === "all" ? null : value)}
                     >
                       <SelectTrigger id="status-filter" data-testid="select-status">
-                        <SelectValue placeholder="Any" />
+                        <SelectValue placeholder={t('browseJobs.filters.any')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Any</SelectItem>
-                        <SelectItem value="open">Open</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="all">{t('browseJobs.filters.any')}</SelectItem>
+                        <SelectItem value="open">{t('browseJobs.filters.open')}</SelectItem>
+                        <SelectItem value="in_progress">{t('browseJobs.filters.inProgress')}</SelectItem>
+                        <SelectItem value="completed">{t('browseJobs.filters.completed')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -383,7 +385,7 @@ export default function BrowseJobs() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground" data-testid="text-results-count">
-                    {total} job{total !== 1 ? 's' : ''} found
+                    {t(`browseJobs.results.found_${total === 1 ? 'one' : 'other'}`, { count: total })}
                   </p>
                 </div>
 
@@ -395,7 +397,7 @@ export default function BrowseJobs() {
                   <Card>
                     <CardContent className="py-12 text-center text-muted-foreground" data-testid="text-no-jobs">
                       <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No jobs found matching your criteria</p>
+                      <p>{t('browseJobs.results.noJobs')}</p>
                       {activeFilterCount > 0 && (
                         <Button
                           variant="outline"
@@ -403,7 +405,7 @@ export default function BrowseJobs() {
                           onClick={clearFilters}
                           data-testid="button-clear-no-results"
                         >
-                          Clear Filters
+                          {t('browseJobs.results.clearFilters')}
                         </Button>
                       )}
                     </CardContent>
@@ -474,7 +476,7 @@ export default function BrowseJobs() {
                                 }}
                                 data-testid={`button-bid-${job.id}`}
                               >
-                                Submit Bid
+                                {t('browseJobs.jobCard.submitBid')}
                               </Button>
                             )}
                           </CardContent>
@@ -490,7 +492,7 @@ export default function BrowseJobs() {
                           disabled={currentPage === 1}
                           data-testid="button-prev-page"
                         >
-                          Previous
+                          {t('browseJobs.pagination.previous')}
                         </Button>
                         <div className="flex items-center gap-1">
                           {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
@@ -515,7 +517,7 @@ export default function BrowseJobs() {
                           disabled={currentPage === totalPages}
                           data-testid="button-next-page"
                         >
-                          Next
+                          {t('browseJobs.pagination.next')}
                         </Button>
                       </div>
                     )}

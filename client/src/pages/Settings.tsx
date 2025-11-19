@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/form";
 import { NOTIFICATION_TYPES } from "@shared/schema";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useTranslation } from 'react-i18next';
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
@@ -114,6 +115,7 @@ const IMPORTANT_TYPES = [
 ];
 
 export default function Settings() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { getSelectedRole, user } = useAuthContext();
   const urlParams = new URLSearchParams(window.location.search);
@@ -192,15 +194,15 @@ export default function Settings() {
     },
     onSuccess: () => {
       toast({
-        title: "Password changed",
-        description: "Your password has been updated successfully.",
+        title: t('settings.passwordChanged'),
+        description: t('settings.passwordChangedDesc'),
       });
       form.reset();
     },
     onError: (error: any) => {
       toast({
-        title: "Password change failed",
-        description: error.message || "Failed to change password. Please try again.",
+        title: t('settings.passwordChangeFailed'),
+        description: error.message || t('common.error'),
         variant: "destructive",
       });
     },
@@ -218,14 +220,14 @@ export default function Settings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/notification-preferences'] });
       toast({
-        title: "Preferences updated",
-        description: "Your notification preferences have been saved.",
+        title: t('settings.preferencesUpdated'),
+        description: t('settings.preferencesUpdatedDesc'),
       });
     },
     onError: () => {
       toast({
-        title: "Update failed",
-        description: "Failed to update notification preferences. Please try again.",
+        title: t('common.error'),
+        description: t('settings.updateFailed'),
         variant: "destructive",
       });
     },
@@ -288,14 +290,14 @@ export default function Settings() {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
       queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant'] });
       toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully.",
+        title: t('settings.profileUpdated'),
+        description: t('settings.profileUpdatedDesc'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Update failed",
-        description: error.message || "Failed to update profile. Please try again.",
+        title: t('common.error'),
+        description: error.message || t('settings.updateFailed'),
         variant: "destructive",
       });
     },
@@ -356,9 +358,9 @@ export default function Settings() {
     <UserLayout>
       <div className="container max-w-4xl mx-auto p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-settings-title">Settings</h1>
+          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-settings-title">{t('settings.title')}</h1>
           <p className="text-muted-foreground" data-testid="text-settings-subtitle">
-            Manage your account settings and preferences
+            {t('settings.subtitle')}
           </p>
         </div>
 
@@ -366,19 +368,19 @@ export default function Settings() {
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="profile" data-testid="tab-profile">
               <User className="h-4 w-4 mr-2" />
-              Profile
+              {t('settings.tabs.profile')}
             </TabsTrigger>
             <TabsTrigger value="account" data-testid="tab-account">
               <Lock className="h-4 w-4 mr-2" />
-              Account
+              {t('settings.tabs.account')}
             </TabsTrigger>
             <TabsTrigger value="documents" data-testid="tab-documents">
               <FileText className="h-4 w-4 mr-2" />
-              Documents
+              {t('settings.tabs.documents')}
             </TabsTrigger>
             <TabsTrigger value="notifications" data-testid="tab-notifications">
               <Bell className="h-4 w-4 mr-2" />
-              Notifications
+              {t('settings.tabs.notifications')}
             </TabsTrigger>
           </TabsList>
 
@@ -387,10 +389,10 @@ export default function Settings() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <User className="h-5 w-5" />
-                  Profile Information
+                  {t('settings.profileInfo')}
                 </CardTitle>
                 <CardDescription>
-                  Update your personal information and {showConsultantFields ? 'professional' : 'company'} details
+                  {showConsultantFields ? t('settings.updateProfessionalDetails') : t('settings.updateCompanyDetails')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -406,10 +408,10 @@ export default function Settings() {
                         name="fullName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Full Name *</FormLabel>
+                            <FormLabel>{t('form.fullName')} *</FormLabel>
                             <FormControl>
                               <Input
-                                placeholder="Enter your full name"
+                                placeholder={t('form.fullNamePlaceholder')}
                                 data-testid="input-profile-full-name"
                                 {...field}
                               />
@@ -425,7 +427,7 @@ export default function Settings() {
                           name="phoneCountryCode"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Country Code</FormLabel>
+                              <FormLabel>{t('form.countryCode')}</FormLabel>
                               <FormControl>
                                 <Input
                                   placeholder="+966"
@@ -443,7 +445,7 @@ export default function Settings() {
                           name="phone"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Phone Number</FormLabel>
+                              <FormLabel>{t('form.phone')}</FormLabel>
                               <FormControl>
                                 <Input
                                   placeholder="5xxxxxxxx"
@@ -463,16 +465,16 @@ export default function Settings() {
                           name="companyName"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Company Name</FormLabel>
+                              <FormLabel>{t('form.companyName')}</FormLabel>
                               <FormControl>
                                 <Input
-                                  placeholder="Enter your company name"
+                                  placeholder={t('form.companyNamePlaceholder')}
                                   data-testid="input-profile-company"
                                   {...field}
                                 />
                               </FormControl>
                               <FormDescription>
-                                Optional - Only visible if you're posting jobs as a business
+                                {t('settings.companyNameDesc')}
                               </FormDescription>
                               <FormMessage />
                             </FormItem>
@@ -487,10 +489,10 @@ export default function Settings() {
                             name="title"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Professional Title</FormLabel>
+                                <FormLabel>{t('form.professionalTitle')}</FormLabel>
                                 <FormControl>
                                   <Input
-                                    placeholder="e.g., Senior Full-Stack Developer"
+                                    placeholder={t('form.professionalTitlePlaceholder')}
                                     data-testid="input-profile-title"
                                     {...field}
                                   />
@@ -505,17 +507,17 @@ export default function Settings() {
                             name="bio"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Bio</FormLabel>
+                                <FormLabel>{t('form.bio')}</FormLabel>
                                 <FormControl>
                                   <Textarea
-                                    placeholder="Tell us about your experience and expertise..."
+                                    placeholder={t('form.bioPlaceholder')}
                                     className="min-h-[100px]"
                                     data-testid="input-profile-bio"
                                     {...field}
                                   />
                                 </FormControl>
                                 <FormDescription>
-                                  Brief description of your professional background (max 1000 characters)
+                                  {t('form.bioDesc')}
                                 </FormDescription>
                                 <FormMessage />
                               </FormItem>
@@ -527,16 +529,16 @@ export default function Settings() {
                             name="skills"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Skills</FormLabel>
+                                <FormLabel>{t('form.skills')}</FormLabel>
                                 <FormControl>
                                   <Input
-                                    placeholder="e.g., React, Node.js, Python, AWS"
+                                    placeholder={t('form.skillsPlaceholder')}
                                     data-testid="input-profile-skills"
                                     {...field}
                                   />
                                 </FormControl>
                                 <FormDescription>
-                                  Enter your skills separated by commas
+                                  {t('form.skillsDesc')}
                                 </FormDescription>
                                 <FormMessage />
                               </FormItem>
@@ -549,11 +551,11 @@ export default function Settings() {
                               name="hourlyRate"
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Hourly Rate (SAR)</FormLabel>
+                                  <FormLabel>{t('form.hourlyRate')}</FormLabel>
                                   <FormControl>
                                     <Input
                                       type="number"
-                                      placeholder="e.g., 200"
+                                      placeholder={t('form.hourlyRatePlaceholder')}
                                       data-testid="input-profile-hourly-rate"
                                       {...field}
                                     />
@@ -568,16 +570,16 @@ export default function Settings() {
                               name="availability"
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Availability</FormLabel>
+                                  <FormLabel>{t('form.availability')}</FormLabel>
                                   <FormControl>
                                     <select
                                       className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                       data-testid="select-profile-availability"
                                       {...field}
                                     >
-                                      <option value="available">Available</option>
-                                      <option value="busy">Busy</option>
-                                      <option value="unavailable">Unavailable</option>
+                                      <option value="available">{t('form.availableStatus')}</option>
+                                      <option value="busy">{t('form.busyStatus')}</option>
+                                      <option value="unavailable">{t('form.unavailableStatus')}</option>
                                     </select>
                                   </FormControl>
                                   <FormMessage />
@@ -594,7 +596,7 @@ export default function Settings() {
                           disabled={updateProfileMutation.isPending}
                           data-testid="button-save-profile"
                         >
-                          {updateProfileMutation.isPending ? 'Saving...' : 'Save Changes'}
+                          {updateProfileMutation.isPending ? t('common.saving') : t('common.saveChanges')}
                         </Button>
                       </div>
                     </form>
@@ -609,10 +611,10 @@ export default function Settings() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Lock className="h-5 w-5" />
-                  Change Password
+                  {t('settings.changePassword')}
                 </CardTitle>
                 <CardDescription>
-                  Update your password to keep your account secure
+                  {t('settings.changePasswordDesc')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -623,11 +625,11 @@ export default function Settings() {
                       name="currentPassword"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Current Password</FormLabel>
+                          <FormLabel>{t('form.currentPassword')}</FormLabel>
                           <FormControl>
                             <Input
                               type="password"
-                              placeholder="Enter your current password"
+                              placeholder={t('form.currentPasswordPlaceholder')}
                               autoComplete="current-password"
                               data-testid="input-current-password"
                               {...field}
@@ -643,11 +645,11 @@ export default function Settings() {
                       name="newPassword"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>New Password</FormLabel>
+                          <FormLabel>{t('form.newPassword')}</FormLabel>
                           <FormControl>
                             <Input
                               type="password"
-                              placeholder="Enter new password (min. 6 characters)"
+                              placeholder={t('form.newPasswordPlaceholder')}
                               autoComplete="new-password"
                               data-testid="input-new-password"
                               {...field}
@@ -663,11 +665,11 @@ export default function Settings() {
                       name="confirmPassword"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Confirm New Password</FormLabel>
+                          <FormLabel>{t('form.confirmPassword')}</FormLabel>
                           <FormControl>
                             <Input
                               type="password"
-                              placeholder="Confirm your new password"
+                              placeholder={t('form.confirmPasswordPlaceholder')}
                               autoComplete="new-password"
                               data-testid="input-confirm-password"
                               {...field}
@@ -684,7 +686,7 @@ export default function Settings() {
                         disabled={changePasswordMutation.isPending}
                         data-testid="button-save-password"
                       >
-                        {changePasswordMutation.isPending ? "Saving..." : "Change Password"}
+                        {changePasswordMutation.isPending ? t('common.saving') : t('settings.changePassword')}
                       </Button>
                       <Button
                         type="button"
@@ -693,7 +695,7 @@ export default function Settings() {
                         disabled={changePasswordMutation.isPending}
                         data-testid="button-cancel"
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </Button>
                     </div>
                   </form>
@@ -711,24 +713,24 @@ export default function Settings() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Bell className="h-5 w-5" />
-                  Notification Preferences
+                  {t('notifications.preferences')}
                 </CardTitle>
                 <CardDescription>
-                  Manage how you receive notifications
+                  {t('notifications.managePreferences')}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {preferencesLoading ? (
-                  <div className="text-sm text-muted-foreground">Loading preferences...</div>
+                  <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
                 ) : (
                   <>
                     <div className="flex items-center justify-between" data-testid="preference-email">
                       <div className="space-y-1">
                         <Label htmlFor="email-notifications" className="text-base">
-                          Email Notifications
+                          {t('notifications.emailNotifications')}
                         </Label>
                         <p className="text-sm text-muted-foreground">
-                          Receive notifications via email
+                          {t('notifications.emailNotificationsDesc')}
                         </p>
                       </div>
                       <Switch
@@ -743,10 +745,10 @@ export default function Settings() {
                     <div className="flex items-center justify-between" data-testid="preference-in-app">
                       <div className="space-y-1">
                         <Label htmlFor="in-app-notifications" className="text-base">
-                          In-App Notifications
+                          {t('notifications.inAppNotifications')}
                         </Label>
                         <p className="text-sm text-muted-foreground">
-                          Show notifications in the application
+                          {t('notifications.inAppNotificationsDesc')}
                         </p>
                       </div>
                       <Switch
@@ -762,19 +764,19 @@ export default function Settings() {
 
                     <div className="space-y-6">
                       <div>
-                        <h3 className="text-base font-semibold mb-4">Critical Business Events</h3>
+                        <h3 className="text-base font-semibold mb-4">{t('notifications.criticalEvents')}</h3>
                         <div className="space-y-4">
                           {CRITICAL_TYPES.map((type) => (
                             <div key={type} className="flex items-start justify-between gap-4" data-testid={`preference-type-${type}`}>
                               <div className="flex-1 min-w-0">
                                 <Label className="text-sm font-medium">
-                                  {NOTIFICATION_TYPE_LABELS[type]}
+                                  {t(`notifications.types.${type}`, NOTIFICATION_TYPE_LABELS[type])}
                                 </Label>
                               </div>
                               <div className="flex items-center gap-4 flex-shrink-0">
                                 <div className="flex items-center gap-2">
                                   <Label htmlFor={`email-${type}`} className="text-xs text-muted-foreground whitespace-nowrap">
-                                    Email
+                                    {t('common.email')}
                                   </Label>
                                   <Switch
                                     id={`email-${type}`}
@@ -786,7 +788,7 @@ export default function Settings() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Label htmlFor={`inapp-${type}`} className="text-xs text-muted-foreground whitespace-nowrap">
-                                    In-App
+                                    {t('notifications.inApp')}
                                   </Label>
                                   <Switch
                                     id={`inapp-${type}`}
@@ -805,19 +807,19 @@ export default function Settings() {
                       <Separator />
 
                       <div>
-                        <h3 className="text-base font-semibold mb-4">Important Value-Add Features</h3>
+                        <h3 className="text-base font-semibold mb-4">{t('notifications.importantEvents')}</h3>
                         <div className="space-y-4">
                           {IMPORTANT_TYPES.map((type) => (
                             <div key={type} className="flex items-start justify-between gap-4" data-testid={`preference-type-${type}`}>
                               <div className="flex-1 min-w-0">
                                 <Label className="text-sm font-medium">
-                                  {NOTIFICATION_TYPE_LABELS[type]}
+                                  {t(`notifications.types.${type}`, NOTIFICATION_TYPE_LABELS[type])}
                                 </Label>
                               </div>
                               <div className="flex items-center gap-4 flex-shrink-0">
                                 <div className="flex items-center gap-2">
                                   <Label htmlFor={`email-${type}`} className="text-xs text-muted-foreground whitespace-nowrap">
-                                    Email
+                                    {t('common.email')}
                                   </Label>
                                   <Switch
                                     id={`email-${type}`}
@@ -829,7 +831,7 @@ export default function Settings() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Label htmlFor={`inapp-${type}`} className="text-xs text-muted-foreground whitespace-nowrap">
-                                    In-App
+                                    {t('notifications.inApp')}
                                   </Label>
                                   <Switch
                                     id={`inapp-${type}`}
