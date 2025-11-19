@@ -3578,3 +3578,285 @@ export const insertPlatformAnalyticsSummarySchema = createInsertSchema(platformA
 });
 export type InsertPlatformAnalyticsSummary = z.infer<typeof insertPlatformAnalyticsSummarySchema>;
 export type PlatformAnalyticsSummary = typeof platformAnalyticsSummary.$inferSelect;
+
+// ============================================================================
+// 16. SUPPORT TICKETS SYSTEM
+// ============================================================================
+
+// Support Tickets - General platform support (different from project disputes)
+export const supportTickets = pgTable("support_tickets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  category: text("category").notNull(), // 'technical', 'payment', 'account', 'feature_request', 'bug_report', 'general'
+  priority: text("priority").notNull().default('medium'), // 'low', 'medium', 'high', 'urgent'
+  subject: text("subject").notNull(),
+  description: text("description").notNull(),
+  status: text("status").notNull().default('open'), // 'open', 'in_progress', 'waiting_user', 'resolved', 'closed'
+  assignedTo: varchar("assigned_to").references(() => users.id), // Admin user assigned to handle ticket
+  assignedAt: timestamp("assigned_at"),
+  resolvedAt: timestamp("resolved_at"),
+  closedAt: timestamp("closed_at"),
+  // User satisfaction
+  satisfactionRating: integer("satisfaction_rating"), // 1-5 stars
+  satisfactionComment: text("satisfaction_comment"),
+  ratedAt: timestamp("rated_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("support_tickets_user_id_idx").on(table.userId),
+  statusIdx: index("support_tickets_status_idx").on(table.status),
+  categoryIdx: index("support_tickets_category_idx").on(table.category),
+  priorityIdx: index("support_tickets_priority_idx").on(table.priority),
+  assignedToIdx: index("support_tickets_assigned_to_idx").on(table.assignedTo),
+  createdAtIdx: index("support_tickets_created_at_idx").on(table.createdAt),
+}));
+
+export const ticketCategoryEnum = z.enum(['technical', 'payment', 'account', 'feature_request', 'bug_report', 'general']);
+export const ticketPriorityEnum = z.enum(['low', 'medium', 'high', 'urgent']);
+export const ticketStatusEnum = z.enum(['open', 'in_progress', 'waiting_user', 'resolved', 'closed']);
+
+export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  assignedAt: true,
+  resolvedAt: true,
+  closedAt: true,
+  ratedAt: true,
+}).extend({
+  subject: z.string().min(5, "Subject must be at least 5 characters").max(200),
+  description: z.string().min(20, "Description must be at least 20 characters").max(10000),
+  category: ticketCategoryEnum,
+  priority: ticketPriorityEnum.default('medium'),
+});
+export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+export type SupportTicket = typeof supportTickets.$inferSelect;
+
+// Support Ticket Messages - Communication thread for tickets
+export const ticketMessages = pgTable("ticket_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").notNull().references(() => supportTickets.id, { onDelete: "cascade" }),
+  senderId: varchar("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  message: text("message").notNull(),
+  isStaffReply: boolean("is_staff_reply").default(false), // True if sent by admin/support staff
+  isInternal: boolean("is_internal").default(false), // Internal note visible only to staff
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  ticketIdIdx: index("ticket_messages_ticket_id_idx").on(table.ticketId),
+  senderIdIdx: index("ticket_messages_sender_id_idx").on(table.senderId),
+  createdAtIdx: index("ticket_messages_created_at_idx").on(table.createdAt),
+}));
+
+export const insertTicketMessageSchema = createInsertSchema(ticketMessages).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  message: z.string().min(1).max(10000),
+});
+export type InsertTicketMessage = z.infer<typeof insertTicketMessageSchema>;
+export type TicketMessage = typeof ticketMessages.$inferSelect;
+
+// Support Ticket Attachments - File uploads for tickets
+export const ticketAttachments = pgTable("ticket_attachments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").notNull().references(() => supportTickets.id, { onDelete: "cascade" }),
+  messageId: varchar("message_id").references(() => ticketMessages.id, { onDelete: "cascade" }), // null if attached to ticket creation
+  uploadedBy: varchar("uploaded_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  fileUrl: text("file_url").notNull(),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(), // 'document', 'image', 'video', 'screenshot', 'log'
+  fileSize: integer("file_size"),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+}, (table) => ({
+  ticketIdIdx: index("ticket_attachments_ticket_id_idx").on(table.ticketId),
+  messageIdIdx: index("ticket_attachments_message_id_idx").on(table.messageId),
+  uploadedByIdx: index("ticket_attachments_uploaded_by_idx").on(table.uploadedBy),
+}));
+
+export const insertTicketAttachmentSchema = createInsertSchema(ticketAttachments).omit({
+  id: true,
+  uploadedAt: true,
+}).extend({
+  fileName: z.string().max(255),
+  fileType: z.enum(['document', 'image', 'video', 'screenshot', 'log']),
+});
+export type InsertTicketAttachment = z.infer<typeof insertTicketAttachmentSchema>;
+export type TicketAttachment = typeof ticketAttachments.$inferSelect;
+
+// ============================================================================
+// 17. PLATFORM FEEDBACK SYSTEM
+// ============================================================================
+
+// Platform Feedback - General user feedback about platform experience
+export const platformFeedback = pgTable("platform_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }), // Null for anonymous feedback
+  feedbackType: text("feedback_type").notNull(), // 'general', 'bug_report', 'feature_request', 'improvement'
+  category: text("category"), // 'ui_ux', 'performance', 'functionality', 'content', 'other'
+  rating: integer("rating"), // 1-5 stars for overall platform experience
+  subject: text("subject"),
+  message: text("message").notNull(),
+  url: text("url"), // Page where feedback was submitted
+  browser: text("browser"),
+  device: text("device"),
+  status: text("status").notNull().default('new'), // 'new', 'reviewed', 'planned', 'in_progress', 'completed', 'rejected'
+  adminNotes: text("admin_notes"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("platform_feedback_user_id_idx").on(table.userId),
+  feedbackTypeIdx: index("platform_feedback_type_idx").on(table.feedbackType),
+  statusIdx: index("platform_feedback_status_idx").on(table.status),
+  createdAtIdx: index("platform_feedback_created_at_idx").on(table.createdAt),
+}));
+
+export const feedbackTypeEnum = z.enum(['general', 'bug_report', 'feature_request', 'improvement']);
+export const feedbackCategoryEnum = z.enum(['ui_ux', 'performance', 'functionality', 'content', 'other']);
+export const feedbackStatusEnum = z.enum(['new', 'reviewed', 'planned', 'in_progress', 'completed', 'rejected']);
+
+export const insertPlatformFeedbackSchema = createInsertSchema(platformFeedback).omit({
+  id: true,
+  createdAt: true,
+  reviewedAt: true,
+}).extend({
+  message: z.string().min(10, "Feedback must be at least 10 characters").max(5000),
+  feedbackType: feedbackTypeEnum,
+  category: feedbackCategoryEnum.optional(),
+  rating: z.number().int().min(1).max(5).optional(),
+  status: feedbackStatusEnum.default('new'),
+});
+export type InsertPlatformFeedback = z.infer<typeof insertPlatformFeedbackSchema>;
+export type PlatformFeedback = typeof platformFeedback.$inferSelect;
+
+// Feature Suggestions - Specific feature requests with voting
+export const featureSuggestions = pgTable("feature_suggestions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  category: text("category"), // 'client_features', 'consultant_features', 'admin_features', 'general'
+  priority: text("priority").default('medium'), // 'low', 'medium', 'high'
+  status: text("status").notNull().default('submitted'), // 'submitted', 'under_review', 'planned', 'in_progress', 'completed', 'rejected'
+  voteCount: integer("vote_count").default(0).notNull(),
+  implementedIn: text("implemented_in"), // Version/release where it was implemented
+  adminResponse: text("admin_response"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("feature_suggestions_user_id_idx").on(table.userId),
+  statusIdx: index("feature_suggestions_status_idx").on(table.status),
+  voteCountIdx: index("feature_suggestions_vote_count_idx").on(table.voteCount),
+  createdAtIdx: index("feature_suggestions_created_at_idx").on(table.createdAt),
+}));
+
+export const insertFeatureSuggestionSchema = createInsertSchema(featureSuggestions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  reviewedAt: true,
+  voteCount: true,
+}).extend({
+  title: z.string().min(10, "Title must be at least 10 characters").max(200),
+  description: z.string().min(20, "Description must be at least 20 characters").max(5000),
+});
+export type InsertFeatureSuggestion = z.infer<typeof insertFeatureSuggestionSchema>;
+export type FeatureSuggestion = typeof featureSuggestions.$inferSelect;
+
+// Feature Votes - Track who voted for which features
+export const featureVotes = pgTable("feature_votes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  featureId: varchar("feature_id").notNull().references(() => featureSuggestions.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  featureIdIdx: index("feature_votes_feature_id_idx").on(table.featureId),
+  userIdIdx: index("feature_votes_user_id_idx").on(table.userId),
+  uniqueVote: uniqueIndex("feature_votes_unique_vote").on(table.featureId, table.userId),
+}));
+
+export const insertFeatureVoteSchema = createInsertSchema(featureVotes).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertFeatureVote = z.infer<typeof insertFeatureVoteSchema>;
+export type FeatureVote = typeof featureVotes.$inferSelect;
+
+// User Surveys - Platform-wide surveys created by admins
+export const userSurveys = pgTable("user_surveys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  questions: jsonb("questions").notNull(), // Array of question objects with type, options, etc.
+  targetAudience: text("target_audience").notNull().default('all'), // 'all', 'clients', 'consultants', 'specific_segment'
+  status: text("status").notNull().default('draft'), // 'draft', 'active', 'closed', 'archived'
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  responseCount: integer("response_count").default(0).notNull(),
+  createdBy: varchar("created_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  statusIdx: index("user_surveys_status_idx").on(table.status),
+  targetAudienceIdx: index("user_surveys_target_audience_idx").on(table.targetAudience),
+  createdAtIdx: index("user_surveys_created_at_idx").on(table.createdAt),
+}));
+
+export const insertUserSurveySchema = createInsertSchema(userSurveys).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  responseCount: true,
+}).extend({
+  title: z.string().min(5, "Title must be at least 5 characters").max(200),
+  questions: z.any(), // Complex validation for question structure
+});
+export type InsertUserSurvey = z.infer<typeof insertUserSurveySchema>;
+export type UserSurvey = typeof userSurveys.$inferSelect;
+
+// Survey Responses - User responses to surveys
+export const surveyResponses = pgTable("survey_responses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  surveyId: varchar("survey_id").notNull().references(() => userSurveys.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }), // Null for anonymous responses
+  answers: jsonb("answers").notNull(), // Array of answer objects matching questions
+  completedAt: timestamp("completed_at").defaultNow().notNull(),
+}, (table) => ({
+  surveyIdIdx: index("survey_responses_survey_id_idx").on(table.surveyId),
+  userIdIdx: index("survey_responses_user_id_idx").on(table.userId),
+  uniqueResponse: uniqueIndex("survey_responses_unique_response").on(table.surveyId, table.userId),
+}));
+
+export const insertSurveyResponseSchema = createInsertSchema(surveyResponses).omit({
+  id: true,
+  completedAt: true,
+}).extend({
+  answers: z.any(), // Complex validation for answers structure
+});
+export type InsertSurveyResponse = z.infer<typeof insertSurveyResponseSchema>;
+export type SurveyResponse = typeof surveyResponses.$inferSelect;
+
+// Beta Features Opt-in - Users who want to test beta features
+export const betaOptIns = pgTable("beta_opt_ins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  featureName: text("feature_name").notNull(), // Name of beta feature
+  optedInAt: timestamp("opted_in_at").defaultNow().notNull(),
+  optedOutAt: timestamp("opted_out_at"),
+  feedbackProvided: boolean("feedback_provided").default(false),
+}, (table) => ({
+  userIdIdx: index("beta_opt_ins_user_id_idx").on(table.userId),
+  featureNameIdx: index("beta_opt_ins_feature_name_idx").on(table.featureName),
+  uniqueOptIn: uniqueIndex("beta_opt_ins_unique_opt_in").on(table.userId, table.featureName),
+}));
+
+export const insertBetaOptInSchema = createInsertSchema(betaOptIns).omit({
+  id: true,
+  optedInAt: true,
+}).extend({
+  featureName: z.string().min(1).max(100),
+});
+export type InsertBetaOptIn = z.infer<typeof insertBetaOptInSchema>;
+export type BetaOptIn = typeof betaOptIns.$inferSelect;
