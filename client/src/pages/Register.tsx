@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,7 @@ type Role = "client" | "consultant" | null;
 type Step = "role" | "basic" | "categories";
 
 export default function Register() {
+  const { t } = useTranslation();
   const { isAuthenticated, isLoading } = useAuthContext();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -78,8 +80,8 @@ export default function Register() {
     if (!fullName || !email || !password || !country || !phone || !companyName) {
       toast({
         variant: "destructive",
-        title: "Missing Information",
-        description: "Please fill in all fields",
+        title: t('register.errors.missingInfo'),
+        description: t('register.errors.fillAllFields'),
       });
       return;
     }
@@ -87,8 +89,8 @@ export default function Register() {
     if (password.length < 6) {
       toast({
         variant: "destructive",
-        title: "Invalid Password",
-        description: "Password must be at least 6 characters",
+        title: t('register.errors.invalidPassword'),
+        description: t('register.errors.passwordMinLength'),
       });
       return;
     }
@@ -96,8 +98,8 @@ export default function Register() {
     if (!engagementPlan) {
       toast({
         variant: "destructive",
-        title: "Missing Information",
-        description: "Please select an engagement plan",
+        title: t('register.errors.missingInfo'),
+        description: t('register.errors.selectPlan'),
       });
       return;
     }
@@ -105,8 +107,8 @@ export default function Register() {
     if (!termsAccepted) {
       toast({
         variant: "destructive",
-        title: "Terms Required",
-        description: "Please accept the Terms of Service and Privacy Policy to continue",
+        title: t('register.errors.termsRequired'),
+        description: t('register.errors.acceptTerms'),
       });
       return;
     }
@@ -160,15 +162,15 @@ export default function Register() {
           const checkoutData = await checkoutResponse.json();
           
           toast({
-            title: "Account Created",
-            description: "Please complete your payment to activate your subscription.",
+            title: t('register.success.accountCreated'),
+            description: t('register.success.completePayment'),
           });
           window.location.href = checkoutData.checkoutUrl;
         } else {
           // Redirect to login for free plan
           toast({
-            title: "Account Created",
-            description: "Welcome to EDGEIT24! You can now log in.",
+            title: t('register.success.accountCreated'),
+            description: t('register.success.welcomeLogin'),
           });
           window.location.href = "/login";
         }
@@ -176,16 +178,16 @@ export default function Register() {
         const error = await response.json();
         toast({
           variant: "destructive",
-          title: "Signup Failed",
-          description: error.message || "Failed to create account",
+          title: t('register.errors.signupFailed'),
+          description: error.message || t('register.errors.failedToCreate'),
         });
       }
     } catch (error) {
       console.error("Signup error:", error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "An unexpected error occurred",
+        title: t('common.error'),
+        description: t('register.errors.unexpectedError'),
       });
     } finally {
       setIsSubmitting(false);
@@ -206,7 +208,7 @@ export default function Register() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -226,19 +228,19 @@ export default function Register() {
           <div className="container mx-auto px-4 md:px-6 relative">
             <div className="max-w-3xl mx-auto text-center space-y-6">
               <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/20" data-testid="badge-register">
-                {step === "role" && "Get Started"}
-                {step === "basic" && "Step 1 of " + (selectedRole === "consultant" ? "2" : "1")}
-                {step === "categories" && "Step 2 of 2"}
+                {step === "role" && t('register.badge.getStarted')}
+                {step === "basic" && t('register.badge.stepOf', { current: 1, total: selectedRole === "consultant" ? 2 : 1 })}
+                {step === "categories" && t('register.badge.stepOf', { current: 2, total: 2 })}
               </Badge>
               <h1 className="text-3xl md:text-5xl font-bold text-white tracking-tight" data-testid="text-register-title">
-                {step === "role" && "Join EDGEIT24"}
-                {step === "basic" && `Sign Up as ${selectedRole === "client" ? "Client" : "Service Provider"}`}
-                {step === "categories" && "Select Your Expertise"}
+                {step === "role" && t('register.title.join')}
+                {step === "basic" && t('register.title.signUpAs', { role: selectedRole === "client" ? t('register.roles.client') : t('register.roles.serviceProvider') })}
+                {step === "categories" && t('register.title.selectExpertise')}
               </h1>
               <p className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto" data-testid="text-register-subtitle">
-                {step === "role" && "Choose how you'd like to get started on our platform"}
-                {step === "basic" && "Enter your details to create your account"}
-                {step === "categories" && "Select the categories that match your skills and services"}
+                {step === "role" && t('register.subtitle.chooseRole')}
+                {step === "basic" && t('register.subtitle.enterDetails')}
+                {step === "categories" && t('register.subtitle.selectCategories')}
               </p>
             </div>
           </div>
@@ -254,9 +256,9 @@ export default function Register() {
                     <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                       <Briefcase className="h-8 w-8 text-primary" />
                     </div>
-                    <CardTitle className="text-2xl" data-testid="text-client-title">I Need IT Services</CardTitle>
+                    <CardTitle className="text-2xl" data-testid="text-client-title">{t('register.client.title')}</CardTitle>
                     <CardDescription className="text-base" data-testid="text-client-desc">
-                      Post projects and receive competitive bids from qualified IT professionals
+                      {t('register.client.description')}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
@@ -264,22 +266,22 @@ export default function Register() {
                       <div className="flex items-start gap-3">
                         <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="font-medium text-sm">Post Requirements</p>
-                          <p className="text-xs text-muted-foreground">Describe your IT project needs and budget</p>
+                          <p className="font-medium text-sm">{t('register.client.feature1')}</p>
+                          <p className="text-xs text-muted-foreground">{t('register.client.feature1Desc')}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
                         <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="font-medium text-sm">Review Proposals</p>
-                          <p className="text-xs text-muted-foreground">Compare bids from verified vendors</p>
+                          <p className="font-medium text-sm">{t('register.client.feature2')}</p>
+                          <p className="text-xs text-muted-foreground">{t('register.client.feature2Desc')}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
                         <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="font-medium text-sm">Hire with Confidence</p>
-                          <p className="text-xs text-muted-foreground">Secure payment and project delivery</p>
+                          <p className="font-medium text-sm">{t('register.client.feature3')}</p>
+                          <p className="text-xs text-muted-foreground">{t('register.client.feature3Desc')}</p>
                         </div>
                       </div>
                     </div>
@@ -287,7 +289,7 @@ export default function Register() {
                     <div className="pt-4 border-t">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                         <Shield className="h-4 w-4" />
-                        <span>Perfect for businesses seeking IT expertise</span>
+                        <span>{t('register.client.perfectFor')}</span>
                       </div>
                       <Button 
                         onClick={() => handleRoleSelect("client")}
@@ -295,7 +297,7 @@ export default function Register() {
                         size="lg"
                         data-testid="button-signup-client"
                       >
-                        Get Started as Client
+                        {t('register.client.getStarted')}
                         <ArrowRight className="ml-2 h-5 w-5" />
                       </Button>
                     </div>
@@ -307,9 +309,9 @@ export default function Register() {
                     <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                       <Code className="h-8 w-8 text-primary" />
                     </div>
-                    <CardTitle className="text-2xl" data-testid="text-consultant-title">I'm a Service Provider</CardTitle>
+                    <CardTitle className="text-2xl" data-testid="text-consultant-title">{t('register.consultant.title')}</CardTitle>
                     <CardDescription className="text-base" data-testid="text-consultant-desc">
-                      Showcase your skills and bid on exciting IT projects
+                      {t('register.consultant.description')}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
@@ -317,22 +319,22 @@ export default function Register() {
                       <div className="flex items-start gap-3">
                         <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="font-medium text-sm">Create Your Profile</p>
-                          <p className="text-xs text-muted-foreground">Showcase portfolio and expertise</p>
+                          <p className="font-medium text-sm">{t('register.consultant.feature1')}</p>
+                          <p className="text-xs text-muted-foreground">{t('register.consultant.feature1Desc')}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
                         <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="font-medium text-sm">Bid on Projects</p>
-                          <p className="text-xs text-muted-foreground">Access quality projects from verified clients</p>
+                          <p className="font-medium text-sm">{t('register.consultant.feature2')}</p>
+                          <p className="text-xs text-muted-foreground">{t('register.consultant.feature2Desc')}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
                         <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="font-medium text-sm">Grow Your Business</p>
-                          <p className="text-xs text-muted-foreground">Build reputation and earn consistently</p>
+                          <p className="font-medium text-sm">{t('register.consultant.feature3')}</p>
+                          <p className="text-xs text-muted-foreground">{t('register.consultant.feature3Desc')}</p>
                         </div>
                       </div>
                     </div>
@@ -340,7 +342,7 @@ export default function Register() {
                     <div className="pt-4 border-t">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                         <TrendingUp className="h-4 w-4" />
-                        <span>Perfect for IT consultants and agencies</span>
+                        <span>{t('register.consultant.perfectFor')}</span>
                       </div>
                       <Button 
                         onClick={() => handleRoleSelect("consultant")}
@@ -348,7 +350,7 @@ export default function Register() {
                         size="lg"
                         data-testid="button-signup-consultant"
                       >
-                        Get Started as Provider
+                        {t('register.consultant.getStarted')}
                         <ArrowRight className="ml-2 h-5 w-5" />
                       </Button>
                     </div>
@@ -357,14 +359,14 @@ export default function Register() {
               </div>
 
               <div className="text-center mt-12">
-                <p className="text-muted-foreground mb-4">Already have an account?</p>
+                <p className="text-muted-foreground mb-4">{t('register.haveAccount')}</p>
                 <Button 
                   variant="outline" 
                   size="lg"
                   onClick={() => setLocation('/login')}
                   data-testid="button-signin-existing"
                 >
-                  Sign In
+                  {t('auth.login')}
                 </Button>
               </div>
             </div>
@@ -388,9 +390,9 @@ export default function Register() {
                         <ArrowLeft className="h-5 w-5" />
                       </Button>
                       <div>
-                        <CardTitle>Create Your Account</CardTitle>
+                        <CardTitle>{t('register.form.createAccount')}</CardTitle>
                         <CardDescription>
-                          {selectedRole === "client" ? "Client Account" : "Service Provider Account"}
+                          {selectedRole === "client" ? t('register.roles.clientAccount') : t('register.roles.serviceProviderAccount')}
                         </CardDescription>
                       </div>
                     </div>
@@ -399,13 +401,13 @@ export default function Register() {
                     <form onSubmit={handleBasicInfoNext} className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="fullName">Full Name *</Label>
+                          <Label htmlFor="fullName">{t('register.form.fullName')}</Label>
                           <div className="relative">
                             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                               id="fullName"
                               type="text"
-                              placeholder="Your full name"
+                              placeholder={t('register.form.fullNamePlaceholder')}
                               value={fullName}
                               onChange={(e) => setFullName(e.target.value)}
                               className="pl-10"
@@ -416,13 +418,13 @@ export default function Register() {
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="email">Email Address *</Label>
+                          <Label htmlFor="email">{t('auth.email')}</Label>
                           <div className="relative">
                             <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                               id="email"
                               type="email"
-                              placeholder="you@example.com"
+                              placeholder={t('register.form.emailPlaceholder')}
                               value={email}
                               onChange={(e) => setEmail(e.target.value)}
                               className="pl-10"
@@ -433,13 +435,13 @@ export default function Register() {
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="password">Password *</Label>
+                          <Label htmlFor="password">{t('auth.password')}</Label>
                           <div className="relative">
                             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                               id="password"
                               type="password"
-                              placeholder="Minimum 6 characters"
+                              placeholder={t('register.form.passwordPlaceholder')}
                               value={password}
                               onChange={(e) => setPassword(e.target.value)}
                               className="pl-10"
@@ -451,13 +453,13 @@ export default function Register() {
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="companyName">Company Name *</Label>
+                          <Label htmlFor="companyName">{t('register.form.companyName')}</Label>
                           <div className="relative">
                             <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                               id="companyName"
                               type="text"
-                              placeholder="Your company name"
+                              placeholder={t('register.form.companyNamePlaceholder')}
                               value={companyName}
                               onChange={(e) => setCompanyName(e.target.value)}
                               className="pl-10"
@@ -468,7 +470,7 @@ export default function Register() {
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="country">Country *</Label>
+                          <Label htmlFor="country">{t('register.form.country')}</Label>
                           <CountrySelector
                             value={country}
                             onChange={(countryObj) => {
@@ -482,7 +484,7 @@ export default function Register() {
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="phone">Phone Number *</Label>
+                          <Label htmlFor="phone">{t('register.form.phone')}</Label>
                           <div className="flex gap-2">
                             <Input
                               value={phoneCountryCode}
@@ -496,7 +498,7 @@ export default function Register() {
                               <Input
                                 id="phone"
                                 type="tel"
-                                placeholder="Phone number"
+                                placeholder={t('register.form.phonePlaceholder')}
                                 value={phone}
                                 onChange={(e) => setPhone(e.target.value)}
                                 className="pl-10"
@@ -509,9 +511,9 @@ export default function Register() {
 
                         {/* Engagement Plan Selection */}
                         <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="engagementPlan">Select Engagement Model *</Label>
+                          <Label htmlFor="engagementPlan">{t('register.form.selectPlan')}</Label>
                           {plansLoading ? (
-                            <div className="text-sm text-muted-foreground">Loading plans...</div>
+                            <div className="text-sm text-muted-foreground">{t('register.form.loadingPlans')}</div>
                           ) : (
                             <RadioGroup
                               value={engagementPlan}
@@ -524,7 +526,7 @@ export default function Register() {
                                   <Label htmlFor={plan.id} className="flex-1 cursor-pointer">
                                     <div className="font-semibold">{plan.name}</div>
                                     <div className="text-sm text-muted-foreground">
-                                      {parseFloat(plan.price) === 0 ? 'Free' : `SAR ${plan.price}/month`}
+                                      {parseFloat(plan.price) === 0 ? t('register.form.free') : `${t('register.form.currency')} ${plan.price}/${t('register.form.month')}`}
                                     </div>
                                     {plan.description && (
                                       <div className="text-xs text-muted-foreground mt-1">{plan.description}</div>
@@ -547,12 +549,12 @@ export default function Register() {
                         >
                           {selectedRole === "consultant" ? (
                             <>
-                              Continue to Categories
+                              {t('register.form.continueToCategories')}
                               <ArrowRight className="ml-2 h-5 w-5" />
                             </>
                           ) : (
                             <>
-                              {isSubmitting ? "Creating Account..." : "Create Account"}
+                              {isSubmitting ? t('register.form.creatingAccount') : t('register.form.createAccountButton')}
                               {!isSubmitting && <ArrowRight className="ml-2 h-5 w-5" />}
                             </>
                           )}
@@ -571,7 +573,7 @@ export default function Register() {
                           htmlFor="terms"
                           className="text-sm text-muted-foreground leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                         >
-                          I agree to the{" "}
+                          {t('register.form.agreeToThe')}{" "}
                           <a 
                             href={selectedRole === "consultant" ? "/legal/terms-consultant" : "/legal/terms-client"} 
                             className="text-primary hover:underline"
@@ -580,9 +582,9 @@ export default function Register() {
                             data-testid="link-terms"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            Terms & Conditions
+                            {t('register.form.termsConditions')}
                           </a>{" "}
-                          and{" "}
+                          {t('register.form.and')}{" "}
                           <a 
                             href="/legal/privacy-policy" 
                             className="text-primary hover:underline"
@@ -591,7 +593,7 @@ export default function Register() {
                             data-testid="link-privacy"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            Privacy Policy
+                            {t('register.form.privacyPolicy')}
                           </a>
                         </label>
                       </div>
@@ -621,9 +623,9 @@ export default function Register() {
                         <ArrowLeft className="h-5 w-5" />
                       </Button>
                       <div>
-                        <CardTitle>Select Your Expertise</CardTitle>
+                        <CardTitle>{t('register.categories.title')}</CardTitle>
                         <CardDescription>
-                          Choose the categories that match your skills and services
+                          {t('register.categories.description')}
                         </CardDescription>
                       </div>
                     </div>
@@ -645,7 +647,7 @@ export default function Register() {
                         disabled={isSubmitting}
                         data-testid="button-skip-categories"
                       >
-                        Skip for Now
+                        {t('register.categories.skipForNow')}
                       </Button>
                       <Button
                         type="button"
@@ -657,11 +659,11 @@ export default function Register() {
                         {isSubmitting ? (
                           <>
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Creating Account...
+                            {t('register.form.creatingAccount')}
                           </>
                         ) : (
                           <>
-                            Create Account
+                            {t('register.form.createAccountButton')}
                             <ArrowRight className="ml-2 h-5 w-5" />
                           </>
                         )}
@@ -670,8 +672,8 @@ export default function Register() {
 
                     <p className="text-sm text-muted-foreground text-center">
                       {selectedCategories.length > 0 
-                        ? `You've selected ${selectedCategories.length} ${selectedCategories.length === 1 ? 'category' : 'categories'}`
-                        : "Select at least one category to continue, or skip for now"
+                        ? t('register.categories.selectedCount', { count: selectedCategories.length })
+                        : t('register.categories.selectOrSkip')
                       }
                     </p>
                   </CardContent>

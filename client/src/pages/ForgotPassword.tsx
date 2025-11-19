@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Mail, ArrowLeft } from "lucide-react";
 
 export default function ForgotPassword() {
+  const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
@@ -24,8 +26,8 @@ export default function ForgotPassword() {
     if (!email) {
       toast({
         variant: "destructive",
-        title: "Missing Information",
-        description: "Please enter your email address",
+        title: t('forgotPassword.errors.missingInfo'),
+        description: t('forgotPassword.errors.enterEmail'),
       });
       return;
     }
@@ -40,23 +42,23 @@ export default function ForgotPassword() {
       if (response.ok) {
         setEmailSent(true);
         toast({
-          title: "Reset Link Sent",
-          description: "Check your email for password reset instructions.",
+          title: t('forgotPassword.success.linkSent'),
+          description: t('forgotPassword.success.checkEmail'),
         });
       } else {
         const error = await response.json();
         toast({
           variant: "destructive",
-          title: "Error",
-          description: error.message || "Failed to send reset link",
+          title: t('common.error'),
+          description: error.message || t('forgotPassword.errors.failedToSend'),
         });
       }
     } catch (error) {
       console.error("Password reset error:", error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to send reset link. Please try again.",
+        title: t('common.error'),
+        description: t('forgotPassword.errors.failedToSendTryAgain'),
       });
     } finally {
       setIsSubmitting(false);
@@ -71,20 +73,20 @@ export default function ForgotPassword() {
         <div className="w-full max-w-md space-y-8">
           <div className="text-center">
             <h1 className="text-3xl md:text-4xl font-bold" data-testid="text-forgot-password-title">
-              Forgot Password
+              {t('forgotPassword.pageTitle')}
             </h1>
             <p className="mt-2 text-muted-foreground" data-testid="text-forgot-password-subtitle">
-              Enter your email to receive a password reset link
+              {t('forgotPassword.subtitle')}
             </p>
           </div>
 
           <Card>
             <CardHeader>
-              <CardTitle>Reset Password</CardTitle>
+              <CardTitle>{t('forgotPassword.cardTitle')}</CardTitle>
               <CardDescription>
                 {emailSent 
-                  ? "Check your email for the reset link" 
-                  : "We'll send you a link to reset your password"}
+                  ? t('forgotPassword.checkEmailDesc') 
+                  : t('forgotPassword.sendLinkDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -95,10 +97,10 @@ export default function ForgotPassword() {
                       <Mail className="h-6 w-6 text-primary" />
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      If an account exists with <strong>{email}</strong>, you will receive a password reset link shortly.
+                      {t('forgotPassword.emailSentMessage', { email })}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
-                      Didn't receive the email? Check your spam folder or try again.
+                      {t('forgotPassword.didntReceive')}
                     </p>
                   </div>
                   
@@ -110,7 +112,7 @@ export default function ForgotPassword() {
                       onClick={() => setEmailSent(false)}
                       data-testid="button-try-again"
                     >
-                      Try Another Email
+                      {t('forgotPassword.tryAnotherEmail')}
                     </Button>
                     <Button
                       type="button"
@@ -118,20 +120,20 @@ export default function ForgotPassword() {
                       onClick={() => setLocation("/login")}
                       data-testid="button-back-login"
                     >
-                      Back to Login
+                      {t('forgotPassword.backToLogin')}
                     </Button>
                   </div>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
+                    <Label htmlFor="email">{t('auth.email')}</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="email"
                         type="email"
-                        placeholder="you@example.com"
+                        placeholder={t('forgotPassword.emailPlaceholder')}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="pl-10"
@@ -152,11 +154,11 @@ export default function ForgotPassword() {
                       {isSubmitting ? (
                         <>
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Sending Reset Link...
+                          {t('forgotPassword.sendingLink')}
                         </>
                       ) : (
                         <>
-                          Send Reset Link
+                          {t('forgotPassword.sendResetLink')}
                         </>
                       )}
                     </Button>
@@ -169,7 +171,7 @@ export default function ForgotPassword() {
                       data-testid="button-back-login-link"
                     >
                       <ArrowLeft className="h-4 w-4 mr-2" />
-                      Back to Login
+                      {t('forgotPassword.backToLogin')}
                     </Button>
                   </div>
                 </form>

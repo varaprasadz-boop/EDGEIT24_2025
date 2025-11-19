@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 
 export default function Login() {
+  const { t } = useTranslation();
   const { isAuthenticated, isLoading } = useAuthContext();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -34,8 +36,8 @@ export default function Login() {
     if (!email || !password) {
       toast({
         variant: "destructive",
-        title: "Missing Information",
-        description: "Please fill in all fields",
+        title: t('login.errors.missingInfo'),
+        description: t('login.errors.fillAllFields'),
       });
       return;
     }
@@ -68,8 +70,8 @@ export default function Login() {
         }
         
         toast({
-          title: "Welcome Back",
-          description: "You've been successfully logged in.",
+          title: t('login.success.welcomeBack'),
+          description: t('login.success.loggedIn'),
         });
         
         // Refresh the page to load user data
@@ -78,8 +80,8 @@ export default function Login() {
         const error = await response.json();
         toast({
           variant: "destructive",
-          title: "Login Failed",
-          description: error.message || "Invalid email or password",
+          title: t('login.errors.loginFailed'),
+          description: error.message || t('auth.invalidCredentials'),
         });
         setIsSubmitting(false);
       }
@@ -87,8 +89,8 @@ export default function Login() {
       console.error("Login error:", error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: error instanceof Error ? error.message : "Invalid email or password",
+        title: t('common.error'),
+        description: error instanceof Error ? error.message : t('auth.invalidCredentials'),
       });
       setIsSubmitting(false);
     }
@@ -99,7 +101,7 @@ export default function Login() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -117,30 +119,30 @@ export default function Login() {
         <div className="w-full max-w-md space-y-8">
           <div className="text-center">
             <h1 className="text-3xl md:text-4xl font-bold" data-testid="text-login-title">
-              Sign In to EDGEIT24
+              {t('login.pageTitle')}
             </h1>
             <p className="mt-2 text-muted-foreground" data-testid="text-login-subtitle">
-              Welcome back! Please enter your credentials
+              {t('login.subtitle')}
             </p>
           </div>
 
           <Card>
             <CardHeader>
-              <CardTitle>Login</CardTitle>
+              <CardTitle>{t('auth.login')}</CardTitle>
               <CardDescription>
-                Enter your email and password to access your account
+                {t('login.cardDescription')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label htmlFor="email">{t('auth.email')}</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="email"
                       type="email"
-                      placeholder="you@example.com"
+                      placeholder={t('login.emailPlaceholder')}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10"
@@ -151,13 +153,13 @@ export default function Login() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">{t('auth.password')}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="password"
                       type="password"
-                      placeholder="Enter your password"
+                      placeholder={t('login.passwordPlaceholder')}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="pl-10"
@@ -179,7 +181,7 @@ export default function Login() {
                       htmlFor="remember"
                       className="text-sm cursor-pointer text-muted-foreground"
                     >
-                      Remember me
+                      {t('auth.rememberMe')}
                     </label>
                   </div>
                   <div className="text-sm">
@@ -188,7 +190,7 @@ export default function Login() {
                       className="text-primary hover:underline"
                       data-testid="link-forgot-password"
                     >
-                      Forgot password?
+                      {t('auth.forgotPassword')}
                     </a>
                   </div>
                 </div>
@@ -204,11 +206,11 @@ export default function Login() {
                     {isSubmitting ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Signing In...
+                        {t('auth.loggingIn')}
                       </>
                     ) : (
                       <>
-                        Sign In
+                        {t('auth.signInButton')}
                         <ArrowRight className="ml-2 h-5 w-5" />
                       </>
                     )}
@@ -216,13 +218,13 @@ export default function Login() {
                 </div>
 
                 <div className="text-center pt-4 text-sm text-muted-foreground">
-                  Don't have an account?{" "}
+                  {t('login.noAccount')}{" "}
                   <a 
                     href="/register" 
                     className="text-primary hover:underline font-medium"
                     data-testid="link-register"
                   >
-                    Sign Up
+                    {t('login.signUp')}
                   </a>
                 </div>
               </form>
