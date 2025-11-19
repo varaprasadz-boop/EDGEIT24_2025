@@ -29,6 +29,8 @@ import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import CustomFieldsBuilder from "./CustomFieldsBuilder";
+import { DeliveryOptionsBuilder } from "./DeliveryOptionsBuilder";
+import { WarrantyConfigBuilder } from "./WarrantyConfigBuilder";
 import type { CustomField } from "@shared/schema";
 
 const categoryFormSchema = z.object({
@@ -54,8 +56,16 @@ const categoryFormSchema = z.object({
   ]).optional(),
   requiresApproval: z.boolean().default(false),
   customFields: z.any().optional(),
-  deliveryOptions: z.any().optional(),
-  warrantyConfig: z.any().optional(),
+  deliveryOptions: z.object({
+    shippingMethods: z.array(z.string()).default([]),
+    estimatedDays: z.string().optional(),
+    feeStructure: z.string().optional(),
+  }).optional(),
+  warrantyConfig: z.object({
+    duration: z.string().optional(),
+    terms: z.string().optional(),
+    supportOptions: z.array(z.string()).default([]),
+  }).optional(),
   complianceRequirements: z.array(z.string().min(1, "Requirement cannot be empty")).optional(),
 });
 
@@ -101,7 +111,6 @@ export default function CategoryFormDialog({
 }: CategoryFormDialogProps) {
   const [activeTab, setActiveTab] = useState("basic");
   const [complianceInput, setComplianceInput] = useState("");
-  const [shippingMethodInput, setShippingMethodInput] = useState("");
 
   const form = useForm<CategoryFormData>({
     resolver: zodResolver(categoryFormSchema),
@@ -131,21 +140,6 @@ export default function CategoryFormDialog({
   const removeComplianceRequirement = (index: number) => {
     const current = form.getValues("complianceRequirements") || [];
     form.setValue("complianceRequirements", current.filter((_, i) => i !== index));
-  };
-
-  const addShippingMethod = () => {
-    if (!shippingMethodInput.trim()) return;
-    
-    const current = form.getValues("deliveryOptions") || { shippingMethods: [], estimatedDays: null, feeStructure: null };
-    const methods = current.shippingMethods || [];
-    form.setValue("deliveryOptions", { ...current, shippingMethods: [...methods, shippingMethodInput.trim()] });
-    setShippingMethodInput("");
-  };
-
-  const removeShippingMethod = (index: number) => {
-    const current = form.getValues("deliveryOptions") || { shippingMethods: [] };
-    const methods = current.shippingMethods || [];
-    form.setValue("deliveryOptions", { ...current, shippingMethods: methods.filter((_, i) => i !== index) });
   };
 
   const categoryType = form.watch("categoryType");
@@ -434,27 +428,12 @@ export default function CategoryFormDialog({
                   name="deliveryOptions"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Delivery Configuration (JSON)</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder='{"shippingMethods": ["Standard", "Express"], "estimatedDays": "3-5", "feeStructure": "Standard: SAR 25, Express: SAR 50"}'
-                          value={field.value ? JSON.stringify(field.value, null, 2) : ""}
-                          onChange={(e) => {
-                            try {
-                              const parsed = JSON.parse(e.target.value);
-                              field.onChange(parsed);
-                            } catch {
-                              field.onChange(e.target.value);
-                            }
-                          }}
-                          rows={6}
-                          className="font-mono text-sm"
-                          data-testid="textarea-delivery-options"
+                        <DeliveryOptionsBuilder
+                          value={field.value || { shippingMethods: [], estimatedDays: "", feeStructure: "" }}
+                          onChange={field.onChange}
                         />
                       </FormControl>
-                      <FormDescription>
-                        Configure shipping methods, delivery times, and fee structure in JSON format
-                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -472,27 +451,12 @@ export default function CategoryFormDialog({
                   name="warrantyConfig"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Warranty Configuration (JSON)</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder='{"duration": "1 year", "terms": "Limited warranty covering manufacturing defects", "supportOptions": ["Email", "Phone"]}'
-                          value={field.value ? JSON.stringify(field.value, null, 2) : ""}
-                          onChange={(e) => {
-                            try {
-                              const parsed = JSON.parse(e.target.value);
-                              field.onChange(parsed);
-                            } catch {
-                              field.onChange(e.target.value);
-                            }
-                          }}
-                          rows={6}
-                          className="font-mono text-sm"
-                          data-testid="textarea-warranty-config"
+                        <WarrantyConfigBuilder
+                          value={field.value || { duration: "", terms: "", supportOptions: [] }}
+                          onChange={field.onChange}
                         />
                       </FormControl>
-                      <FormDescription>
-                        Define warranty duration, terms, and support requirements in JSON format
-                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
