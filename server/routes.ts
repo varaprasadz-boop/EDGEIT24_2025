@@ -5588,6 +5588,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         performedBy: userId, // Self-submitted
       });
 
+      // Send notification to user
+      await notificationService.notifyProfileSubmitted(userId, 'client');
+
       res.json(updatedProfile);
     } catch (error) {
       console.error("Error submitting client profile:", error);
@@ -5623,6 +5626,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         action: 'submitted',
         performedBy: userId,
       });
+
+      // Send notification to user
+      await notificationService.notifyProfileSubmitted(userId, 'consultant');
 
       res.json(updatedProfile);
     } catch (error) {
@@ -6191,6 +6197,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: notes || null,
       });
 
+      // Send notification to user
+      await notificationService.notifyUserAccountApproved(userId);
+
       res.json({ message: "Profile approved successfully", uniqueId });
     } catch (error) {
       console.error("Error approving profile:", error);
@@ -6244,6 +6253,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: notes || null,
       });
 
+      // Send notification to user
+      await notificationService.notifyUserAccountRejected(userId, notes);
+
       res.json({ message: "Profile rejected successfully" });
     } catch (error) {
       console.error("Error rejecting profile:", error);
@@ -6296,6 +6308,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         performedBy: adminUserId,
         notes,
       });
+
+      // Send notification to user
+      await notificationService.notifyUserInfoRequested(userId, notes);
 
       res.json({ message: "Changes requested successfully" });
     } catch (error) {

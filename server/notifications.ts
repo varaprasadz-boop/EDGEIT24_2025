@@ -353,6 +353,17 @@ export class NotificationService {
       metadata: { details, requestedAt: new Date().toISOString() },
     });
   }
+
+  async notifyProfileSubmitted(userId: string, profileType: 'client' | 'consultant'): Promise<void> {
+    await this.sendNotification({
+      userId,
+      type: NOTIFICATION_TYPES.PROFILE_SUBMITTED,
+      title: "Profile Submitted for Review",
+      message: `Your ${profileType} profile has been submitted for review. Our team will review your information and get back to you soon.`,
+      link: profileType === 'client' ? `/client-profile` : `/consultant-profile`,
+      metadata: { profileType, submittedAt: new Date().toISOString() },
+    });
+  }
 }
 
 // Singleton instance

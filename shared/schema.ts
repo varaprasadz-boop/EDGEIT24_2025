@@ -1185,6 +1185,7 @@ export const NOTIFICATION_TYPES = {
   VENDOR_INVITED: 'vendor_invited',
   VERIFICATION_STATUS: 'verification_status',
   CATEGORY_APPROVAL: 'category_approval',
+  PROFILE_SUBMITTED: 'profile_submitted',
   ACCOUNT_APPROVED: 'account_approved',
   ACCOUNT_REJECTED: 'account_rejected',
   INFO_REQUESTED: 'info_requested',
