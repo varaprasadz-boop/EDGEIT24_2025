@@ -1,9 +1,15 @@
 import { useParams, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   ArrowLeft,
   Mail, 
@@ -18,7 +24,9 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Loader2
+  Loader2,
+  ThumbsUp,
+  ThumbsDown
 } from "lucide-react";
 import { format } from "date-fns";
 import { Progress } from "@/components/ui/progress";
@@ -43,6 +51,18 @@ export default function AdminUserDetail() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const { t } = useTranslation();
+  const { toast } = useToast();
+
+  const [approvalDialog, setApprovalDialog] = useState<{
+    open: boolean;
+    action: 'approve' | 'reject';
+    profileType: 'client' | 'consultant' | null;
+  }>({
+    open: false,
+    action: 'approve',
+    profileType: null,
+  });
+  const [adminNotes, setAdminNotes] = useState("");
 
   const { data: user, isLoading, error } = useQuery<UserDetail>({
     queryKey: ["/api/admin/users", id],
@@ -55,6 +75,85 @@ export default function AdminUserDetail() {
     },
     enabled: !!id,
   });
+
+  const approveMutation = useMutation({
+    mutationFn: async ({ userId, profileType, notes }: { userId: string; profileType: string; notes: string }) => {
+      return apiRequest(`/api/admin/profiles/${userId}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ profileType, notes }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/admin/users", id] });
+      toast({
+        title: "Profile Approved",
+        description: "The profile has been approved successfully.",
+      });
+      setApprovalDialog({ open: false, action: 'approve', profileType: null });
+      setAdminNotes("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Approval Failed",
+        description: error.message || "Failed to approve profile",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async ({ userId, profileType, notes }: { userId: string; profileType: string; notes: string }) => {
+      return apiRequest(`/api/admin/profiles/${userId}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ profileType, notes }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/admin/users", id] });
+      toast({
+        title: "Profile Rejected",
+        description: "The profile has been rejected.",
+      });
+      setApprovalDialog({ open: false, action: 'approve', profileType: null });
+      setAdminNotes("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Rejection Failed",
+        description: error.message || "Failed to reject profile",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleApprovalAction = () => {
+    if (!id || !approvalDialog.profileType) return;
+
+    if (approvalDialog.action === 'reject' && !adminNotes.trim()) {
+      toast({
+        title: "Notes Required",
+        description: "Please provide a reason for rejection.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (approvalDialog.action === 'approve') {
+      approveMutation.mutate({ 
+        userId: id, 
+        profileType: approvalDialog.profileType, 
+        notes: adminNotes 
+      });
+    } else {
+      rejectMutation.mutate({ 
+        userId: id, 
+        profileType: approvalDialog.profileType, 
+        notes: adminNotes 
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -371,7 +470,180 @@ export default function AdminUserDetail() {
           </Card>
         )}
 
-      {/* TODO: Approval Actions (Task 18) */}
+      {/* Approval Actions */}
+      {((user.clientProfile && user.clientProfile.profileStatus === 'submitted' && user.clientProfile.approvalStatus === 'pending') || 
+        (user.consultantProfile && user.consultantProfile.profileStatus === 'submitted' && user.consultantProfile.approvalStatus === 'pending')) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Profile Approval Actions</CardTitle>
+            <CardDescription>
+              Review and approve or reject the submitted profile(s)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {user.clientProfile && user.clientProfile.profileStatus === 'submitted' && user.clientProfile.approvalStatus === 'pending' && (
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <h4 className="font-medium">Client Profile</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Status: {user.clientProfile.approvalStatus || 'pending'}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setApprovalDialog({ 
+                      open: true, 
+                      action: 'reject', 
+                      profileType: 'client' 
+                    })}
+                    disabled={approveMutation.isPending || rejectMutation.isPending}
+                    data-testid="button-reject-client-profile"
+                  >
+                    {(approveMutation.isPending || rejectMutation.isPending) && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    {!(approveMutation.isPending || rejectMutation.isPending) && (
+                      <ThumbsDown className="mr-2 h-4 w-4" />
+                    )}
+                    Reject
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setApprovalDialog({ 
+                      open: true, 
+                      action: 'approve', 
+                      profileType: 'client' 
+                    })}
+                    disabled={approveMutation.isPending || rejectMutation.isPending}
+                    data-testid="button-approve-client-profile"
+                  >
+                    {(approveMutation.isPending || rejectMutation.isPending) && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    {!(approveMutation.isPending || rejectMutation.isPending) && (
+                      <ThumbsUp className="mr-2 h-4 w-4" />
+                    )}
+                    Approve
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {user.consultantProfile && user.consultantProfile.profileStatus === 'submitted' && user.consultantProfile.approvalStatus === 'pending' && (
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <h4 className="font-medium">Consultant Profile</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Status: {user.consultantProfile.approvalStatus || 'pending'}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setApprovalDialog({ 
+                      open: true, 
+                      action: 'reject', 
+                      profileType: 'consultant' 
+                    })}
+                    disabled={approveMutation.isPending || rejectMutation.isPending}
+                    data-testid="button-reject-consultant-profile"
+                  >
+                    {(approveMutation.isPending || rejectMutation.isPending) && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    {!(approveMutation.isPending || rejectMutation.isPending) && (
+                      <ThumbsDown className="mr-2 h-4 w-4" />
+                    )}
+                    Reject
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setApprovalDialog({ 
+                      open: true, 
+                      action: 'approve', 
+                      profileType: 'consultant' 
+                    })}
+                    disabled={approveMutation.isPending || rejectMutation.isPending}
+                    data-testid="button-approve-consultant-profile"
+                  >
+                    {(approveMutation.isPending || rejectMutation.isPending) && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    {!(approveMutation.isPending || rejectMutation.isPending) && (
+                      <ThumbsUp className="mr-2 h-4 w-4" />
+                    )}
+                    Approve
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Approval Dialog */}
+      <Dialog open={approvalDialog.open} onOpenChange={(open) => {
+        setApprovalDialog({ ...approvalDialog, open });
+        if (!open) setAdminNotes("");
+      }}>
+        <DialogContent data-testid="dialog-approval">
+          <DialogHeader>
+            <DialogTitle>
+              {approvalDialog.action === 'approve' ? 'Approve' : 'Reject'} {approvalDialog.profileType} Profile
+            </DialogTitle>
+            <DialogDescription>
+              {approvalDialog.action === 'approve' 
+                ? 'This will approve the profile and notify the user.'
+                : 'Please provide a reason for rejection. The user will be notified.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="notes">
+                Admin Notes {approvalDialog.action === 'reject' ? '(Required)' : '(Optional)'}
+              </Label>
+              <Textarea
+                id="notes"
+                placeholder={
+                  approvalDialog.action === 'approve' 
+                    ? "Add optional notes about this approval..." 
+                    : "Explain why this profile was rejected..."
+                }
+                value={adminNotes}
+                onChange={(e) => setAdminNotes(e.target.value)}
+                rows={4}
+                data-testid="textarea-admin-notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setApprovalDialog({ open: false, action: 'approve', profileType: null });
+                setAdminNotes("");
+              }}
+              data-testid="button-cancel-approval"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={approvalDialog.action === 'approve' ? 'default' : 'destructive'}
+              onClick={handleApprovalAction}
+              disabled={approveMutation.isPending || rejectMutation.isPending}
+              data-testid="button-confirm-approval"
+            >
+              {(approveMutation.isPending || rejectMutation.isPending) && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {approvalDialog.action === 'approve' ? 'Approve Profile' : 'Reject Profile'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
