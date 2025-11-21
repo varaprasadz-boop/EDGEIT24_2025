@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Globe, MapPin, AlertCircle, Edit, Save, X, Info, Users, UserPlus, Mail, Shield, Trash2, MoreVertical } from "lucide-react";
+import { Building2, Globe, MapPin, AlertCircle, Edit, Save, X, Info, Users, UserPlus, Mail, Shield, Trash2, MoreVertical, CheckCircle2, Send } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 import { UserLayout } from "@/components/UserLayout";
@@ -30,6 +30,11 @@ const updateProfileSchema = insertClientProfileSchema.omit({
 });
 
 type UpdateProfile = z.infer<typeof updateProfileSchema>;
+
+// Helper function to get profile status from either profileStatus or status field
+const getProfileStatus = (profile: any): string => {
+  return profile?.profileStatus || profile?.status || 'draft';
+};
 
 export default function ClientProfile() {
   const { user, isLoading: authLoading, getSelectedRole } = useAuthContext();
@@ -160,6 +165,22 @@ export default function ClientProfile() {
     }
   }, [profile, user, isEditing, form]);
 
+  // Check if profile is complete enough to submit for review
+  const isProfileComplete = (): boolean => {
+    if (!profile) return false;
+    
+    const requiredFields = [
+      profile.companyName,
+      profile.contactEmail,
+      profile.businessType,
+      profile.industry,
+      profile.region,
+      profile.description,
+    ];
+    
+    return requiredFields.every(field => field && field.trim().length > 0);
+  };
+
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async (data: UpdateProfile) => {
@@ -178,6 +199,27 @@ export default function ClientProfile() {
       toast({
         title: t('common.error'),
         description: error.message || t('clientProfile.errors.unableToFetch'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Submit profile for review mutation
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('POST', '/api/profiles/client/submit', {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/profile/client'] });
+      toast({
+        title: t('common.success'),
+        description: t('clientProfile.submission.successMessage'),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('clientProfile.submission.errorMessage'),
         variant: "destructive",
       });
     },
@@ -362,7 +404,32 @@ export default function ClientProfile() {
       <div className="container max-w-4xl mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold" data-testid="text-profile-title">{t('clientProfile.title')}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold" data-testid="text-profile-title">{t('clientProfile.title')}</h1>
+              {profile && (() => {
+                const status = getProfileStatus(profile);
+                return (
+                  <Badge 
+                    variant={
+                      status === 'complete' ? 'default' :
+                      status === 'submitted' || status === 'under_review' ? 'secondary' :
+                      'outline'
+                    }
+                    data-testid="badge-profile-status"
+                  >
+                    {status === 'draft' && t('clientProfile.status.draft')}
+                    {status === 'submitted' && t('clientProfile.status.submitted')}
+                    {status === 'under_review' && t('clientProfile.status.underReview')}
+                    {status === 'complete' && (
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {t('clientProfile.status.complete')}
+                      </span>
+                    )}
+                  </Badge>
+                );
+              })()}
+            </div>
             <p className="text-muted-foreground">{t('clientProfile.subtitle')}</p>
           </div>
         {!isEditing && (
@@ -689,6 +756,24 @@ export default function ClientProfile() {
                     {updateMutation.isPending ? t('form.saving') : t('form.saveChanges')}
                   </Button>
                 </div>
+
+                {/* Submit Profile for Review - Shows after save when profile is complete */}
+                {!isEditing && isProfileComplete() && (getProfileStatus(profile) === 'draft' || profile?.approvalStatus === 'rejected') && (
+                  <Alert className="mt-4" data-testid="alert-submit-prompt">
+                    <Send className="h-4 w-4" />
+                    <AlertDescription className="flex items-center justify-between">
+                      <span>{t('clientProfile.submission.promptMessage')}</span>
+                      <Button
+                        onClick={() => submitMutation.mutate()}
+                        disabled={submitMutation.isPending}
+                        size="sm"
+                        data-testid="button-submit-for-review"
+                      >
+                        {submitMutation.isPending ? t('form.submitting') : t('clientProfile.submission.submitButton')}
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
               </form>
             </Form>
           </CardContent>

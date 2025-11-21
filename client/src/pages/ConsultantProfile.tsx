@@ -17,7 +17,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { VerificationBadge } from "@/components/ui/verification-badge";
-import { Briefcase, MapPin, DollarSign, Star, AlertCircle, Edit, Save, X, Award, TrendingUp, Code, FolderOpen, Package, Calendar as CalendarIcon, Info, Tag, ShieldCheck, Building2 } from "lucide-react";
+import { Briefcase, MapPin, DollarSign, Star, AlertCircle, Edit, Save, X, Award, TrendingUp, Code, FolderOpen, Package, Calendar as CalendarIcon, Info, Tag, ShieldCheck, Building2, CheckCircle2, Send } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 import { useState as useReactState, useEffect, useRef } from "react";
@@ -36,6 +36,11 @@ const updateProfileSchema = insertConsultantProfileSchema.omit({
 });
 
 type UpdateProfile = z.infer<typeof updateProfileSchema>;
+
+// Helper function to get profile status from either profileStatus or status field
+const getProfileStatus = (profile: any): string => {
+  return profile?.profileStatus || profile?.status || 'draft';
+};
 
 interface PortfolioItem {
   title: string;
@@ -514,6 +519,22 @@ export default function ConsultantProfile() {
     }
   };
 
+  // Check if profile is complete enough to submit for review
+  const isProfileComplete = (): boolean => {
+    if (!profile) return false;
+    
+    const requiredFields = [
+      profile.fullName,
+      profile.title,
+      profile.bio,
+      profile.skills,
+      profile.experience,
+      profile.location,
+    ];
+    
+    return requiredFields.every(field => field && String(field).trim().length > 0);
+  };
+
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async (data: UpdateProfile) => {
@@ -532,6 +553,27 @@ export default function ConsultantProfile() {
       toast({
         title: t('common.error'),
         description: error.message || t('consultantProfile.errors.updateFailed'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Submit profile for review mutation
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('POST', '/api/profiles/consultant/submit', {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant'] });
+      toast({
+        title: t('common.success'),
+        description: t('consultantProfile.submission.successMessage'),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('consultantProfile.submission.errorMessage'),
         variant: "destructive",
       });
     },
@@ -789,7 +831,32 @@ export default function ConsultantProfile() {
       <div className="container max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-profile-title">{t('consultantProfile.title')}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold" data-testid="text-profile-title">{t('consultantProfile.title')}</h1>
+            {profile && (() => {
+              const status = getProfileStatus(profile);
+              return (
+                <Badge 
+                  variant={
+                    status === 'complete' ? 'default' :
+                    status === 'submitted' || status === 'under_review' ? 'secondary' :
+                    'outline'
+                  }
+                  data-testid="badge-profile-status"
+                >
+                  {status === 'draft' && t('consultantProfile.status.draft')}
+                  {status === 'submitted' && t('consultantProfile.status.submitted')}
+                  {status === 'under_review' && t('consultantProfile.status.underReview')}
+                  {status === 'complete' && (
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      {t('consultantProfile.status.complete')}
+                    </span>
+                  )}
+                </Badge>
+              );
+            })()}
+          </div>
           <p className="text-muted-foreground">{t('consultantProfile.subtitle')}</p>
         </div>
         {!isEditing && (
@@ -1490,6 +1557,24 @@ export default function ConsultantProfile() {
                     {updateMutation.isPending ? t('form.saving') : t('form.saveChanges')}
                   </Button>
                 </div>
+
+                {/* Submit Profile for Review - Shows after save when profile is complete */}
+                {!isEditing && isProfileComplete() && (getProfileStatus(profile) === 'draft' || profile?.approvalStatus === 'rejected') && (
+                  <Alert className="mt-4" data-testid="alert-submit-prompt">
+                    <Send className="h-4 w-4" />
+                    <AlertDescription className="flex items-center justify-between">
+                      <span>{t('consultantProfile.submission.promptMessage')}</span>
+                      <Button
+                        onClick={() => submitMutation.mutate()}
+                        disabled={submitMutation.isPending}
+                        size="sm"
+                        data-testid="button-submit-for-review"
+                      >
+                        {submitMutation.isPending ? t('form.submitting') : t('consultantProfile.submission.submitButton')}
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
               </form>
             </Form>
           </CardContent>
