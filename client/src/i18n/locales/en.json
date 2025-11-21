@@ -63,6 +63,117 @@
     "invalidCredentials": "Invalid email or password",
     "unauthorized": "Unauthorized access"
   },
+  "login": {
+    "pageTitle": "Sign In to Your Account",
+    "subtitle": "Access your EDGEIT24 dashboard",
+    "cardDescription": "Enter your credentials to continue",
+    "emailPlaceholder": "your@email.com",
+    "passwordPlaceholder": "Enter your password",
+    "noAccount": "Don't have an account?",
+    "signUp": "Sign up",
+    "errors": {
+      "missingInfo": "Missing Information",
+      "fillAllFields": "Please fill in all required fields",
+      "loginFailed": "Login Failed",
+      "invalidCredentials": "Invalid email or password"
+    },
+    "success": {
+      "welcomeBack": "Welcome back!",
+      "loggedIn": "You have been logged in successfully"
+    }
+  },
+  "register": {
+    "title": {
+      "join": "Join EDGEIT24",
+      "selectExpertise": "Select Your Expertise"
+    },
+    "subtitle": {
+      "chooseRole": "Choose your account type to get started",
+      "enterDetails": "Create your account",
+      "selectCategories": "Choose the categories you specialize in"
+    },
+    "badge": {
+      "getStarted": "Get Started"
+    },
+    "roles": {
+      "client": "Client",
+      "clientAccount": "I need IT services",
+      "serviceProvider": "Consultant",
+      "serviceProviderAccount": "I provide IT services"
+    },
+    "client": {
+      "title": "Register as Client",
+      "description": "Post projects and find IT service providers",
+      "perfectFor": "Perfect for businesses and organizations",
+      "feature1": "Post Unlimited Projects",
+      "feature1Desc": "Share your requirements with qualified consultants",
+      "feature2": "Browse Expert Consultants",
+      "feature2Desc": "Find the right match for your project needs",
+      "feature3": "Secure Payment Escrow",
+      "feature3Desc": "Pay only when you're satisfied with deliverables",
+      "getStarted": "Get Started as Client"
+    },
+    "consultant": {
+      "title": "Register as Consultant",
+      "description": "Find projects and grow your IT consultancy business",
+      "perfectFor": "Perfect for freelancers and IT service companies",
+      "feature1": "Access Quality Projects",
+      "feature1Desc": "Browse and bid on verified client projects",
+      "feature2": "Build Your Reputation",
+      "feature2Desc": "Showcase your work and earn client reviews",
+      "feature3": "Guaranteed Payments",
+      "feature3Desc": "Get paid securely through our escrow system",
+      "getStarted": "Get Started as Consultant"
+    },
+    "form": {
+      "fullName": "Full Name",
+      "fullNamePlaceholder": "Enter your full name",
+      "companyName": "Company Name",
+      "companyNamePlaceholder": "Enter your company name",
+      "emailPlaceholder": "your@email.com",
+      "passwordPlaceholder": "Create a strong password",
+      "phone": "Phone Number",
+      "phonePlaceholder": "+966 5X XXX XXXX",
+      "country": "Country",
+      "currency": "Currency",
+      "selectPlan": "Select a Plan",
+      "free": "Free",
+      "month": "/month",
+      "loadingPlans": "Loading plans...",
+      "agreeToThe": "I agree to the",
+      "termsConditions": "Terms & Conditions",
+      "and": "and",
+      "privacyPolicy": "Privacy Policy",
+      "createAccountButton": "Create Account",
+      "creatingAccount": "Creating account...",
+      "createAccount": "Create Your Account",
+      "continueToCategories": "Continue to Category Selection"
+    },
+    "categories": {
+      "title": "Select Your Service Categories",
+      "description": "Choose the categories where you offer services",
+      "selectOrSkip": "Select categories or skip for now",
+      "skipForNow": "Skip for Now"
+    },
+    "errors": {
+      "missingInfo": "Missing Information",
+      "fillAllFields": "Please fill in all required fields",
+      "invalidPassword": "Invalid Password",
+      "passwordMinLength": "Password must be at least 8 characters",
+      "acceptTerms": "You must accept the terms and conditions",
+      "termsRequired": "Please accept the terms and conditions",
+      "selectPlan": "Please select a subscription plan",
+      "signupFailed": "Registration Failed",
+      "failedToCreate": "Failed to create account. Please try again.",
+      "unexpectedError": "An unexpected error occurred"
+    },
+    "success": {
+      "accountCreated": "Account Created!",
+      "welcomeLogin": "Welcome to EDGEIT24! Please sign in to continue.",
+      "completePayment": "Please complete your payment to activate your account"
+    },
+    "haveAccount": "Already have an account?"
+  },
   "sidebar": {
     "overview": "Overview",
     "operations": "Operations",
