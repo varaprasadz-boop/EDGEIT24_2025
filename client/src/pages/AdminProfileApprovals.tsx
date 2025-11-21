@@ -289,32 +289,47 @@ export default function AdminProfileApprovals() {
             </div>
           )}
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-wrap gap-2 pt-2">
             <Button
               size="sm"
-              onClick={() => handleAction(user.id, 'client', 'approve', item)}
-              data-testid={`button-approve-${user.id}`}
+              onClick={() => approveMutation.mutate({ userId: user.id, profileType: 'client' })}
+              disabled={approveMutation.isPending || rejectMutation.isPending}
+              data-testid={`button-quick-approve-${user.id}`}
             >
-              <CheckCircle className="h-4 w-4 mr-1" />
+              {approveMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <CheckCircle className="h-4 w-4 mr-1" />
+              )}
               Approve
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => rejectMutation.mutate({ 
+                userId: user.id, 
+                profileType: 'client', 
+                notes: 'Profile does not meet platform requirements.' 
+              })}
+              disabled={approveMutation.isPending || rejectMutation.isPending}
+              data-testid={`button-quick-reject-${user.id}`}
+            >
+              {rejectMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <XCircle className="h-4 w-4 mr-1" />
+              )}
+              Reject
             </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={() => handleAction(user.id, 'client', 'request-changes', item)}
+              disabled={approveMutation.isPending || rejectMutation.isPending}
               data-testid={`button-request-changes-${user.id}`}
             >
               <FileEdit className="h-4 w-4 mr-1" />
               Request Changes
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleAction(user.id, 'client', 'reject', item)}
-              data-testid={`button-reject-${user.id}`}
-            >
-              <XCircle className="h-4 w-4 mr-1" />
-              Reject
             </Button>
           </div>
         </CardContent>
@@ -403,32 +418,47 @@ export default function AdminProfileApprovals() {
             </div>
           )}
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-wrap gap-2 pt-2">
             <Button
               size="sm"
-              onClick={() => handleAction(user.id, 'consultant', 'approve', item)}
-              data-testid={`button-approve-${user.id}`}
+              onClick={() => approveMutation.mutate({ userId: user.id, profileType: 'consultant' })}
+              disabled={approveMutation.isPending || rejectMutation.isPending}
+              data-testid={`button-quick-approve-${user.id}`}
             >
-              <CheckCircle className="h-4 w-4 mr-1" />
+              {approveMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <CheckCircle className="h-4 w-4 mr-1" />
+              )}
               Approve
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => rejectMutation.mutate({ 
+                userId: user.id, 
+                profileType: 'consultant', 
+                notes: 'Profile does not meet platform requirements.' 
+              })}
+              disabled={approveMutation.isPending || rejectMutation.isPending}
+              data-testid={`button-quick-reject-${user.id}`}
+            >
+              {rejectMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <XCircle className="h-4 w-4 mr-1" />
+              )}
+              Reject
             </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={() => handleAction(user.id, 'consultant', 'request-changes', item)}
+              disabled={approveMutation.isPending || rejectMutation.isPending}
               data-testid={`button-request-changes-${user.id}`}
             >
               <FileEdit className="h-4 w-4 mr-1" />
               Request Changes
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleAction(user.id, 'consultant', 'reject', item)}
-              data-testid={`button-reject-${user.id}`}
-            >
-              <XCircle className="h-4 w-4 mr-1" />
-              Reject
             </Button>
           </div>
         </CardContent>
