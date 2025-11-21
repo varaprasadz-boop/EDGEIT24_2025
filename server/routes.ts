@@ -6127,6 +6127,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Validation schemas for profile approval
+  const approveProfileSchema = z.object({
+    profileType: z.enum(['client', 'consultant']),
+    notes: z.string().optional(),
+  });
+
+  const rejectProfileSchema = z.object({
+    profileType: z.enum(['client', 'consultant']),
+    notes: z.string().min(1, "Rejection reason is required"),
+  });
+
   app.post('/api/admin/profiles/:userId/approve', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const adminUserId = getUserIdFromRequest(req);
@@ -6135,11 +6146,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { userId } = req.params;
-      const { profileType, notes } = req.body;
-
-      if (!profileType || (profileType !== 'client' && profileType !== 'consultant')) {
-        return res.status(400).json({ message: "Valid profile type (client or consultant) is required" });
+      
+      // Validate request body
+      const validation = approveProfileSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid request data",
+          errors: validation.error.errors 
+        });
       }
+
+      const { profileType, notes } = validation.data;
 
       // Generate unique ID
       const uniqueId = await storage.generateUniqueId(profileType === 'client' ? 'CLT' : 'CNS');
@@ -6189,11 +6206,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { userId } = req.params;
-      const { profileType, notes } = req.body;
-
-      if (!profileType || (profileType !== 'client' && profileType !== 'consultant')) {
-        return res.status(400).json({ message: "Valid profile type (client or consultant) is required" });
+      
+      // Validate request body
+      const validation = rejectProfileSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid request data",
+          errors: validation.error.errors 
+        });
       }
+
+      const { profileType, notes } = validation.data;
 
       // Update profile
       if (profileType === 'client') {
