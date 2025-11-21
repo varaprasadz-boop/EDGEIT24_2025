@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,6 +41,7 @@ export default function ClientProfile() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>("");
+  const hasInitializedForm = useRef(false);
   
   // Check if coming from onboarding
   const isOnboarding = new URLSearchParams(window.location.search).get('onboarding') === 'true';
@@ -53,13 +54,21 @@ export default function ClientProfile() {
         credentials: 'include' 
       });
       if (response.status === 404) {
+        console.log('[ClientProfile] No profile found (404)');
         // No profile exists yet - return null instead of throwing
         return null;
       }
       if (!response.ok) {
         throw new Error(`Failed to fetch profile: ${response.statusText}`);
       }
-      return response.json();
+      const data = await response.json();
+      console.log('[ClientProfile] Profile loaded from API:', { 
+        companyName: data?.companyName,
+        contactEmail: data?.contactEmail,
+        status: data?.status,
+        id: data?.id 
+      });
+      return data;
     },
     enabled: !!user,
     retry: false,
@@ -99,8 +108,25 @@ export default function ClientProfile() {
 
   // Reset form when profile data loads or when creating new profile from user data
   useEffect(() => {
-    if (profile && !isEditing) {
-      // Existing profile - use profile data
+    if (profile && !hasInitializedForm.current) {
+      // First time profile loads - initialize form regardless of edit mode
+      form.reset({
+        companyName: profile.companyName ?? undefined,
+        contactEmail: profile.contactEmail ?? undefined,
+        contactPhone: profile.contactPhone ?? undefined,
+        phoneCountryCode: profile.phoneCountryCode ?? undefined,
+        businessType: profile.businessType ?? undefined,
+        industry: profile.industry ?? undefined,
+        region: profile.region ?? undefined,
+        companySize: profile.companySize ?? undefined,
+        website: profile.website ?? undefined,
+        description: profile.description ?? undefined,
+        location: profile.location ?? undefined,
+        avatar: profile.avatar ?? undefined,
+      });
+      hasInitializedForm.current = true;
+    } else if (profile && !isEditing) {
+      // Not editing - safe to reset without wiping unsaved changes
       form.reset({
         companyName: profile.companyName ?? undefined,
         contactEmail: profile.contactEmail ?? undefined,

@@ -20,7 +20,7 @@ import { VerificationBadge } from "@/components/ui/verification-badge";
 import { Briefcase, MapPin, DollarSign, Star, AlertCircle, Edit, Save, X, Award, TrendingUp, Code, FolderOpen, Package, Calendar as CalendarIcon, Info, Tag, ShieldCheck, Building2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
-import { useState as useReactState, useEffect } from "react";
+import { useState as useReactState, useEffect, useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CategorySelector } from "@/components/CategorySelector";
 import { UserLayout } from "@/components/UserLayout";
@@ -97,6 +97,7 @@ export default function ConsultantProfile() {
   const [selectedCategories, setSelectedCategories] = useReactState<string[]>([]);
   const [primaryCategoryId, setPrimaryCategoryId] = useReactState<string | null>(null);
   const [languageEntries, setLanguageEntries] = useReactState<Language[]>([]);
+  const hasInitializedForm = useRef(false);
   
   // Check if coming from onboarding
   const isOnboarding = new URLSearchParams(window.location.search).get('onboarding') === 'true';
@@ -284,7 +285,8 @@ export default function ConsultantProfile() {
 
   // Reset form and initialize state when profile data loads
   useEffect(() => {
-    if (profile && !isEditing) {
+    if (profile && !hasInitializedForm.current) {
+      // First time profile loads - initialize form regardless of edit mode
       form.reset({
         fullName: profile.fullName ?? "",
         title: profile.title ?? undefined,
@@ -307,35 +309,44 @@ export default function ConsultantProfile() {
         operatingRegions: profile.operatingRegions ?? undefined,
       });
       
-      // Initialize portfolio items from profile
-      if (profile.portfolio && Array.isArray(profile.portfolio)) {
-        setPortfolioItems(profile.portfolio as PortfolioItem[]);
-      } else {
-        setPortfolioItems([]);
-      }
+      // Initialize portfolio items, packages, schedule, and languages
+      setPortfolioItems(profile.portfolio && Array.isArray(profile.portfolio) ? profile.portfolio as PortfolioItem[] : []);
+      setServicePackages(profile.servicePackages && Array.isArray(profile.servicePackages) ? profile.servicePackages as ServicePackage[] : []);
+      setWeeklySchedule(profile.weeklySchedule && typeof profile.weeklySchedule === 'object' ? profile.weeklySchedule as WeeklySchedule : {});
+      setLanguageEntries(profile.languages && Array.isArray(profile.languages) ? profile.languages as Language[] : []);
       
-      // Initialize service packages from profile
-      if (profile.servicePackages && Array.isArray(profile.servicePackages)) {
-        setServicePackages(profile.servicePackages as ServicePackage[]);
-      } else {
-        setServicePackages([]);
-      }
+      hasInitializedForm.current = true;
+    } else if (profile && !isEditing) {
+      // Not editing - safe to reset without wiping unsaved changes
+      form.reset({
+        fullName: profile.fullName ?? "",
+        title: profile.title ?? undefined,
+        bio: profile.bio ?? undefined,
+        skills: profile.skills ?? undefined,
+        hourlyRate: profile.hourlyRate ?? undefined,
+        experience: profile.experience ?? undefined,
+        portfolio: profile.portfolio ?? undefined,
+        certifications: profile.certifications ?? undefined,
+        languages: profile.languages ?? undefined,
+        availability: profile.availability ?? undefined,
+        weeklySchedule: profile.weeklySchedule ?? undefined,
+        location: profile.location ?? undefined,
+        timezone: profile.timezone ?? undefined,
+        avatar: profile.avatar ?? undefined,
+        responseTime: profile.responseTime ?? undefined,
+        yearEstablished: profile.yearEstablished ?? undefined,
+        employeeCount: profile.employeeCount ?? undefined,
+        businessRegistrationNumber: profile.businessRegistrationNumber ?? undefined,
+        operatingRegions: profile.operatingRegions ?? undefined,
+      });
       
-      // Initialize weekly schedule from profile
-      if (profile.weeklySchedule && typeof profile.weeklySchedule === 'object') {
-        setWeeklySchedule(profile.weeklySchedule as WeeklySchedule);
-      } else {
-        setWeeklySchedule({});
-      }
-      
-      // Initialize language entries from profile
-      if (profile.languages && Array.isArray(profile.languages)) {
-        setLanguageEntries(profile.languages as Language[]);
-      } else {
-        setLanguageEntries([]);
-      }
+      // Re-initialize state when not editing (e.g., after save)
+      setPortfolioItems(profile.portfolio && Array.isArray(profile.portfolio) ? profile.portfolio as PortfolioItem[] : []);
+      setServicePackages(profile.servicePackages && Array.isArray(profile.servicePackages) ? profile.servicePackages as ServicePackage[] : []);
+      setWeeklySchedule(profile.weeklySchedule && typeof profile.weeklySchedule === 'object' ? profile.weeklySchedule as WeeklySchedule : {});
+      setLanguageEntries(profile.languages && Array.isArray(profile.languages) ? profile.languages as Language[] : []);
     }
-  }, [profile, isEditing, form]);
+  }, [profile, isEditing, form, user]);
 
   // Auto-open edit mode when in onboarding flow
   useEffect(() => {

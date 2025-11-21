@@ -76,7 +76,9 @@ function Router() {
       <Route path="/browse-consultants" component={BrowseConsultants} />
       <Route path="/profile/complete" component={ProfileCompletion} />
       <Route path="/profile/client" component={ClientProfile} />
+      <Route path="/client-profile" component={ClientProfile} />
       <Route path="/profile/consultant" component={ConsultantProfile} />
+      <Route path="/consultant-profile" component={ConsultantProfile} />
       <Route path="/profile" component={Profile} />
       <Route path="/settings" component={Settings} />
       <Route path="/analytics" component={Analytics} />
