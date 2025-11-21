@@ -8776,6 +8776,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get single user by ID with profile data
+  app.get('/api/admin/users/:id', isAuthenticated, isAdmin, hasPermission('users:view'), async (req, res) => {
+    try {
+      const { id: userId } = req.params;
+      
+      // Fetch user from database
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Don't send password to client
+      const { password, ...safeUser } = user;
+      
+      // Fetch client profile if user is client or both
+      let clientProfile = null;
+      let consultantProfile = null;
+      let approvalStatus = null;
+      let profileStatus = null;
+      let profileCompletion = 0;
+      
+      if (user.role === 'client' || user.role === 'both') {
+        const [profile] = await db.select().from(clientProfiles).where(eq(clientProfiles.userId, user.id));
+        if (profile) {
+          clientProfile = profile;
+          approvalStatus = profile.approvalStatus;
+          profileStatus = profile.profileStatus;
+          // Calculate profile completion for client
+          const fields = [
+            profile.companyName, profile.industry, profile.companySize,
+            profile.website, profile.location, profile.description
+          ];
+          profileCompletion = Math.round((fields.filter(f => f).length / fields.length) * 100);
+        }
+      }
+      
+      if (user.role === 'consultant' || user.role === 'both') {
+        const [profile] = await db.select().from(consultantProfiles).where(eq(consultantProfiles.userId, user.id));
+        if (profile) {
+          consultantProfile = profile;
+          approvalStatus = profile.approvalStatus;
+          profileStatus = profile.profileStatus;
+          // Calculate profile completion for consultant
+          const fields = [
+            profile.fullName, profile.title, profile.bio, profile.hourlyRate,
+            profile.experience, profile.location, profile.skills
+          ];
+          profileCompletion = Math.round((fields.filter(f => f).length / fields.length) * 100);
+        }
+      }
+      
+      // Fetch KYC documents
+      const kycDocuments = await storage.listUserKycDocuments(userId);
+      
+      res.json({
+        ...safeUser,
+        clientProfile,
+        consultantProfile,
+        approvalStatus: approvalStatus || 'pending',
+        profileStatus: profileStatus || 'incomplete',
+        profileCompletion,
+        kycDocuments,
+      });
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
   // Get all categories (with pagination and filters)
   app.get('/api/admin/categories', isAuthenticated, isAdmin, hasPermission('categories:view'), async (req, res) => {
     try {

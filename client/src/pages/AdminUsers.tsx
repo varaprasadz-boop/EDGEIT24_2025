@@ -344,7 +344,7 @@ export default function AdminUsers() {
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 data-testid={`action-view-${user.id}`}
-                onClick={() => window.location.href = `/profile/${user.id}`}
+                onClick={() => window.location.href = `/admin/users/${user.id}`}
               >
                 <Eye className="mr-2 h-4 w-4" />
                 {t("users.viewProfile")}
