@@ -1101,6 +1101,31 @@
       "failedToLoad": "Failed to Load Profile",
       "unableToFetch": "Unable to fetch your profile information. Please try refreshing.",
       "retry": "Retry"
+    },
+    "submission": {
+      "submitForReview": "Submit Profile for Review",
+      "submitting": "Submitting...",
+      "profileIncomplete": "Profile Incomplete",
+      "completeRequiredFields": "Please complete all required fields before submitting your profile for review.",
+      "requiredFields": "Required fields:",
+      "success": "Profile Submitted!",
+      "successMessage": "Your profile has been submitted for admin review. You will be notified once it's approved.",
+      "error": "Submission Failed",
+      "errorMessage": "Failed to submit profile for review. Please try again.",
+      "resubmit": "Resubmit for Review",
+      "updateAndResubmit": "Update & Resubmit Profile"
+    },
+    "status": {
+      "draft": "Draft",
+      "submitted": "Submitted for Review",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "pendingRevision": "Needs Revision",
+      "currentStatus": "Profile Status",
+      "lastUpdated": "Last Updated",
+      "submittedOn": "Submitted On",
+      "approvedOn": "Approved On",
+      "rejectedOn": "Rejected On"
     }
   },
   "consultantProfile": {
@@ -1277,6 +1302,31 @@
       "retry": "Retry",
       "saveFailed": "Failed to save pricing template",
       "deleteFailed": "Failed to delete pricing template"
+    },
+    "submission": {
+      "submitForReview": "Submit Profile for Review",
+      "submitting": "Submitting...",
+      "profileIncomplete": "Profile Incomplete",
+      "completeRequiredFields": "Please complete all required fields before submitting your profile for review.",
+      "requiredFields": "Required fields:",
+      "success": "Profile Submitted!",
+      "successMessage": "Your profile has been submitted for admin review. You will be notified once it's approved.",
+      "error": "Submission Failed",
+      "errorMessage": "Failed to submit profile for review. Please try again.",
+      "resubmit": "Resubmit for Review",
+      "updateAndResubmit": "Update & Resubmit Profile"
+    },
+    "status": {
+      "draft": "Draft",
+      "submitted": "Submitted for Review",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "pendingRevision": "Needs Revision",
+      "currentStatus": "Profile Status",
+      "lastUpdated": "Last Updated",
+      "submittedOn": "Submitted On",
+      "approvedOn": "Approved On",
+      "rejectedOn": "Rejected On"
     }
   },
   "postJob": {
