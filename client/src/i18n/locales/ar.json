@@ -60,6 +60,117 @@
     "invalidCredentials": "بريد إلكتروني أو كلمة مرور غير صحيحة",
     "unauthorized": "وصول غير مصرح به"
   },
+  "login": {
+    "pageTitle": "تسجيل الدخول إلى حسابك",
+    "subtitle": "الوصول إلى لوحة التحكم الخاصة بك في EDGEIT24",
+    "cardDescription": "أدخل بيانات الاعتماد الخاصة بك للمتابعة",
+    "emailPlaceholder": "your@email.com",
+    "passwordPlaceholder": "أدخل كلمة المرور",
+    "noAccount": "ليس لديك حساب؟",
+    "signUp": "سجل الآن",
+    "errors": {
+      "missingInfo": "معلومات ناقصة",
+      "fillAllFields": "يرجى ملء جميع الحقول المطلوبة",
+      "loginFailed": "فشل تسجيل الدخول",
+      "invalidCredentials": "بريد إلكتروني أو كلمة مرور غير صحيحة"
+    },
+    "success": {
+      "welcomeBack": "مرحباً بعودتك!",
+      "loggedIn": "تم تسجيل دخولك بنجاح"
+    }
+  },
+  "register": {
+    "title": {
+      "join": "انضم إلى EDGEIT24",
+      "selectExpertise": "اختر مجال خبرتك"
+    },
+    "subtitle": {
+      "chooseRole": "اختر نوع حسابك للبدء",
+      "enterDetails": "أنشئ حسابك",
+      "selectCategories": "اختر الفئات التي تتخصص فيها"
+    },
+    "badge": {
+      "getStarted": "ابدأ الآن"
+    },
+    "roles": {
+      "client": "عميل",
+      "clientAccount": "أحتاج إلى خدمات تقنية",
+      "serviceProvider": "مستشار",
+      "serviceProviderAccount": "أقدم خدمات تقنية"
+    },
+    "client": {
+      "title": "التسجيل كعميل",
+      "description": "انشر مشاريعك وابحث عن مزودي الخدمات التقنية",
+      "perfectFor": "مثالي للشركات والمؤسسات",
+      "feature1": "نشر مشاريع غير محدودة",
+      "feature1Desc": "شارك متطلباتك مع مستشارين مؤهلين",
+      "feature2": "تصفح المستشارين الخبراء",
+      "feature2Desc": "ابحث عن المستشار المناسب لاحتياجات مشروعك",
+      "feature3": "ضمان الدفع الآمن",
+      "feature3Desc": "ادفع فقط عندما تكون راضياً عن المخرجات",
+      "getStarted": "ابدأ كعميل"
+    },
+    "consultant": {
+      "title": "التسجيل كمستشار",
+      "description": "ابحث عن مشاريع وطور أعمالك الاستشارية التقنية",
+      "perfectFor": "مثالي للمستقلين وشركات الخدمات التقنية",
+      "feature1": "الوصول إلى مشاريع عالية الجودة",
+      "feature1Desc": "تصفح وقدم عروضك على مشاريع عملاء موثوقين",
+      "feature2": "بناء سمعتك",
+      "feature2Desc": "اعرض أعمالك واحصل على تقييمات العملاء",
+      "feature3": "مدفوعات مضمونة",
+      "feature3Desc": "احصل على أموالك بأمان من خلال نظام الضمان",
+      "getStarted": "ابدأ كمستشار"
+    },
+    "form": {
+      "fullName": "الاسم الكامل",
+      "fullNamePlaceholder": "أدخل اسمك الكامل",
+      "companyName": "اسم الشركة",
+      "companyNamePlaceholder": "أدخل اسم شركتك",
+      "emailPlaceholder": "your@email.com",
+      "passwordPlaceholder": "أنشئ كلمة مرور قوية",
+      "phone": "رقم الهاتف",
+      "phonePlaceholder": "+966 5X XXX XXXX",
+      "country": "الدولة",
+      "currency": "العملة",
+      "selectPlan": "اختر خطة",
+      "free": "مجاني",
+      "month": "/شهر",
+      "loadingPlans": "جاري تحميل الخطط...",
+      "agreeToThe": "أوافق على",
+      "termsConditions": "الشروط والأحكام",
+      "and": "و",
+      "privacyPolicy": "سياسة الخصوصية",
+      "createAccountButton": "إنشاء حساب",
+      "creatingAccount": "جاري إنشاء الحساب...",
+      "createAccount": "أنشئ حسابك",
+      "continueToCategories": "متابعة لاختيار الفئات"
+    },
+    "categories": {
+      "title": "اختر فئات خدماتك",
+      "description": "اختر الفئات التي تقدم فيها خدماتك",
+      "selectOrSkip": "اختر الفئات أو تخطى الآن",
+      "skipForNow": "تخطي الآن"
+    },
+    "errors": {
+      "missingInfo": "معلومات ناقصة",
+      "fillAllFields": "يرجى ملء جميع الحقول المطلوبة",
+      "invalidPassword": "كلمة مرور غير صالحة",
+      "passwordMinLength": "يجب أن تكون كلمة المرور 8 أحرف على الأقل",
+      "acceptTerms": "يجب قبول الشروط والأحكام",
+      "termsRequired": "يرجى قبول الشروط والأحكام",
+      "selectPlan": "يرجى اختيار خطة اشتراك",
+      "signupFailed": "فشل التسجيل",
+      "failedToCreate": "فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.",
+      "unexpectedError": "حدث خطأ غير متوقع"
+    },
+    "success": {
+      "accountCreated": "تم إنشاء الحساب!",
+      "welcomeLogin": "مرحباً بك في EDGEIT24! يرجى تسجيل الدخول للمتابعة.",
+      "completePayment": "يرجى إكمال الدفع لتفعيل حسابك"
+    },
+    "haveAccount": "لديك حساب بالفعل؟"
+  },
   "sidebar": {
     "overview": "نظرة عامة",
     "operations": "العمليات",
