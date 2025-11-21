@@ -183,8 +183,36 @@ export default function AdminUsers() {
       },
     },
     {
+      accessorKey: "profileStatus",
+      header: "Profile Status",
+      cell: ({ row }) => {
+        const profileStatus = row.getValue("profileStatus") as string;
+        const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+          draft: "outline",
+          submitted: "secondary",
+          complete: "default",
+          rejected: "destructive",
+        };
+        const statusColors: Record<string, string> = {
+          draft: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300",
+          submitted: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+          complete: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+          rejected: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+        };
+        return (
+          <Badge 
+            variant={statusVariant[profileStatus] || "outline"}
+            className={statusColors[profileStatus]}
+            data-testid={`profile-status-${row.original.id}`}
+          >
+            {profileStatus.charAt(0).toUpperCase() + profileStatus.slice(1)}
+          </Badge>
+        );
+      },
+    },
+    {
       accessorKey: "profileCompletion",
-      header: "Profile",
+      header: "Completion",
       cell: ({ row }) => {
         const completion = row.getValue("profileCompletion") as number;
         const color = completion >= 80 ? "bg-green-500" : completion >= 50 ? "bg-yellow-500" : "bg-red-500";
@@ -211,13 +239,11 @@ export default function AdminUsers() {
           approved: "default",
           pending: "secondary",
           rejected: "destructive",
-          draft: "outline",
         };
         const statusColors: Record<string, string> = {
           approved: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
           pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
           rejected: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-          draft: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300",
         };
         return (
           <Badge 
