@@ -237,17 +237,29 @@ export default function ConsultantProfile() {
     mutationFn: async (data: typeof bankInfo) => {
       return apiRequest('POST', '/api/profile/consultant/banking', data);
     },
-    onSuccess: () => {
+    onSuccess: (response: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant/banking'] });
+      // Update local state with the returned bankInfo
+      if (response?.bankInfo) {
+        setBankInfo({
+          bankName: response.bankInfo.bankName || '',
+          accountHolderName: response.bankInfo.accountHolderName || '',
+          accountNumber: response.bankInfo.accountNumber || '',
+          swiftCode: response.bankInfo.swiftCode || '',
+          ifscCode: response.bankInfo.ifscCode || '',
+          bankCountry: response.bankInfo.bankCountry || '',
+          currency: response.bankInfo.currency || 'SAR',
+        });
+      }
       toast({
         title: 'Success',
         description: 'Banking information saved successfully',
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: 'Error',
-        description: 'Failed to save banking information',
+        description: error?.message || 'Failed to save banking information',
         variant: 'destructive',
       });
     },

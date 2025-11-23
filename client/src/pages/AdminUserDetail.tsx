@@ -76,6 +76,20 @@ export default function AdminUserDetail() {
     enabled: !!id,
   });
 
+  // Fetch banking information for consultant (admin endpoint)
+  const { data: bankingData } = useQuery<{ bankInfo: any | null }>({
+    queryKey: ["/api/admin/consultants", user?.consultantProfile?.id, "banking"],
+    queryFn: async () => {
+      if (!user?.consultantProfile?.id) return { bankInfo: null };
+      const res = await fetch(`/api/admin/consultants/${user.consultantProfile.id}/banking`, { 
+        credentials: 'include' 
+      });
+      if (!res.ok) return { bankInfo: null };
+      return res.json();
+    },
+    enabled: !!id && !!user?.consultantProfile?.id,
+  });
+
   const approveMutation = useMutation({
     mutationFn: async ({ userId, profileType, notes }: { userId: string; profileType: string; notes: string }) => {
       return apiRequest(`/api/admin/profiles/${userId}/approve`, {
@@ -428,6 +442,89 @@ export default function AdminUserDetail() {
                       <Badge key={index} variant="secondary">{skill}</Badge>
                     ))}
                   </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Banking Information (Consultant Only) */}
+        {user.consultantProfile && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Banking Information</CardTitle>
+              <CardDescription>Payment and account details for this consultant</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {bankingData?.bankInfo ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {bankingData.bankInfo.bankName && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Bank Name</p>
+                      <p className="text-sm mt-1">{bankingData.bankInfo.bankName}</p>
+                    </div>
+                  )}
+                  {bankingData.bankInfo.accountHolderName && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Account Holder Name</p>
+                      <p className="text-sm mt-1">{bankingData.bankInfo.accountHolderName}</p>
+                    </div>
+                  )}
+                  {bankingData.bankInfo.accountNumber && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Account Number / IBAN</p>
+                      <p className="text-sm mt-1 font-mono">{bankingData.bankInfo.accountNumber}</p>
+                    </div>
+                  )}
+                  {bankingData.bankInfo.swiftCode && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">SWIFT Code</p>
+                      <p className="text-sm mt-1 font-mono">{bankingData.bankInfo.swiftCode}</p>
+                    </div>
+                  )}
+                  {bankingData.bankInfo.ifscCode && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">IFSC Code</p>
+                      <p className="text-sm mt-1 font-mono">{bankingData.bankInfo.ifscCode}</p>
+                    </div>
+                  )}
+                  {bankingData.bankInfo.bankCountry && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Bank Country</p>
+                      <p className="text-sm mt-1">{bankingData.bankInfo.bankCountry}</p>
+                    </div>
+                  )}
+                  {bankingData.bankInfo.currency && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Currency</p>
+                      <p className="text-sm mt-1">{bankingData.bankInfo.currency}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Verification Status</p>
+                    <Badge 
+                      variant={bankingData.bankInfo.verified ? "default" : "outline"} 
+                      className="mt-1"
+                      data-testid="badge-bank-verification"
+                    >
+                      {bankingData.bankInfo.verified ? (
+                        <span className="flex items-center gap-1">
+                          <CheckCircle className="h-3 w-3" />
+                          Verified
+                        </span>
+                      ) : (
+                        "Not Verified"
+                      )}
+                    </Badge>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 py-8 text-center">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground" />
+                  <p className="text-sm font-medium">No Banking Information</p>
+                  <p className="text-sm text-muted-foreground">
+                    This consultant has not provided their banking details yet.
+                  </p>
                 </div>
               )}
             </CardContent>

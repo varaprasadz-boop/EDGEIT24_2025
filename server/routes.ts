@@ -10,7 +10,7 @@ import { adminSessionTimeout } from "./middleware/adminSessionTimeout";
 import { wsManager } from "./websocket";
 import { z } from "zod";
 import { registerPaymentRoutes } from "./routes/payments";
-import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertReviewResponseSchema, insertReviewReportSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema, insertTeamMemberSchema, insertBidSchema } from "@shared/schema";
+import { insertClientProfileSchema, insertConsultantProfileSchema, insertPricingTemplateSchema, insertReviewSchema, insertReviewResponseSchema, insertReviewReportSchema, insertQuoteRequestSchema, insertConversationSchema, insertConversationParticipantSchema, insertMessageSchema, insertMessageFileSchema, insertFileVersionSchema, insertMeetingLinkSchema, insertMeetingParticipantSchema, insertMeetingReminderSchema, insertMessageTemplateSchema, insertConversationLabelSchema, insertTeamMemberSchema, insertBidSchema, insertBankInformationSchema } from "@shared/schema";
 import { db } from "./db";
 import { users, adminRoles, categories, consultantCategories, jobs, bids, payments, disputes, vendorCategoryRequests, projects, subscriptionPlans, userSubscriptions, platformSettings, emailTemplates, clientProfiles, consultantProfiles, teamMembers, contentPages, footerLinks, homePageSections, messageFiles, conversations, messages, meetingLinks, reviews, reviewResponses, reviewReports, kycDocuments, insertSubscriptionPlanSchema, insertPlatformSettingSchema, insertEmailTemplateSchema, insertContentPageSchema, insertFooterLinkSchema, insertHomePageSectionSchema, insertCategorySchema } from "@shared/schema";
 import { eq, and, or, count, sql, desc, ilike, gte, lte, inArray } from "drizzle-orm";
@@ -4978,7 +4978,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Banking Information endpoints
+  // Banking Information endpoints - for consultants to view their own
   app.get('/api/profile/consultant/banking', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserIdFromRequest(req);
@@ -5001,6 +5001,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin endpoint to view consultant banking information
+  app.get('/api/admin/consultants/:consultantProfileId/banking', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { consultantProfileId } = req.params;
+      
+      if (!consultantProfileId) {
+        return res.status(400).json({ message: "Consultant profile ID is required" });
+      }
+      
+      const bankInfo = await storage.getBankInformation(consultantProfileId);
+      // Return 200 with null if no banking info exists
+      res.json({ bankInfo: bankInfo || null });
+    } catch (error) {
+      console.error("Error fetching consultant banking information:", error);
+      res.status(500).json({ message: "Failed to fetch consultant banking information" });
+    }
+  });
+
   app.post('/api/profile/consultant/banking', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserIdFromRequest(req);
@@ -5014,15 +5032,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Consultant profile not found" });
       }
       
-      // Validate request body with Zod schema
-      const bankInfoSchema = z.object({
+      // Use shared schema with trimming transformations
+      const bankInfoSchema = insertBankInformationSchema.omit({ 
+        consultantProfileId: true 
+      }).extend({
         bankName: z.string().trim().min(1, "Bank name is required"),
         accountHolderName: z.string().trim().min(1, "Account holder name is required"),
-        accountNumber: z.string().trim().min(1, "Account number is required"),
-        swiftCode: z.string().trim().optional().nullable(),
-        ifscCode: z.string().trim().optional().nullable(),
-        bankCountry: z.string().trim().min(1, "Bank country is required"),
-        currency: z.string().trim().default('SAR'),
+        accountNumber: z.string().trim().min(1, "Account number/IBAN is required"),
+        swiftCode: z.string().trim().optional().nullable().transform(val => val || null),
+        ifscCode: z.string().trim().optional().nullable().transform(val => val || null),
+        bankCountry: z.string().trim().optional().nullable().transform(val => val || null),
+        currency: z.string().trim().optional().default('SAR'),
       });
       
       const validation = bankInfoSchema.safeParse(req.body);
@@ -5048,7 +5068,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      res.json(bankInfo);
+      // Return consistent format like GET endpoint
+      res.json({ bankInfo });
     } catch (error) {
       console.error("Error saving banking information:", error);
       res.status(500).json({ message: "Failed to save banking information" });
