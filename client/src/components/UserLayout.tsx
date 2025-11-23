@@ -232,9 +232,17 @@ export function UserLayout({ children }: UserLayoutProps) {
     <SidebarProvider style={sidebarStyle}>
       <div className="flex h-screen w-full">
         <Sidebar>
-          <SidebarHeader className="border-b border-border px-4 py-3">
-            <div className="flex items-center gap-2">
+          <SidebarHeader className="bg-[#0A0E27] border-b border-border px-4 py-3">
+            <div className="flex flex-col gap-2">
               <img src={logoUrl} alt="EDGEIT24" className="h-8" />
+              {user?.role && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-white/70">Currently logged in as:</span>
+                  <span className="bg-primary/20 text-primary px-2 py-0.5 rounded-md font-medium capitalize">
+                    {selectedRole}
+                  </span>
+                </div>
+              )}
             </div>
           </SidebarHeader>
 

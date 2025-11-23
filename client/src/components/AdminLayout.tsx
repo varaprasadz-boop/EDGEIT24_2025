@@ -259,14 +259,22 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     <SidebarProvider defaultOpen={true} style={sidebarStyle}>
       <div className={`flex h-screen w-full ${isRTL ? 'flex-row-reverse' : ''}`}>
         <Sidebar collapsible="offcanvas">
-          <SidebarHeader className="border-b px-4 py-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5 text-primary" />
+          <SidebarHeader className="bg-[#0A0E27] border-b px-4 py-4">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white">EDGEIT24</h2>
+                  <p className="text-xs text-white/70">{t('sidebar.system')}</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-sm font-bold">EDGEIT24</h2>
-                <p className="text-xs text-muted-foreground">{t('sidebar.system')}</p>
+              <div className="text-xs">
+                <span className="text-white/70">Logged in as:</span>
+                <span className="bg-primary/20 text-primary px-2 py-0.5 rounded-md font-medium ml-2">
+                  Superadmin
+                </span>
               </div>
             </div>
           </SidebarHeader>

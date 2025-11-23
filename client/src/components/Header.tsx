@@ -9,15 +9,30 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, User, LogOut, Settings, LayoutDashboard } from "lucide-react";
-import { useState } from "react";
+import { Menu, User, LogOut, Settings, LayoutDashboard, Globe } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { NotificationBell } from "@/components/NotificationBell";
+import { useTranslation } from "react-i18next";
 import logoUrl from "@assets/image_1762432763578.png";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuthContext();
+  const { i18n } = useTranslation();
+
+  // Initialize RTL direction on mount based on current language
+  useEffect(() => {
+    const currentLang = i18n.language || 'en';
+    document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = currentLang;
+  }, [i18n.language]);
+
+  const changeLanguage = (lang: string) => {
+    i18n.changeLanguage(lang);
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = lang;
+  };
 
   const getUserInitials = () => {
     if (!user) return "U";
@@ -63,6 +78,21 @@ export function Header() {
         </nav>
 
         <div className="hidden md:flex items-center space-x-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-white" data-testid="button-language-toggle">
+                <Globe className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => changeLanguage('en')} data-testid="button-lang-english">
+                <span className={i18n.language === 'en' ? 'font-bold' : ''}>English</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => changeLanguage('ar')} data-testid="button-lang-arabic">
+                <span className={i18n.language === 'ar' ? 'font-bold' : ''}>العربية</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {isAuthenticated ? (
             <>
               <NotificationBell />

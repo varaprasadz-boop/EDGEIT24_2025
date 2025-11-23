@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -102,6 +103,23 @@ export default function ConsultantProfile() {
   const [selectedCategories, setSelectedCategories] = useReactState<string[]>([]);
   const [primaryCategoryId, setPrimaryCategoryId] = useReactState<string | null>(null);
   const [languageEntries, setLanguageEntries] = useReactState<Language[]>([]);
+  const [bankInfo, setBankInfo] = useReactState<{
+    bankName: string;
+    accountHolderName: string;
+    accountNumber: string;
+    swiftCode: string;
+    ifscCode: string;
+    bankCountry: string;
+    currency: string;
+  }>({
+    bankName: '',
+    accountHolderName: '',
+    accountNumber: '',
+    swiftCode: '',
+    ifscCode: '',
+    bankCountry: '',
+    currency: 'SAR',
+  });
   const hasInitializedForm = useRef(false);
   
   // Check if coming from onboarding
@@ -134,6 +152,15 @@ export default function ConsultantProfile() {
     retry: false,
   });
 
+  // Fetch banking information
+  const { data: bankingResponse } = useQuery<{ bankInfo: any | null }>({
+    queryKey: ['/api/profile/consultant/banking'],
+    enabled: !!profile,
+    retry: false,
+  });
+
+  const fetchedBankInfo = bankingResponse?.bankInfo;
+
   // Initialize pricing templates from API
   useEffect(() => {
     if (fetchedTemplates && !isEditing) {
@@ -147,6 +174,21 @@ export default function ConsultantProfile() {
       })));
     }
   }, [fetchedTemplates, isEditing]);
+
+  // Initialize banking information from API
+  useEffect(() => {
+    if (fetchedBankInfo && !isEditing) {
+      setBankInfo({
+        bankName: fetchedBankInfo.bankName || '',
+        accountHolderName: fetchedBankInfo.accountHolderName || '',
+        accountNumber: fetchedBankInfo.accountNumber || '',
+        swiftCode: fetchedBankInfo.swiftCode || '',
+        ifscCode: fetchedBankInfo.ifscCode || '',
+        bankCountry: fetchedBankInfo.bankCountry || '',
+        currency: fetchedBankInfo.currency || 'SAR',
+      });
+    }
+  }, [fetchedBankInfo, isEditing]);
 
   // Create pricing template mutation
   const createTemplateMutation = useMutation({
@@ -186,6 +228,27 @@ export default function ConsultantProfile() {
       toast({
         title: t('common.success'),
         description: t('consultantProfile.pricingTemplates.templateDeleted'),
+      });
+    },
+  });
+
+  // Save banking information mutation
+  const saveBankingMutation = useMutation({
+    mutationFn: async (data: typeof bankInfo) => {
+      return apiRequest('POST', '/api/profile/consultant/banking', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/profile/consultant/banking'] });
+      toast({
+        title: 'Success',
+        description: 'Banking information saved successfully',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to save banking information',
+        variant: 'destructive',
       });
     },
   });
@@ -1504,6 +1567,110 @@ export default function ConsultantProfile() {
                         {t('consultantProfile.pricingTemplates.noTemplates')}
                       </div>
                     )}
+                  </div>
+                </div>
+
+                {/* Banking Information Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <FormLabel className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      Banking Information
+                    </FormLabel>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="bank-name">Bank Name *</Label>
+                      <Input
+                        id="bank-name"
+                        placeholder="Enter bank name"
+                        value={bankInfo.bankName}
+                        onChange={(e) => setBankInfo({ ...bankInfo, bankName: e.target.value })}
+                        data-testid="input-bank-name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="account-holder">Account Holder Name (as per bank) *</Label>
+                      <Input
+                        id="account-holder"
+                        placeholder="Full name as per bank"
+                        value={bankInfo.accountHolderName}
+                        onChange={(e) => setBankInfo({ ...bankInfo, accountHolderName: e.target.value })}
+                        data-testid="input-account-holder"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="account-number">IBAN / Account Number *</Label>
+                      <Input
+                        id="account-number"
+                        placeholder="Enter IBAN or account number"
+                        value={bankInfo.accountNumber}
+                        onChange={(e) => setBankInfo({ ...bankInfo, accountNumber: e.target.value })}
+                        data-testid="input-account-number"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="swift-code">SWIFT Code</Label>
+                      <Input
+                        id="swift-code"
+                        placeholder="Enter SWIFT/BIC code"
+                        value={bankInfo.swiftCode}
+                        onChange={(e) => setBankInfo({ ...bankInfo, swiftCode: e.target.value })}
+                        data-testid="input-swift-code"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ifsc-code">IFSC Code (for Indian banks)</Label>
+                      <Input
+                        id="ifsc-code"
+                        placeholder="Enter IFSC code"
+                        value={bankInfo.ifscCode}
+                        onChange={(e) => setBankInfo({ ...bankInfo, ifscCode: e.target.value })}
+                        data-testid="input-ifsc-code"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bank-country">Bank Country *</Label>
+                      <Input
+                        id="bank-country"
+                        placeholder="e.g., Saudi Arabia"
+                        value={bankInfo.bankCountry}
+                        onChange={(e) => setBankInfo({ ...bankInfo, bankCountry: e.target.value })}
+                        data-testid="input-bank-country"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="currency">Currency</Label>
+                      <Select
+                        value={bankInfo.currency}
+                        onValueChange={(value) => setBankInfo({ ...bankInfo, currency: value })}
+                      >
+                        <SelectTrigger id="currency" data-testid="select-currency">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SAR">SAR - Saudi Riyal</SelectItem>
+                          <SelectItem value="USD">USD - US Dollar</SelectItem>
+                          <SelectItem value="EUR">EUR - Euro</SelectItem>
+                          <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                          <SelectItem value="AED">AED - UAE Dirham</SelectItem>
+                          <SelectItem value="INR">INR - Indian Rupee</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => saveBankingMutation.mutate(bankInfo)}
+                      disabled={saveBankingMutation.isPending || !bankInfo.bankName || !bankInfo.accountHolderName || !bankInfo.accountNumber || !bankInfo.bankCountry}
+                      data-testid="button-save-banking"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {saveBankingMutation.isPending ? 'Saving...' : 'Save Banking Info'}
+                    </Button>
                   </div>
                 </div>
 

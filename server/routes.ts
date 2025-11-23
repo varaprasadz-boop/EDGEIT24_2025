@@ -4978,6 +4978,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Banking Information endpoints
+  app.get('/api/profile/consultant/banking', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      // Get consultant profile to get consultantProfileId
+      const profile = await storage.getConsultantProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Consultant profile not found" });
+      }
+      
+      const bankInfo = await storage.getBankInformation(profile.id);
+      // Return 200 with null if no banking info exists (instead of 404)
+      res.json({ bankInfo: bankInfo || null });
+    } catch (error) {
+      console.error("Error fetching banking information:", error);
+      res.status(500).json({ message: "Failed to fetch banking information" });
+    }
+  });
+
+  app.post('/api/profile/consultant/banking', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      // Get consultant profile to get consultantProfileId
+      const profile = await storage.getConsultantProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Consultant profile not found" });
+      }
+      
+      // Validate request body with Zod schema
+      const bankInfoSchema = z.object({
+        bankName: z.string().trim().min(1, "Bank name is required"),
+        accountHolderName: z.string().trim().min(1, "Account holder name is required"),
+        accountNumber: z.string().trim().min(1, "Account number is required"),
+        swiftCode: z.string().trim().optional().nullable(),
+        ifscCode: z.string().trim().optional().nullable(),
+        bankCountry: z.string().trim().min(1, "Bank country is required"),
+        currency: z.string().trim().default('SAR'),
+      });
+      
+      const validation = bankInfoSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid banking information", 
+          errors: validation.error 
+        });
+      }
+      
+      const validatedData = validation.data;
+      
+      // Check if banking info exists - update or create
+      const existing = await storage.getBankInformation(profile.id);
+      let bankInfo;
+      
+      if (existing) {
+        bankInfo = await storage.updateBankInformation(profile.id, validatedData);
+      } else {
+        bankInfo = await storage.saveBankInformation({
+          consultantProfileId: profile.id,
+          ...validatedData,
+        });
+      }
+      
+      res.json(bankInfo);
+    } catch (error) {
+      console.error("Error saving banking information:", error);
+      res.status(500).json({ message: "Failed to save banking information" });
+    }
+  });
+
   // Review endpoints
   app.get('/api/reviews/:consultantId', async (req: any, res) => {
     try {

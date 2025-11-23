@@ -252,6 +252,7 @@ export const bankInformation = pgTable("bank_information", {
   accountHolderName: text("account_holder_name").notNull(),
   accountNumber: varchar("account_number").notNull(), // Can store IBAN
   swiftCode: varchar("swift_code"),
+  ifscCode: varchar("ifsc_code"), // For Indian banks
   bankCountry: varchar("bank_country"),
   currency: varchar("currency").default('SAR'), // SAR, USD, EUR, etc.
   verified: boolean("verified").default(false),
