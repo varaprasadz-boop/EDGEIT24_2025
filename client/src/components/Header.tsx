@@ -19,7 +19,7 @@ import logoUrl from "@assets/image_1762432763578.png";
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuthContext();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   // Initialize RTL direction on mount based on current language
   useEffect(() => {
@@ -59,21 +59,21 @@ export function Header() {
 
         <nav className="hidden md:flex items-center space-x-8">
           <Link href="/" className="text-sm font-medium text-white hover:text-primary transition-colors" data-testid="link-nav-home">
-            Home
+            {t('navigation.home')}
           </Link>
           {isAuthenticated && (
             <Link href="/dashboard" className="text-sm font-medium text-white hover:text-primary transition-colors" data-testid="link-nav-dashboard">
-              Dashboard
+              {t('navigation.dashboard')}
             </Link>
           )}
           <Link href="/browse" className="text-sm font-medium text-white/80 hover:text-primary transition-colors" data-testid="link-nav-browse">
-            Browse Services
+            {t('navigation.browseServices')}
           </Link>
           <Link href="/how-it-works" className="text-sm font-medium text-white/80 hover:text-primary transition-colors" data-testid="link-nav-how">
-            How It Works
+            {t('navigation.howItWorks')}
           </Link>
           <Link href="/about" className="text-sm font-medium text-white/80 hover:text-primary transition-colors" data-testid="link-nav-about">
-            About
+            {t('navigation.about')}
           </Link>
         </nav>
 
@@ -118,25 +118,25 @@ export function Header() {
                 <DropdownMenuItem asChild data-testid="button-menu-dashboard">
                   <Link href="/dashboard" className="cursor-pointer">
                     <LayoutDashboard className="mr-2 h-4 w-4" />
-                    Dashboard
+                    {t('navigation.dashboard')}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild data-testid="button-menu-profile">
                   <Link href="/profile" className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
-                    Profile
+                    {t('navigation.profile')}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild data-testid="button-menu-settings">
                   <Link href="/settings" className="cursor-pointer">
                     <Settings className="mr-2 h-4 w-4" />
-                    Settings
+                    {t('navigation.settings')}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} data-testid="button-menu-logout">
                   <LogOut className="mr-2 h-4 w-4" />
-                  Log out
+                  {t('navigation.logout')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
               </DropdownMenu>
@@ -144,10 +144,10 @@ export function Header() {
           ) : (
             <>
               <Button variant="outline" asChild className="border-white/20 text-white" data-testid="button-signin">
-                <a href="/login">Sign In</a>
+                <a href="/login">{t('navigation.signIn')}</a>
               </Button>
               <Button asChild className="bg-primary text-primary-foreground" data-testid="button-post-requirement">
-                <a href="/login">Post Requirement</a>
+                <a href="/login">{t('navigation.postRequirement')}</a>
               </Button>
             </>
           )}
@@ -168,28 +168,28 @@ export function Header() {
         <div className="md:hidden border-t border-border/40 bg-[#0A0E27] px-4 py-4" data-testid="mobile-menu">
           <nav className="flex flex-col space-y-4">
             <Link href="/" className="text-sm font-medium text-white hover:text-primary transition-colors" data-testid="link-mobile-home">
-              Home
+              {t('navigation.home')}
             </Link>
             {isAuthenticated && (
               <Link href="/dashboard" className="text-sm font-medium text-white hover:text-primary transition-colors" data-testid="link-mobile-dashboard">
-                Dashboard
+                {t('navigation.dashboard')}
               </Link>
             )}
             <Link href="/browse" className="text-sm font-medium text-white/80 hover:text-primary transition-colors" data-testid="link-mobile-browse">
-              Browse Services
+              {t('navigation.browseServices')}
             </Link>
             <Link href="/how-it-works" className="text-sm font-medium text-white/80 hover:text-primary transition-colors" data-testid="link-mobile-how">
-              How It Works
+              {t('navigation.howItWorks')}
             </Link>
             <Link href="/about" className="text-sm font-medium text-white/80 hover:text-primary transition-colors" data-testid="link-mobile-about">
-              About
+              {t('navigation.about')}
             </Link>
             <div className="flex flex-col space-y-2 pt-4 border-t border-border/40">
               {/* Language Switcher in Mobile Menu */}
               <div className="flex items-center justify-between px-4 py-2">
                 <div className="flex items-center space-x-2 text-white/80">
                   <Globe className="h-4 w-4" />
-                  <span className="text-sm">Language</span>
+                  <span className="text-sm">{t('navigation.language')}</span>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -228,19 +228,19 @@ export function Header() {
                     </div>
                   </div>
                   <Button variant="outline" asChild className="border-white/20 text-white w-full" data-testid="button-mobile-profile">
-                    <Link href="/profile">Profile</Link>
+                    <Link href="/profile">{t('navigation.profile')}</Link>
                   </Button>
                   <Button variant="outline" className="border-white/20 text-white w-full" onClick={logout} data-testid="button-mobile-logout">
-                    Log out
+                    {t('navigation.logout')}
                   </Button>
                 </>
               ) : (
                 <>
                   <Button variant="outline" asChild className="border-white/20 text-white w-full" data-testid="button-mobile-signin">
-                    <a href="/login">Sign In</a>
+                    <a href="/login">{t('navigation.signIn')}</a>
                   </Button>
                   <Button asChild className="bg-primary text-primary-foreground w-full" data-testid="button-mobile-post-requirement">
-                    <a href="/login">Post Requirement</a>
+                    <a href="/login">{t('navigation.postRequirement')}</a>
                   </Button>
                 </>
               )}

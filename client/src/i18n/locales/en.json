@@ -824,6 +824,19 @@
       "browseButton": "Browse Available Projects"
     }
   },
+  "navigation": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "browseServices": "Browse Services",
+    "howItWorks": "How It Works",
+    "about": "About",
+    "profile": "Profile",
+    "settings": "Settings",
+    "signIn": "Sign In",
+    "postRequirement": "Post Requirement",
+    "logout": "Log out",
+    "language": "Language"
+  },
   "clientDashboard": {
     "title": "Client Dashboard",
     "subtitle": "Manage your projects and find the right IT professionals",
