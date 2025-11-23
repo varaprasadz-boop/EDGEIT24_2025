@@ -8,6 +8,7 @@ import { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -252,15 +253,12 @@ export default function AdminDisputes() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight" data-testid="title-admin-disputes">
-          Dispute Management
-        </h2>
-        <p className="text-muted-foreground">
-          Review and manage user disputes
-        </p>
-      </div>
+    <div className="space-y-4">
+      <AdminPageHeader
+        title="Dispute Management"
+        subtitle="Review and manage user disputes"
+        testId="disputes"
+      />
 
       <FilterBar
         filters={filters}

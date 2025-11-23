@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DollarSign, TrendingUp, Wallet, FileText, Users, ArrowUpDown } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 interface PaymentAnalytics {
   totalRevenue: number;
@@ -27,7 +28,7 @@ export default function AdminPaymentAnalytics() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto p-4">
         <Skeleton className="h-12 w-64 mb-6" />
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[...Array(4)].map((_, i) => (
@@ -45,8 +46,12 @@ export default function AdminPaymentAnalytics() {
 
   if (!analytics) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6">Payment Analytics</h1>
+      <div className="container mx-auto p-4">
+        <AdminPageHeader
+          title="Payment Analytics"
+          subtitle="Platform-wide payment and financial metrics"
+          testId="payment-analytics"
+        />
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">No analytics data available</p>
@@ -57,12 +62,13 @@ export default function AdminPaymentAnalytics() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Payment Analytics</h1>
-        <p className="text-muted-foreground mt-1">
-          Platform-wide payment and financial metrics
-        </p>
+    <div className="container mx-auto p-4">
+      <div className="space-y-4 mb-4">
+        <AdminPageHeader
+          title="Payment Analytics"
+          subtitle="Platform-wide payment and financial metrics"
+          testId="payment-analytics"
+        />
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

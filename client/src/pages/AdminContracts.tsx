@@ -10,6 +10,7 @@ import { FilterBar, FilterConfig } from "@/components/admin/FilterBar";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { PROJECT_STATUSES, type ProjectStatus } from "@shared/schema";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 interface AdminContract {
   id: string;
@@ -256,14 +257,11 @@ export default function AdminContracts() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-3xl font-bold" data-testid="heading-contracts">
-          {t("admin.contracts.title")}
-        </h1>
-        <p className="text-muted-foreground" data-testid="text-contracts-description">
-          {t("admin.contracts.description")}
-        </p>
-      </div>
+      <AdminPageHeader
+        title={t("admin.contracts.title")}
+        subtitle={t("admin.contracts.description")}
+        testId="contracts"
+      />
 
       <FilterBar
         searchValue={searchValue}

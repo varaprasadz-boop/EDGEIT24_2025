@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
-import { AdminLayout } from "@/components/AdminLayout";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DataTable } from "@/components/admin/DataTable";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { Badge } from "@/components/ui/badge";
@@ -534,14 +534,12 @@ export default function AdminApprovalQueue() {
   ];
 
   return (
-    <AdminLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">User Approval Queue</h1>
-          <p className="text-muted-foreground">
-            Review and approve pending user accounts
-          </p>
-        </div>
+    <div className="space-y-4 p-4">
+        <AdminPageHeader
+          title="User Approval Queue"
+          subtitle="Review and approve pending user accounts"
+          testId="approval-queue"
+        />
 
         <FilterBar
           filters={filterConfig}
@@ -882,7 +880,6 @@ export default function AdminApprovalQueue() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    </AdminLayout>
+    </div>
   );
 }

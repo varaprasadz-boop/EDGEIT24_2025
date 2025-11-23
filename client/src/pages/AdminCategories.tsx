@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { AdminLayout } from "@/components/AdminLayout";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -519,51 +519,44 @@ export default function AdminCategories() {
   );
 
   return (
-    <AdminLayout>
-      <div className="space-y-6 p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight" data-testid="title-categories">
-              {t("categories.title")}
-            </h1>
-            <p className="text-muted-foreground mt-2" data-testid="subtitle-categories">
-              {t("categories.subtitle")}
-            </p>
-          </div>
-          
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={expandAll}
-              data-testid="button-expand-all"
-            >
-              Expand All
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={collapseAll}
-              data-testid="button-collapse-all"
-            >
-              Collapse All
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => refetch()}
-              data-testid="button-refresh"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button onClick={() => handleOpenCreate()} data-testid="button-add-category">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Root Category
-            </Button>
-          </div>
-        </div>
+    <div className="space-y-4 p-4">
+        <AdminPageHeader
+          title={t("categories.title")}
+          subtitle={t("categories.subtitle")}
+          testId="categories"
+          actions={
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={expandAll}
+                data-testid="button-expand-all"
+              >
+                Expand All
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={collapseAll}
+                data-testid="button-collapse-all"
+              >
+                Collapse All
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => refetch()}
+                data-testid="button-refresh"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button onClick={() => handleOpenCreate()} data-testid="button-add-category">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Root Category
+              </Button>
+            </>
+          }
+        />
 
         {/* Tree Table */}
         <div className="border rounded-lg overflow-hidden bg-card">
@@ -651,7 +644,6 @@ export default function AdminCategories() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    </AdminLayout>
+    </div>
   );
 }

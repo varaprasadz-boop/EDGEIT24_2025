@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   Select,
   SelectContent,
@@ -181,21 +182,20 @@ export default function AdminSupportTickets() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-[400px]">
+      <div className="container mx-auto p-4 flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2" data-testid="text-admin-tickets-title">
-          Support Tickets Management
-        </h1>
-        <p className="text-muted-foreground" data-testid="text-admin-tickets-subtitle">
-          Manage and respond to user support requests
-        </p>
+    <div className="container mx-auto p-4">
+      <div className="space-y-4 mb-4">
+        <AdminPageHeader
+          title="Support Tickets Management"
+          subtitle="Manage and respond to user support requests"
+          testId="support-tickets"
+        />
       </div>
 
       {/* Filters */}

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Eye, FileText } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { JOB_STATUSES, type JobStatus } from "@shared/schema";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 interface AdminRequirementJob {
   id: string;
@@ -271,13 +272,12 @@ export default function AdminRequirements() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">{t("requirements.title")}</h1>
-        <p className="text-muted-foreground mt-2">
-          {t("requirements.subtitle")}
-        </p>
-      </div>
+    <div className="space-y-4">
+      <AdminPageHeader
+        title={t("requirements.title")}
+        subtitle={t("requirements.subtitle")}
+        testId="requirements"
+      />
 
       <FilterBar
         searchPlaceholder={t("requirements.searchPlaceholder")}

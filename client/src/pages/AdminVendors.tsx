@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ColumnDef } from "@tanstack/react-table";
-import { AdminLayout } from "@/components/AdminLayout";
 import { DataTable } from "@/components/admin/DataTable";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -325,29 +325,18 @@ export default function AdminVendors() {
   };
 
   return (
-    <AdminLayout>
-      <div className="space-y-6 p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1
-              className="text-3xl font-bold tracking-tight"
-              data-testid="title-vendors"
-            >
-              {t("vendors.title")}
-            </h1>
-            <p
-              className="text-muted-foreground mt-2"
-              data-testid="subtitle-vendors"
-            >
-              {t("vendors.subtitle")}
-            </p>
-          </div>
-          <Button data-testid="button-add-vendor">
-            <Plus className="mr-2 h-4 w-4" />
-            {t("vendors.addVendor")}
-          </Button>
-        </div>
+    <div className="space-y-4 p-4">
+        <AdminPageHeader
+          title={t("vendors.title")}
+          subtitle={t("vendors.subtitle")}
+          testId="vendors"
+          actions={
+            <Button data-testid="button-add-vendor">
+              <Plus className="mr-2 h-4 w-4" />
+              {t("vendors.addVendor")}
+            </Button>
+          }
+        />
 
         {/* Filters */}
         <FilterBar
@@ -374,7 +363,6 @@ export default function AdminVendors() {
           pagination={pagination}
           onPaginationChange={handlePaginationChange}
         />
-      </div>
-    </AdminLayout>
+    </div>
   );
 }

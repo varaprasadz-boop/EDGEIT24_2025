@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { AlertCircle, CheckCircle, XCircle, Eye, Filter, Flag } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { ReviewReport, Review } from "@shared/schema";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 interface ReportWithReview extends ReviewReport {
   review?: Review;
@@ -93,7 +94,7 @@ export default function AdminReviewReportsPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="container mx-auto p-4">
         <Card>
           <CardContent className="p-12 text-center">
             <div className="animate-pulse text-muted-foreground">
@@ -106,13 +107,12 @@ export default function AdminReviewReportsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-6" data-testid="page-admin-review-reports">
-      <div>
-        <h1 className="text-3xl font-bold">Review Reports</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage reported reviews and maintain platform quality
-        </p>
-      </div>
+    <div className="container mx-auto p-4 space-y-4" data-testid="page-admin-review-reports">
+      <AdminPageHeader
+        title="Review Reports"
+        subtitle="Manage reported reviews and maintain platform quality"
+        testId="review-reports"
+      />
 
       {/* Stats Cards */}
       <div className="grid md:grid-cols-4 gap-4">

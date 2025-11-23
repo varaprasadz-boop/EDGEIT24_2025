@@ -7,6 +7,7 @@ import { DataTable } from "@/components/admin/DataTable";
 import { FilterBar, type FilterConfig } from "@/components/admin/FilterBar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   Dialog,
   DialogContent,
@@ -280,25 +281,24 @@ export default function AdminEmailTemplates() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold" data-testid="text-email-templates-title">{t('admin.emailTemplates.title')}</h1>
-          <p className="text-muted-foreground mt-2" data-testid="text-email-templates-subtitle">
-            {t('admin.emailTemplates.description')}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsVariablesOpen(true)} data-testid="button-show-variables">
-            <Code className="mr-2 h-4 w-4" />
-            {t('admin.emailTemplates.buttons.variables')}
-          </Button>
-          <Button onClick={handleCreate} data-testid="button-create-template">
-            <Plus className="mr-2 h-4 w-4" />
-            {t('admin.emailTemplates.buttons.create')}
-          </Button>
-        </div>
-      </div>
+    <div className="container mx-auto p-4 space-y-4">
+      <AdminPageHeader
+        title={t('admin.emailTemplates.title')}
+        subtitle={t('admin.emailTemplates.description')}
+        testId="email-templates"
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setIsVariablesOpen(true)} data-testid="button-show-variables">
+              <Code className="mr-2 h-4 w-4" />
+              {t('admin.emailTemplates.buttons.variables')}
+            </Button>
+            <Button onClick={handleCreate} data-testid="button-create-template">
+              <Plus className="mr-2 h-4 w-4" />
+              {t('admin.emailTemplates.buttons.create')}
+            </Button>
+          </>
+        }
+      />
 
       <FilterBar
         searchValue={search}

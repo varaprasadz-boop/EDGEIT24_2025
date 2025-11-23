@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   Dialog,
   DialogContent,
@@ -349,15 +350,12 @@ export default function AdminCategoryRequests() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight" data-testid="text-page-title">
-          Category Access Requests
-        </h1>
-        <p className="text-muted-foreground" data-testid="text-page-subtitle">
-          Review and approve consultant requests for specialized category access
-        </p>
-      </div>
+    <div className="container mx-auto p-4 space-y-4">
+      <AdminPageHeader
+        title="Category Access Requests"
+        subtitle="Review and approve consultant requests for specialized category access"
+        testId="category-requests"
+      />
 
       <Tabs defaultValue="pending" className="space-y-4">
         <TabsList data-testid="tabs-requests">

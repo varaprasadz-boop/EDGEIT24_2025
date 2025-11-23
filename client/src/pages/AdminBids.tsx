@@ -6,6 +6,7 @@ import { FilterBar, FilterConfig } from "@/components/admin/FilterBar";
 import { BID_STATUSES } from "@shared/schema";
 import { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { format } from "date-fns";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 type BidRow = {
   id: string;
@@ -187,14 +188,11 @@ export default function AdminBids() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold" data-testid="heading-bids">
-          {t("admin.bids.title")}
-        </h1>
-        <p className="text-muted-foreground" data-testid="text-bids-description">
-          {t("admin.bids.description")}
-        </p>
-      </div>
+      <AdminPageHeader
+        title={t("admin.bids.title")}
+        subtitle={t("admin.bids.description")}
+        testId="bids"
+      />
 
       <FilterBar
         searchPlaceholder={t("admin.bids.searchPlaceholder")}

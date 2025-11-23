@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   Dialog,
   DialogContent,
@@ -467,15 +468,12 @@ export default function AdminProfileApprovals() {
   };
 
   return (
-    <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-page-title">
-            Profile Approvals
-          </h1>
-          <p className="text-muted-foreground">
-            Review and approve pending client and consultant profiles
-          </p>
-        </div>
+    <div className="space-y-4">
+        <AdminPageHeader
+          title="Profile Approvals"
+          subtitle="Review and approve pending client and consultant profiles"
+          testId="profile-approvals"
+        />
 
         {isLoading && (
           <div className="flex items-center justify-center min-h-[400px]">

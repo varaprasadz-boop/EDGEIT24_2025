@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   Select,
   SelectContent,
@@ -166,19 +167,18 @@ export default function AdminContentPages() {
   };
 
   return (
-    <div className="space-y-6" data-testid="admin-content-pages-container">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold" data-testid="text-page-title">Content Pages</h1>
-          <p className="text-muted-foreground" data-testid="text-page-description">
-            Manage website content pages including legal documents, company info, and support pages
-          </p>
-        </div>
-        <Button onClick={handleAdd} data-testid="button-add-page">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Page
-        </Button>
-      </div>
+    <div className="space-y-4" data-testid="admin-content-pages-container">
+      <AdminPageHeader
+        title="Content Pages"
+        subtitle="Manage website content pages including legal documents, company info, and support pages"
+        testId="content-pages"
+        actions={
+          <Button onClick={handleAdd} data-testid="button-add-page">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Page
+          </Button>
+        }
+      />
 
       <Card className="p-6" data-testid="card-filters">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   Select,
   SelectContent,
@@ -164,19 +165,18 @@ export default function AdminHomeSections() {
   };
 
   return (
-    <div className="space-y-6" data-testid="admin-home-sections-container">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold" data-testid="text-page-title">Home Sections</h1>
-          <p className="text-muted-foreground" data-testid="text-page-description">
-            Manage homepage sections including hero, features, testimonials, and more
-          </p>
-        </div>
-        <Button onClick={handleAdd} data-testid="button-add-section">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Section
-        </Button>
-      </div>
+    <div className="space-y-4" data-testid="admin-home-sections-container">
+      <AdminPageHeader
+        title="Home Sections"
+        subtitle="Manage homepage sections including hero, features, testimonials, and more"
+        testId="home-sections"
+        actions={
+          <Button onClick={handleAdd} data-testid="button-add-section">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Section
+          </Button>
+        }
+      />
 
       <Card className="p-6" data-testid="card-filters">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

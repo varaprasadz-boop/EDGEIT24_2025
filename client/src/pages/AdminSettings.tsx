@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { PlatformSetting } from "@shared/schema";
 import { Save, Loader2 } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 // Helper to get setting value by key
 function getSettingValue(settings: PlatformSetting[], key: string, defaultValue: string = ''): string {
@@ -227,7 +228,7 @@ export default function AdminSettings() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="container mx-auto p-4 space-y-4">
         <div className="space-y-2">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-4 w-96" />
@@ -238,13 +239,12 @@ export default function AdminSettings() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold" data-testid="text-settings-title">{t('admin.settings.title')}</h1>
-        <p className="text-muted-foreground mt-2" data-testid="text-settings-subtitle">
-          {t('admin.settings.description')}
-        </p>
-      </div>
+    <div className="container mx-auto p-4 space-y-4">
+      <AdminPageHeader
+        title={t('admin.settings.title')}
+        subtitle={t('admin.settings.description')}
+        testId="settings"
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4" data-testid="tabs-settings">

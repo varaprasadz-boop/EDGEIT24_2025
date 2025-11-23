@@ -6,6 +6,7 @@ import { FilterBar, FilterConfig } from "@/components/admin/FilterBar";
 import { PAYMENT_STATUSES, PAYMENT_TYPES } from "@shared/schema";
 import { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { format } from "date-fns";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 type PaymentRow = {
   id: string;
@@ -215,14 +216,11 @@ export default function AdminPayments() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold" data-testid="heading-payments">
-          {t("admin.payments.title")}
-        </h1>
-        <p className="text-muted-foreground" data-testid="text-payments-description">
-          {t("admin.payments.description")}
-        </p>
-      </div>
+      <AdminPageHeader
+        title={t("admin.payments.title")}
+        subtitle={t("admin.payments.description")}
+        testId="payments"
+      />
 
       <FilterBar
         searchPlaceholder={t("admin.payments.searchPlaceholder")}

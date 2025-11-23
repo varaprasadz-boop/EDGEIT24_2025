@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ColumnDef } from "@tanstack/react-table";
-import { AdminLayout } from "@/components/AdminLayout";
 import { DataTable } from "@/components/admin/DataTable";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -361,29 +361,18 @@ export default function AdminSubscriptionPlans() {
   };
 
   return (
-    <AdminLayout>
-      <div className="space-y-6 p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1
-              className="text-3xl font-bold tracking-tight"
-              data-testid="title-subscription-plans"
-            >
-              {t("subscriptionPlans.title")}
-            </h1>
-            <p
-              className="text-muted-foreground mt-2"
-              data-testid="subtitle-subscription-plans"
-            >
-              {t("subscriptionPlans.subtitle")}
-            </p>
-          </div>
-          <Button onClick={handleAdd} data-testid="button-add-plan">
-            <Plus className="mr-2 h-4 w-4" />
-            {t("subscriptionPlans.addPlan")}
-          </Button>
-        </div>
+    <div className="space-y-4 p-4">
+        <AdminPageHeader
+          title={t("subscriptionPlans.title")}
+          subtitle={t("subscriptionPlans.subtitle")}
+          testId="subscription-plans"
+          actions={
+            <Button onClick={handleAdd} data-testid="button-add-plan">
+              <Plus className="mr-2 h-4 w-4" />
+              {t("subscriptionPlans.addPlan")}
+            </Button>
+          }
+        />
 
         {/* Filters */}
         <FilterBar
@@ -453,7 +442,6 @@ export default function AdminSubscriptionPlans() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
-    </AdminLayout>
+    </div>
   );
 }

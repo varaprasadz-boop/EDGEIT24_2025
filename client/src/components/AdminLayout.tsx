@@ -40,7 +40,6 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { apiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/image_1762432763578.png";
 
@@ -314,9 +313,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </Sidebar>
 
         <div className="flex flex-col flex-1">
-          <header className="flex items-center justify-end gap-4 p-4 border-b">
-            <LanguageSwitcher />
-          </header>
           <main className="flex-1 overflow-auto">
             {children}
           </main>

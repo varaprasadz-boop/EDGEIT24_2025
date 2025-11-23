@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ColumnDef } from "@tanstack/react-table";
-import { AdminLayout } from "@/components/AdminLayout";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DataTable } from "@/components/admin/DataTable";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { Badge } from "@/components/ui/badge";
@@ -414,45 +414,32 @@ export default function AdminUsers() {
   });
 
   return (
-    <AdminLayout>
-      <div className="space-y-6 p-6">
-        {/* Header */}
-        <div>
-          <h1 
-            className="text-3xl font-bold tracking-tight"
-            data-testid="title-users"
-          >
-            {t("users.title")}
-          </h1>
-          <p 
-            className="text-muted-foreground mt-2"
-            data-testid="subtitle-users"
-          >
-            {t("users.subtitle")}
-          </p>
-        </div>
+    <div className="space-y-4 p-4">
+      <AdminPageHeader
+        title={t("users.title")}
+        subtitle={t("users.subtitle")}
+        testId="users"
+      />
 
-        {/* Filters */}
-        <FilterBar
-          searchPlaceholder={t("common.search")}
-          searchValue={searchValue}
-          onSearchChange={setSearchValue}
-          filters={filterConfig}
-          onFiltersChange={setFilters}
-          onReset={() => {
-            setSearchValue("");
-            setFilters({});
-          }}
-          showAdvancedFilters={true}
-        />
+      <FilterBar
+        searchPlaceholder={t("common.search")}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+        filters={filterConfig}
+        onFiltersChange={setFilters}
+        onReset={() => {
+          setSearchValue("");
+          setFilters({});
+        }}
+        showAdvancedFilters={true}
+      />
 
-        {/* Table */}
-        <DataTable
-          columns={columns}
-          data={filteredUsers}
-          isLoading={isLoading}
-        />
-      </div>
-    </AdminLayout>
+      {/* Table */}
+      <DataTable
+        columns={columns}
+        data={filteredUsers}
+        isLoading={isLoading}
+      />
+    </div>
   );
 }

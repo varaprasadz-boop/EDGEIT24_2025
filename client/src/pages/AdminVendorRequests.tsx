@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check, X, Eye } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 interface VendorRequest {
   id: string;
@@ -178,15 +179,12 @@ export default function AdminVendorRequests() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold" data-testid="heading-vendor-requests">
-          {t("vendorRequests.title")}
-        </h1>
-        <p className="text-muted-foreground" data-testid="text-vendor-requests-description">
-          {t("vendorRequests.description")}
-        </p>
-      </div>
+    <div className="flex flex-col gap-4 p-4">
+      <AdminPageHeader
+        title={t("vendorRequests.title")}
+        subtitle={t("vendorRequests.description")}
+        testId="vendor-requests"
+      />
 
       <FilterBar
         searchValue={searchValue}

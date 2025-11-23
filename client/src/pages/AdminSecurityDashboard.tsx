@@ -10,6 +10,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { format, subDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   Select,
   SelectContent,
@@ -255,22 +256,18 @@ export default function AdminSecurityDashboard() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2" data-testid="page-title">
-            <Shield className="w-8 h-8" />
-            Security Dashboard
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            System-wide security monitoring and analytics
-          </p>
-        </div>
-        <Button onClick={handleExportData} variant="outline" data-testid="button-export">
-          <Download className="w-4 h-4 mr-2" />
-          Export Data
-        </Button>
-      </div>
+    <div className="container mx-auto p-4 space-y-4">
+      <AdminPageHeader
+        title="Security Dashboard"
+        subtitle="System-wide security monitoring and analytics"
+        testId="security-dashboard"
+        actions={
+          <Button onClick={handleExportData} variant="outline" data-testid="button-export">
+            <Download className="w-4 h-4 mr-2" />
+            Export Data
+          </Button>
+        }
+      />
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

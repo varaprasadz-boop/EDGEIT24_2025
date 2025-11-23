@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, TrendingUp, Search, AlertCircle, BarChart3 } from 'lucide-react';
@@ -21,7 +22,7 @@ export default function SearchAnalyticsPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-6 px-4">
+      <div className="space-y-4 p-4">
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -30,13 +31,12 @@ export default function SearchAnalyticsPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2" data-testid="page-title">Search Analytics</h1>
-        <p className="text-muted-foreground">
-          Insights into platform search behavior and performance
-        </p>
-      </div>
+    <div className="space-y-4 p-4">
+      <AdminPageHeader
+        title="Search Analytics"
+        subtitle="Insights into platform search behavior and performance"
+        testId="search-analytics"
+      />
 
       <div className="grid gap-6 md:grid-cols-3 mb-6">
         <MetricCard

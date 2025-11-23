@@ -9,6 +9,7 @@ import { useLocation } from "wouter";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   Table,
   TableBody,
@@ -136,16 +137,19 @@ export default function AdminMessages() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold">Messaging Analytics</h2>
-          <p className="text-muted-foreground mt-1">Monitor and moderate platform conversations</p>
-        </div>
-        <Button onClick={handleExportData} variant="outline" data-testid="button-export-analytics">
-          <Download className="mr-2 h-4 w-4" />
-          Export Data
-        </Button>
+    <div className="container mx-auto p-4">
+      <div className="space-y-4 mb-4">
+        <AdminPageHeader
+          title="Messaging Analytics"
+          subtitle="Monitor and moderate platform conversations"
+          testId="messages"
+          actions={
+            <Button onClick={handleExportData} variant="outline" data-testid="button-export-analytics">
+              <Download className="mr-2 h-4 w-4" />
+              Export Data
+            </Button>
+          }
+        />
       </div>
 
       {/* Stats Grid */}

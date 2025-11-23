@@ -5,6 +5,7 @@ import { Shield, Users, Briefcase, FileText, MessageSquare, DollarSign, CheckCir
 import { useLocation } from "wouter";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useTranslation } from "react-i18next";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 interface AdminStats {
   totalUsers: number;
@@ -57,10 +58,13 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold">{t('dashboard.platformOverview')}</h2>
-        <p className="text-muted-foreground mt-1">{t('dashboard.subtitle')}</p>
+    <div className="container mx-auto p-4">
+      <div className="space-y-4 mb-4">
+        <AdminPageHeader
+          title={t('dashboard.platformOverview')}
+          subtitle={t('dashboard.subtitle')}
+          testId="dashboard"
+        />
       </div>
 
         {/* Stats Grid */}
