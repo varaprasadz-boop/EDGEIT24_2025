@@ -42,6 +42,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { apiRequest } from "@/lib/queryClient";
+import logoUrl from "@assets/image_1762432763578.png";
 
 const sidebarStyle = {
   "--sidebar-width": "16rem",
@@ -260,15 +261,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <div className={`flex h-screen w-full ${isRTL ? 'flex-row-reverse' : ''}`}>
         <Sidebar collapsible="offcanvas">
           <SidebarHeader className="bg-[#0A0E27] border-b px-4 py-4">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-white">EDGEIT24</h2>
-                  <p className="text-xs text-white/70">{t('sidebar.system')}</p>
-                </div>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center">
+                <img src={logoUrl} alt="EDGEIT24" className="h-8" />
               </div>
               <div className="text-xs">
                 <span className="text-white/70">Logged in as:</span>
