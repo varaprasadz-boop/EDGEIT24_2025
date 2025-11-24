@@ -8632,200 +8632,309 @@ export class DatabaseStorage implements IStorage {
   }
 
   async approveUser(userId: string, adminId: string, notes?: string): Promise<void> {
-    // Get user to determine their role
-    const [user] = await db.select().from(users).where(eq(users.id, userId));
-    
-    if (!user) {
-      throw new Error('User not found');
-    }
+    await db.transaction(async (tx) => {
+      // Get user to determine their role
+      const [user] = await tx.select().from(users).where(eq(users.id, userId));
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
 
-    // Update user account status
-    await db
-      .update(users)
-      .set({
-        accountStatus: 'active',
-        approvalNotes: notes,
-        approvedBy: adminId,
-        approvedAt: new Date(),
-      })
-      .where(eq(users.id, userId));
-
-    // Synchronize profile approval status based on role
-    if (user.role === 'client' || user.role === 'both') {
-      await db
-        .update(clientProfiles)
+      // Update user account status
+      await tx
+        .update(users)
         .set({
-          approvalStatus: 'approved',
-          reviewedBy: adminId,
-          reviewedAt: new Date(),
+          accountStatus: 'active',
+          approvalNotes: notes,
+          approvedBy: adminId,
+          approvedAt: new Date(),
         })
-        .where(eq(clientProfiles.userId, userId));
-    }
+        .where(eq(users.id, userId));
 
-    if (user.role === 'consultant' || user.role === 'both') {
-      await db
-        .update(consultantProfiles)
-        .set({
-          approvalStatus: 'approved',
-          reviewedBy: adminId,
-          reviewedAt: new Date(),
-        })
-        .where(eq(consultantProfiles.userId, userId));
-    }
+      // Synchronize profile approval status based on role
+      // Create profile if it doesn't exist (for test users or edge cases)
+      if (user.role === 'client' || user.role === 'both') {
+        const [existingProfile] = await tx
+          .select()
+          .from(clientProfiles)
+          .where(eq(clientProfiles.userId, userId));
+
+        if (existingProfile) {
+          await tx
+            .update(clientProfiles)
+            .set({
+              approvalStatus: 'approved',
+              reviewedBy: adminId,
+              reviewedAt: new Date(),
+            })
+            .where(eq(clientProfiles.userId, userId));
+        } else {
+          // Create profile if it doesn't exist
+          await tx.insert(clientProfiles).values({
+            userId,
+            approvalStatus: 'approved',
+            profileStatus: 'incomplete',
+            reviewedBy: adminId,
+            reviewedAt: new Date(),
+          });
+        }
+      }
+
+      if (user.role === 'consultant' || user.role === 'both') {
+        const [existingProfile] = await tx
+          .select()
+          .from(consultantProfiles)
+          .where(eq(consultantProfiles.userId, userId));
+
+        if (existingProfile) {
+          await tx
+            .update(consultantProfiles)
+            .set({
+              approvalStatus: 'approved',
+              reviewedBy: adminId,
+              reviewedAt: new Date(),
+            })
+            .where(eq(consultantProfiles.userId, userId));
+        } else {
+          // Create profile if it doesn't exist
+          await tx.insert(consultantProfiles).values({
+            userId,
+            approvalStatus: 'approved',
+            profileStatus: 'incomplete',
+            reviewedBy: adminId,
+            reviewedAt: new Date(),
+          });
+        }
+      }
+    });
   }
 
   async rejectUser(userId: string, adminId: string, reason: string): Promise<void> {
-    // Get user to determine their role
-    const [user] = await db.select().from(users).where(eq(users.id, userId));
-    
-    if (!user) {
-      throw new Error('User not found');
-    }
+    await db.transaction(async (tx) => {
+      // Get user to determine their role
+      const [user] = await tx.select().from(users).where(eq(users.id, userId));
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
 
-    // Update user account status
-    await db
-      .update(users)
-      .set({
-        accountStatus: 'rejected',
-        rejectionReason: reason,
-        approvedBy: adminId,
-        approvedAt: new Date(),
-      })
-      .where(eq(users.id, userId));
-
-    // Synchronize profile approval status based on role
-    if (user.role === 'client' || user.role === 'both') {
-      await db
-        .update(clientProfiles)
+      // Update user account status
+      await tx
+        .update(users)
         .set({
-          approvalStatus: 'rejected',
-          reviewedBy: adminId,
-          reviewedAt: new Date(),
+          accountStatus: 'rejected',
+          rejectionReason: reason,
+          approvedBy: adminId,
+          approvedAt: new Date(),
         })
-        .where(eq(clientProfiles.userId, userId));
-    }
+        .where(eq(users.id, userId));
 
-    if (user.role === 'consultant' || user.role === 'both') {
-      await db
-        .update(consultantProfiles)
-        .set({
-          approvalStatus: 'rejected',
-          reviewedBy: adminId,
-          reviewedAt: new Date(),
-        })
-        .where(eq(consultantProfiles.userId, userId));
-    }
+      // Synchronize profile approval status based on role
+      // Create profile if it doesn't exist (for test users or edge cases)
+      if (user.role === 'client' || user.role === 'both') {
+        const [existingProfile] = await tx
+          .select()
+          .from(clientProfiles)
+          .where(eq(clientProfiles.userId, userId));
+
+        if (existingProfile) {
+          await tx
+            .update(clientProfiles)
+            .set({
+              approvalStatus: 'rejected',
+              reviewedBy: adminId,
+              reviewedAt: new Date(),
+            })
+            .where(eq(clientProfiles.userId, userId));
+        } else {
+          // Create profile if it doesn't exist
+          await tx.insert(clientProfiles).values({
+            userId,
+            approvalStatus: 'rejected',
+            profileStatus: 'incomplete',
+            reviewedBy: adminId,
+            reviewedAt: new Date(),
+          });
+        }
+      }
+
+      if (user.role === 'consultant' || user.role === 'both') {
+        const [existingProfile] = await tx
+          .select()
+          .from(consultantProfiles)
+          .where(eq(consultantProfiles.userId, userId));
+
+        if (existingProfile) {
+          await tx
+            .update(consultantProfiles)
+            .set({
+              approvalStatus: 'rejected',
+              reviewedBy: adminId,
+              reviewedAt: new Date(),
+            })
+            .where(eq(consultantProfiles.userId, userId));
+        } else {
+          // Create profile if it doesn't exist
+          await tx.insert(consultantProfiles).values({
+            userId,
+            approvalStatus: 'rejected',
+            profileStatus: 'incomplete',
+            reviewedBy: adminId,
+            reviewedAt: new Date(),
+          });
+        }
+      }
+    });
   }
 
   async requestUserInfo(userId: string, adminId: string, details: string): Promise<void> {
-    // Get user to determine their role
-    const [user] = await db.select().from(users).where(eq(users.id, userId));
-    
-    if (!user) {
-      throw new Error('User not found');
-    }
+    await db.transaction(async (tx) => {
+      // Get user to determine their role
+      const [user] = await tx.select().from(users).where(eq(users.id, userId));
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
 
-    // Update user account status
-    await db
-      .update(users)
-      .set({
-        accountStatus: 'pending_info',
-        requestedInfoDetails: details,
-        approvedBy: adminId, // Track who requested the info
-        approvedAt: new Date(), // Track when info was requested
-      })
-      .where(eq(users.id, userId));
-
-    // Synchronize profile approval status based on role
-    if (user.role === 'client' || user.role === 'both') {
-      await db
-        .update(clientProfiles)
+      // Update user account status
+      await tx
+        .update(users)
         .set({
-          approvalStatus: 'changes_requested',
-          reviewedBy: adminId,
-          reviewedAt: new Date(),
+          accountStatus: 'pending_info',
+          requestedInfoDetails: details,
+          approvedBy: adminId, // Track who requested the info
+          approvedAt: new Date(), // Track when info was requested
         })
-        .where(eq(clientProfiles.userId, userId));
-    }
+        .where(eq(users.id, userId));
 
-    if (user.role === 'consultant' || user.role === 'both') {
-      await db
-        .update(consultantProfiles)
-        .set({
-          approvalStatus: 'changes_requested',
-          reviewedBy: adminId,
-          reviewedAt: new Date(),
-        })
-        .where(eq(consultantProfiles.userId, userId));
-    }
+      // Synchronize profile approval status based on role
+      // Create profile if it doesn't exist (for test users or edge cases)
+      if (user.role === 'client' || user.role === 'both') {
+        const [existingProfile] = await tx
+          .select()
+          .from(clientProfiles)
+          .where(eq(clientProfiles.userId, userId));
+
+        if (existingProfile) {
+          await tx
+            .update(clientProfiles)
+            .set({
+              approvalStatus: 'changes_requested',
+              reviewedBy: adminId,
+              reviewedAt: new Date(),
+            })
+            .where(eq(clientProfiles.userId, userId));
+        } else {
+          // Create profile if it doesn't exist
+          await tx.insert(clientProfiles).values({
+            userId,
+            approvalStatus: 'changes_requested',
+            profileStatus: 'incomplete',
+            reviewedBy: adminId,
+            reviewedAt: new Date(),
+          });
+        }
+      }
+
+      if (user.role === 'consultant' || user.role === 'both') {
+        const [existingProfile] = await tx
+          .select()
+          .from(consultantProfiles)
+          .where(eq(consultantProfiles.userId, userId));
+
+        if (existingProfile) {
+          await tx
+            .update(consultantProfiles)
+            .set({
+              approvalStatus: 'changes_requested',
+              reviewedBy: adminId,
+              reviewedAt: new Date(),
+            })
+            .where(eq(consultantProfiles.userId, userId));
+        } else {
+          // Create profile if it doesn't exist
+          await tx.insert(consultantProfiles).values({
+            userId,
+            approvalStatus: 'changes_requested',
+            profileStatus: 'incomplete',
+            reviewedBy: adminId,
+            reviewedAt: new Date(),
+          });
+        }
+      }
+    });
   }
 
   async bulkApproveUsers(userIds: string[], adminId: string, notes?: string): Promise<void> {
-    // Update user account status
-    await db
-      .update(users)
-      .set({
-        accountStatus: 'active',
-        approvalNotes: notes,
-        approvedBy: adminId,
-        approvedAt: new Date(),
-      })
-      .where(inArray(users.id, userIds));
+    await db.transaction(async (tx) => {
+      // Update user account status
+      await tx
+        .update(users)
+        .set({
+          accountStatus: 'active',
+          approvalNotes: notes,
+          approvedBy: adminId,
+          approvedAt: new Date(),
+        })
+        .where(inArray(users.id, userIds));
 
-    // Synchronize profile approval status for all affected users
-    // Update client profiles
-    await db
-      .update(clientProfiles)
-      .set({
-        approvalStatus: 'approved',
-        reviewedBy: adminId,
-        reviewedAt: new Date(),
-      })
-      .where(inArray(clientProfiles.userId, userIds));
+      // Synchronize profile approval status for all affected users
+      // Update client profiles
+      await tx
+        .update(clientProfiles)
+        .set({
+          approvalStatus: 'approved',
+          reviewedBy: adminId,
+          reviewedAt: new Date(),
+        })
+        .where(inArray(clientProfiles.userId, userIds));
 
-    // Update consultant profiles
-    await db
-      .update(consultantProfiles)
-      .set({
-        approvalStatus: 'approved',
-        reviewedBy: adminId,
-        reviewedAt: new Date(),
-      })
-      .where(inArray(consultantProfiles.userId, userIds));
+      // Update consultant profiles
+      await tx
+        .update(consultantProfiles)
+        .set({
+          approvalStatus: 'approved',
+          reviewedBy: adminId,
+          reviewedAt: new Date(),
+        })
+        .where(inArray(consultantProfiles.userId, userIds));
+    });
   }
 
   async bulkRejectUsers(userIds: string[], adminId: string, reason: string): Promise<void> {
-    // Update user account status
-    await db
-      .update(users)
-      .set({
-        accountStatus: 'rejected',
-        rejectionReason: reason,
-        approvedBy: adminId,
-        approvedAt: new Date(),
-      })
-      .where(inArray(users.id, userIds));
+    await db.transaction(async (tx) => {
+      // Update user account status
+      await tx
+        .update(users)
+        .set({
+          accountStatus: 'rejected',
+          rejectionReason: reason,
+          approvedBy: adminId,
+          approvedAt: new Date(),
+        })
+        .where(inArray(users.id, userIds));
 
-    // Synchronize profile approval status for all affected users
-    // Update client profiles
-    await db
-      .update(clientProfiles)
-      .set({
-        approvalStatus: 'rejected',
-        reviewedBy: adminId,
-        reviewedAt: new Date(),
-      })
-      .where(inArray(clientProfiles.userId, userIds));
+      // Synchronize profile approval status for all affected users
+      // Update client profiles
+      await tx
+        .update(clientProfiles)
+        .set({
+          approvalStatus: 'rejected',
+          reviewedBy: adminId,
+          reviewedAt: new Date(),
+        })
+        .where(inArray(clientProfiles.userId, userIds));
 
-    // Update consultant profiles
-    await db
-      .update(consultantProfiles)
-      .set({
-        approvalStatus: 'rejected',
-        reviewedBy: adminId,
-        reviewedAt: new Date(),
-      })
-      .where(inArray(consultantProfiles.userId, userIds));
+      // Update consultant profiles
+      await tx
+        .update(consultantProfiles)
+        .set({
+          approvalStatus: 'rejected',
+          reviewedBy: adminId,
+          reviewedAt: new Date(),
+        })
+        .where(inArray(consultantProfiles.userId, userIds));
+    });
   }
 
   async calculateUserRiskScore(userId: string): Promise<number> {

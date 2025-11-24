@@ -7,13 +7,18 @@ EDGEIT24 is a B2B marketplace connecting businesses with IT service vendors. It 
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (Nov 24, 2025)
-**Admin Authentication System Refactor:**
-- Fixed critical authentication bug where admins couldn't access the dashboard
-- AdminRouter now correctly uses `useAdminAuth()` hook which queries the `adminRoles` table
-- All admin pages (Dashboard, Security, Messages, ConversationViewer, UserDetail) no longer perform redundant auth checks
-- Fixed dashboard title from "Platform Overview" to "Dashboard"
-- Standardized admin page layouts with consistent `space-y-4 p-4` spacing
-- AdminSecurityDashboard temporarily simplified to basic version (full features to be restored incrementally)
+**User Approval System Status Synchronization:**
+- Fixed critical bug where users.accountStatus and profile.approvalStatus were not synchronized during admin approval/rejection actions
+- All 5 user approval storage methods now use database transactions to ensure atomicity:
+  - `approveUser()` - Atomically updates users.accountStatus='active' AND profile.approvalStatus='approved'
+  - `rejectUser()` - Atomically updates users.accountStatus='rejected' AND profile.approvalStatus='rejected'
+  - `requestUserInfo()` - Atomically updates users.accountStatus='pending_info' AND profile.approvalStatus='changes_requested'
+  - `bulkApproveUsers()` - Transactional bulk approval of multiple users
+  - `bulkRejectUsers()` - Transactional bulk rejection of multiple users
+- Methods now handle missing profiles by creating them during approval/rejection (edge case for test users)
+- Fixed RBAC permission strings from `users.*` format to correct `user:*` format (user:approve, user:ban, user:view, user:edit)
+- Added Approve/Reject actions to AdminUsers dropdown menu for pending users
+- Fixed AdminUserDetail navigation from window.location.href to Wouter's setLocation() for SPA routing
 
 ## System Architecture
 
