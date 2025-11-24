@@ -6,6 +6,15 @@ EDGEIT24 is a B2B marketplace connecting businesses with IT service vendors. It 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (Nov 24, 2025)
+**Admin Authentication System Refactor:**
+- Fixed critical authentication bug where admins couldn't access the dashboard
+- AdminRouter now correctly uses `useAdminAuth()` hook which queries the `adminRoles` table
+- All admin pages (Dashboard, Security, Messages, ConversationViewer, UserDetail) no longer perform redundant auth checks
+- Fixed dashboard title from "Platform Overview" to "Dashboard"
+- Standardized admin page layouts with consistent `space-y-4 p-4` spacing
+- AdminSecurityDashboard temporarily simplified to basic version (full features to be restored incrementally)
+
 ## System Architecture
 
 ### UI/UX Decisions

@@ -228,7 +228,7 @@ export default function AdminSettings() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-4 space-y-4">
+      <div className="space-y-4 p-4">
         <div className="space-y-2">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-4 w-96" />
@@ -239,7 +239,7 @@ export default function AdminSettings() {
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-4">
+    <div className="space-y-4 p-4">
       <AdminPageHeader
         title={t('admin.settings.title')}
         subtitle={t('admin.settings.description')}

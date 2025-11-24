@@ -315,7 +315,7 @@ export default function AdminCategoryRequests() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="space-y-4 p-4">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="flex flex-col items-center gap-2">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -328,7 +328,7 @@ export default function AdminCategoryRequests() {
 
   if (error) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="space-y-4 p-4">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
@@ -350,7 +350,7 @@ export default function AdminCategoryRequests() {
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-4">
+    <div className="space-y-4 p-4">
       <AdminPageHeader
         title="Category Access Requests"
         subtitle="Review and approve consultant requests for specialized category access"

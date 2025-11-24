@@ -92,11 +92,7 @@ export default function AdminUserDetail() {
 
   const approveMutation = useMutation({
     mutationFn: async ({ userId, profileType, notes }: { userId: string; profileType: string; notes: string }) => {
-      return apiRequest(`/api/admin/profiles/${userId}/approve`, {
-        method: 'POST',
-        body: JSON.stringify({ profileType, notes }),
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return apiRequest('POST', `/api/admin/profiles/${userId}/approve`, { profileType, notes });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/admin/users", id] });
@@ -118,11 +114,7 @@ export default function AdminUserDetail() {
 
   const rejectMutation = useMutation({
     mutationFn: async ({ userId, profileType, notes }: { userId: string; profileType: string; notes: string }) => {
-      return apiRequest(`/api/admin/profiles/${userId}/reject`, {
-        method: 'POST',
-        body: JSON.stringify({ profileType, notes }),
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return apiRequest('POST', `/api/admin/profiles/${userId}/reject`, { profileType, notes });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/admin/users", id] });

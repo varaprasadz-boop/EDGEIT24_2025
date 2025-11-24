@@ -94,7 +94,7 @@ export default function AdminReviewReportsPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="space-y-4 p-4">
         <Card>
           <CardContent className="p-12 text-center">
             <div className="animate-pulse text-muted-foreground">
@@ -107,7 +107,7 @@ export default function AdminReviewReportsPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-4" data-testid="page-admin-review-reports">
+    <div className="space-y-4 p-4" data-testid="page-admin-review-reports">
       <AdminPageHeader
         title="Review Reports"
         subtitle="Manage reported reviews and maintain platform quality"

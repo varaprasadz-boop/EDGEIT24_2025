@@ -1,7 +1,5 @@
-import { Route, Switch, Redirect, useLocation } from "wouter";
-import { useAuthContext } from "@/contexts/AuthContext";
-import { useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { Route, Switch, Redirect } from "wouter";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { AdminLayout } from "@/components/AdminLayout";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminUsers from "@/pages/AdminUsers";
@@ -33,21 +31,7 @@ import AdminSupportTickets from "@/pages/admin/AdminSupportTickets";
 import AdminFeedback from "@/pages/admin/AdminFeedback";
 
 export function AdminRouter() {
-  const { user, isLoading } = useAuthContext();
-  const [, setLocation] = useLocation();
-  const { toast } = useToast();
-
-  // Block non-admin users from accessing admin routes
-  useEffect(() => {
-    if (!isLoading && user && user.role !== 'admin') {
-      toast({
-        title: "Access Denied",
-        description: "You don't have permission to access the admin area.",
-        variant: "destructive",
-      });
-      setLocation('/dashboard');
-    }
-  }, [user, isLoading, setLocation, toast]);
+  const { admin, isLoading } = useAdminAuth();
 
   // Show loading while checking authentication
   if (isLoading) {
@@ -61,9 +45,10 @@ export function AdminRouter() {
     );
   }
 
-  // Block access if not admin
-  if (!user || user.role !== 'admin') {
-    return null; // Will redirect via useEffect
+  // If no admin data, useAdminAuth will redirect to login
+  // So we can safely render if we get here
+  if (!admin) {
+    return null;
   }
 
   return (

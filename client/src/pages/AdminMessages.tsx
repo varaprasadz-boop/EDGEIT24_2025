@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Shield, MessageSquare, FileText, Calendar, Search, Download, AlertTriangle } from "lucide-react";
 import { useLocation } from "wouter";
-import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -48,47 +47,13 @@ export default function AdminMessages() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  // Protect admin route using AuthContext (same pattern as AdminRouter)
-  const { user, isLoading: isAuthLoading } = useAuthContext();
-
-  // Block non-admin users from accessing
-  useEffect(() => {
-    if (!isAuthLoading && user && user.role !== 'admin') {
-      toast({
-        title: "Access Denied",
-        description: "You don't have permission to access this page.",
-        variant: "destructive",
-      });
-      setLocation('/dashboard');
-    }
-  }, [user, isAuthLoading, setLocation, toast]);
-
   const { data: stats, isLoading: isStatsLoading, error: statsError } = useQuery<MessagingStats>({
     queryKey: ['/api/admin/messaging/stats'],
-    enabled: !!user && user.role === 'admin',
   });
 
   const { data: conversations, isLoading: isConversationsLoading, error: conversationsError } = useQuery<Conversation[]>({
     queryKey: ['/api/admin/messaging/conversations'],
-    enabled: !!user && user.role === 'admin',
   });
-
-  // Show loading while checking auth
-  if (isAuthLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Shield className="w-12 h-12 text-primary animate-pulse mx-auto mb-4" />
-          <p className="text-muted-foreground">Verifying credentials...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Block access if not admin
-  if (!user || user.role !== 'admin') {
-    return null; // Will redirect via useEffect
-  }
 
   // Filter conversations based on search, type, and status
   const filteredConversations = conversations?.filter(conv => {

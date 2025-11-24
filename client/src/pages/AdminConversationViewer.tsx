@@ -1,7 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { useAuthContext } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -86,29 +85,14 @@ export default function AdminConversationViewer() {
   const [moderationReason, setModerationReason] = useState('');
   const [moderationNotes, setModerationNotes] = useState('');
 
-  // Protect admin route using AuthContext (same pattern as AdminRouter)
-  const { user, isLoading: isAuthLoading } = useAuthContext();
-
-  // Block non-admin users from accessing
-  useEffect(() => {
-    if (!isAuthLoading && user && user.role !== 'admin') {
-      toast({
-        title: "Access Denied",
-        description: "You don't have permission to access this page.",
-        variant: "destructive",
-      });
-      setLocation('/admin/messages');
-    }
-  }, [user, isAuthLoading, setLocation, toast]);
-
   const { data: conversationData, isLoading, error } = useQuery<ConversationDetails>({
     queryKey: [`/api/admin/messaging/conversations/${id}`],
-    enabled: !!user && user.role === 'admin' && !!id,
+    enabled: !!id,
   });
 
   const { data: moderationHistory } = useQuery<ModerationAction[]>({
     queryKey: [`/api/admin/messaging/messages/${selectedMessage}/moderation-history`],
-    enabled: !!user && user.role === 'admin' && !!selectedMessage && historyDialogOpen,
+    enabled: !!selectedMessage && historyDialogOpen,
   });
 
   const moderateMutation = useMutation({
@@ -138,22 +122,6 @@ export default function AdminConversationViewer() {
       });
     },
   });
-
-  if (isAuthLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Shield className="w-12 h-12 text-primary animate-pulse mx-auto mb-4" />
-          <p className="text-muted-foreground">Verifying credentials...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Block access if not admin
-  if (!user || user.role !== 'admin') {
-    return null; // Will redirect via useEffect
-  }
 
   if (isLoading) {
     return (

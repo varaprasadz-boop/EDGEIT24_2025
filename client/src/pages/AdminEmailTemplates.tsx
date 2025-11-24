@@ -281,7 +281,7 @@ export default function AdminEmailTemplates() {
   };
 
   return (
-    <div className="container mx-auto p-4 space-y-4">
+    <div className="space-y-4 p-4">
       <AdminPageHeader
         title={t('admin.emailTemplates.title')}
         subtitle={t('admin.emailTemplates.description')}

@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Shield, Users, Briefcase, FileText, MessageSquare, DollarSign, CheckCircle } from "lucide-react";
 import { useLocation } from "wouter";
-import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useTranslation } from "react-i18next";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
@@ -22,25 +21,9 @@ export default function AdminDashboard() {
   const [, setLocation] = useLocation();
   const { t } = useTranslation();
 
-  // Protect admin route - redirects to login if not admin
-  const { admin, isLoading: isAdminLoading } = useAdminAuth();
-
   const { data: stats, isLoading: isStatsLoading, error } = useQuery<AdminStats>({
     queryKey: ['/api/admin/dashboard/stats'],
-    enabled: !!admin, // Only fetch stats if admin is authenticated
   });
-
-  // Show loading while checking admin auth
-  if (isAdminLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Shield className="w-12 h-12 text-primary animate-pulse mx-auto mb-4" />
-          <p className="text-muted-foreground">Verifying credentials...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -58,16 +41,14 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="space-y-4 mb-4">
-        <AdminPageHeader
-          title={t('dashboard.platformOverview')}
-          subtitle={t('dashboard.subtitle')}
-          testId="dashboard"
-        />
-      </div>
+    <div className="space-y-4 p-4">
+      <AdminPageHeader
+        title={t('dashboard.title')}
+        subtitle={t('dashboard.subtitle')}
+        testId="dashboard"
+      />
 
-        {/* Stats Grid */}
+      {/* Stats Grid */}
         {isStatsLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, i) => (
