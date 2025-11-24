@@ -8632,6 +8632,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async approveUser(userId: string, adminId: string, notes?: string): Promise<void> {
+    // Get user to determine their role
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Update user account status
     await db
       .update(users)
       .set({
@@ -8641,9 +8649,40 @@ export class DatabaseStorage implements IStorage {
         approvedAt: new Date(),
       })
       .where(eq(users.id, userId));
+
+    // Synchronize profile approval status based on role
+    if (user.role === 'client' || user.role === 'both') {
+      await db
+        .update(clientProfiles)
+        .set({
+          approvalStatus: 'approved',
+          reviewedBy: adminId,
+          reviewedAt: new Date(),
+        })
+        .where(eq(clientProfiles.userId, userId));
+    }
+
+    if (user.role === 'consultant' || user.role === 'both') {
+      await db
+        .update(consultantProfiles)
+        .set({
+          approvalStatus: 'approved',
+          reviewedBy: adminId,
+          reviewedAt: new Date(),
+        })
+        .where(eq(consultantProfiles.userId, userId));
+    }
   }
 
   async rejectUser(userId: string, adminId: string, reason: string): Promise<void> {
+    // Get user to determine their role
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Update user account status
     await db
       .update(users)
       .set({
@@ -8653,9 +8692,40 @@ export class DatabaseStorage implements IStorage {
         approvedAt: new Date(),
       })
       .where(eq(users.id, userId));
+
+    // Synchronize profile approval status based on role
+    if (user.role === 'client' || user.role === 'both') {
+      await db
+        .update(clientProfiles)
+        .set({
+          approvalStatus: 'rejected',
+          reviewedBy: adminId,
+          reviewedAt: new Date(),
+        })
+        .where(eq(clientProfiles.userId, userId));
+    }
+
+    if (user.role === 'consultant' || user.role === 'both') {
+      await db
+        .update(consultantProfiles)
+        .set({
+          approvalStatus: 'rejected',
+          reviewedBy: adminId,
+          reviewedAt: new Date(),
+        })
+        .where(eq(consultantProfiles.userId, userId));
+    }
   }
 
   async requestUserInfo(userId: string, adminId: string, details: string): Promise<void> {
+    // Get user to determine their role
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Update user account status
     await db
       .update(users)
       .set({
@@ -8665,9 +8735,33 @@ export class DatabaseStorage implements IStorage {
         approvedAt: new Date(), // Track when info was requested
       })
       .where(eq(users.id, userId));
+
+    // Synchronize profile approval status based on role
+    if (user.role === 'client' || user.role === 'both') {
+      await db
+        .update(clientProfiles)
+        .set({
+          approvalStatus: 'changes_requested',
+          reviewedBy: adminId,
+          reviewedAt: new Date(),
+        })
+        .where(eq(clientProfiles.userId, userId));
+    }
+
+    if (user.role === 'consultant' || user.role === 'both') {
+      await db
+        .update(consultantProfiles)
+        .set({
+          approvalStatus: 'changes_requested',
+          reviewedBy: adminId,
+          reviewedAt: new Date(),
+        })
+        .where(eq(consultantProfiles.userId, userId));
+    }
   }
 
   async bulkApproveUsers(userIds: string[], adminId: string, notes?: string): Promise<void> {
+    // Update user account status
     await db
       .update(users)
       .set({
@@ -8677,9 +8771,31 @@ export class DatabaseStorage implements IStorage {
         approvedAt: new Date(),
       })
       .where(inArray(users.id, userIds));
+
+    // Synchronize profile approval status for all affected users
+    // Update client profiles
+    await db
+      .update(clientProfiles)
+      .set({
+        approvalStatus: 'approved',
+        reviewedBy: adminId,
+        reviewedAt: new Date(),
+      })
+      .where(inArray(clientProfiles.userId, userIds));
+
+    // Update consultant profiles
+    await db
+      .update(consultantProfiles)
+      .set({
+        approvalStatus: 'approved',
+        reviewedBy: adminId,
+        reviewedAt: new Date(),
+      })
+      .where(inArray(consultantProfiles.userId, userIds));
   }
 
   async bulkRejectUsers(userIds: string[], adminId: string, reason: string): Promise<void> {
+    // Update user account status
     await db
       .update(users)
       .set({
@@ -8689,6 +8805,27 @@ export class DatabaseStorage implements IStorage {
         approvedAt: new Date(),
       })
       .where(inArray(users.id, userIds));
+
+    // Synchronize profile approval status for all affected users
+    // Update client profiles
+    await db
+      .update(clientProfiles)
+      .set({
+        approvalStatus: 'rejected',
+        reviewedBy: adminId,
+        reviewedAt: new Date(),
+      })
+      .where(inArray(clientProfiles.userId, userIds));
+
+    // Update consultant profiles
+    await db
+      .update(consultantProfiles)
+      .set({
+        approvalStatus: 'rejected',
+        reviewedBy: adminId,
+        reviewedAt: new Date(),
+      })
+      .where(inArray(consultantProfiles.userId, userIds));
   }
 
   async calculateUserRiskScore(userId: string): Promise<number> {

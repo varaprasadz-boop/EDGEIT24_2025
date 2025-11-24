@@ -1,6 +1,9 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "wouter";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { ColumnDef } from "@tanstack/react-table";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DataTable } from "@/components/admin/DataTable";
@@ -15,7 +18,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Eye, Ban, CheckCircle, Mail, CreditCard, Gift, Clock, XCircle } from "lucide-react";
+import { MoreHorizontal, Eye, Ban, CheckCircle, Mail, CreditCard, Gift, Clock, XCircle, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 
 interface User {
@@ -44,8 +50,84 @@ interface UsersResponse {
 
 export default function AdminUsers() {
   const { t } = useTranslation();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [searchValue, setSearchValue] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [approvalDialog, setApprovalDialog] = useState<{
+    open: boolean;
+    action: 'approve' | 'reject';
+    userId: string | null;
+  }>({
+    open: false,
+    action: 'approve',
+    userId: null,
+  });
+  const [adminNotes, setAdminNotes] = useState("");
+
+  // Mutations for approval/rejection
+  const approveMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return await apiRequest('POST', `/api/admin/users/${userId}/approve`, { notes: adminNotes });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "User Approved",
+        description: "The user has been approved successfully.",
+      });
+      setApprovalDialog({ open: false, action: 'approve', userId: null });
+      setAdminNotes("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Approval Failed",
+        description: error.message || "Failed to approve user",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return await apiRequest('POST', `/api/admin/users/${userId}/reject`, { reason: adminNotes });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "User Rejected",
+        description: "The user has been rejected.",
+      });
+      setApprovalDialog({ open: false, action: 'approve', userId: null });
+      setAdminNotes("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Rejection Failed",
+        description: error.message || "Failed to reject user",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleApprovalAction = () => {
+    if (!approvalDialog.userId) return;
+
+    if (approvalDialog.action === 'reject' && !adminNotes.trim()) {
+      toast({
+        title: "Notes Required",
+        description: "Please provide a reason for rejection.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (approvalDialog.action === 'approve') {
+      approveMutation.mutate(approvalDialog.userId);
+    } else {
+      rejectMutation.mutate(approvalDialog.userId);
+    }
+  };
 
   // Fetch users from API with proper query parameters
   const { data, isLoading } = useQuery<UsersResponse>({
@@ -370,7 +452,7 @@ export default function AdminUsers() {
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 data-testid={`action-view-${user.id}`}
-                onClick={() => window.location.href = `/admin/users/${user.id}`}
+                onClick={() => setLocation(`/admin/users/${user.id}`)}
               >
                 <Eye className="mr-2 h-4 w-4" />
                 {t("users.viewProfile")}
@@ -379,6 +461,40 @@ export default function AdminUsers() {
                 <Mail className="mr-2 h-4 w-4" />
                 {t("users.sendMessage")}
               </DropdownMenuItem>
+              
+              {user.approvalStatus === "pending" && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    data-testid={`action-approve-${user.id}`}
+                    onClick={() => {
+                      setApprovalDialog({
+                        open: true,
+                        action: 'approve',
+                        userId: user.id,
+                      });
+                    }}
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                    Approve
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    data-testid={`action-reject-${user.id}`}
+                    className="text-destructive"
+                    onClick={() => {
+                      setApprovalDialog({
+                        open: true,
+                        action: 'reject',
+                        userId: user.id,
+                      });
+                    }}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Reject
+                  </DropdownMenuItem>
+                </>
+              )}
+              
               <DropdownMenuSeparator />
               {user.status === "active" ? (
                 <DropdownMenuItem 
@@ -440,6 +556,72 @@ export default function AdminUsers() {
         data={filteredUsers}
         isLoading={isLoading}
       />
+
+      {/* Approval/Rejection Dialog */}
+      <Dialog open={approvalDialog.open} onOpenChange={(open) => {
+        if (!open) {
+          setApprovalDialog({ open: false, action: 'approve', userId: null });
+          setAdminNotes("");
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {approvalDialog.action === 'approve' ? 'Approve User' : 'Reject User'}
+            </DialogTitle>
+            <DialogDescription>
+              {approvalDialog.action === 'approve' 
+                ? 'This will approve the user account and grant access to the platform.' 
+                : 'This will reject the user account. Please provide a reason for the rejection.'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="admin-notes">
+                {approvalDialog.action === 'approve' ? 'Notes (Optional)' : 'Rejection Reason (Required)'}
+              </Label>
+              <Textarea
+                id="admin-notes"
+                placeholder={approvalDialog.action === 'approve' 
+                  ? 'Add any notes about this approval...' 
+                  : 'Explain why this account is being rejected...'}
+                value={adminNotes}
+                onChange={(e) => setAdminNotes(e.target.value)}
+                className="mt-2"
+                rows={4}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setApprovalDialog({ open: false, action: 'approve', userId: null });
+                setAdminNotes("");
+              }}
+              disabled={approveMutation.isPending || rejectMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={approvalDialog.action === 'approve' ? 'default' : 'destructive'}
+              onClick={handleApprovalAction}
+              disabled={approveMutation.isPending || rejectMutation.isPending}
+            >
+              {approveMutation.isPending || rejectMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {approvalDialog.action === 'approve' ? 'Approving...' : 'Rejecting...'}
+                </>
+              ) : (
+                approvalDialog.action === 'approve' ? 'Approve' : 'Reject'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -8408,7 +8408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // GET /api/admin/users/pending - Get pending users with filters/pagination
-  app.get('/api/admin/users/pending', isAuthenticated, requirePermission('users.view'), async (req: any, res) => {
+  app.get('/api/admin/users/pending', isAuthenticated, requirePermission('user:view'), async (req: any, res) => {
     try {
       // Validate query parameters
       const validation = pendingUsersQuerySchema.safeParse(req.query);
@@ -8439,7 +8439,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/admin/users/:id/approve - Approve user account
-  app.post('/api/admin/users/:id/approve', isAuthenticated, requirePermission('users.approve'), async (req: any, res) => {
+  app.post('/api/admin/users/:id/approve', isAuthenticated, requirePermission('user:approve'), async (req: any, res) => {
     try {
       const { id: userId } = req.params;
       
@@ -8483,7 +8483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/admin/users/:id/reject - Reject user account
-  app.post('/api/admin/users/:id/reject', isAuthenticated, requirePermission('users.reject'), async (req: any, res) => {
+  app.post('/api/admin/users/:id/reject', isAuthenticated, requirePermission('user:ban'), async (req: any, res) => {
     try {
       const { id: userId } = req.params;
       
@@ -8527,7 +8527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/admin/users/:id/request-info - Request more info from user
-  app.post('/api/admin/users/:id/request-info', isAuthenticated, requirePermission('users.manage'), async (req: any, res) => {
+  app.post('/api/admin/users/:id/request-info', isAuthenticated, requirePermission('user:edit'), async (req: any, res) => {
     try {
       const { id: userId } = req.params;
       
@@ -8571,7 +8571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/admin/users/bulk-action - Bulk approve or reject users
-  app.post('/api/admin/users/bulk-action', isAuthenticated, requirePermission('users.approve'), async (req: any, res) => {
+  app.post('/api/admin/users/bulk-action', isAuthenticated, requirePermission('user:approve'), async (req: any, res) => {
     try {
       // Validate request body
       const validation = bulkActionSchema.safeParse(req.body);
@@ -8651,7 +8651,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/admin/users/:id/kyc-documents - Get KYC documents for a user
-  app.get('/api/admin/users/:userId/kyc-documents', isAuthenticated, requirePermission('users.view'), async (req: any, res) => {
+  app.get('/api/admin/users/:userId/kyc-documents', isAuthenticated, requirePermission('user:view'), async (req: any, res) => {
     try {
       const { userId } = req.params;
       
@@ -8664,7 +8664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PATCH /api/admin/kyc-documents/:id/status - Approve or reject a KYC document
-  app.patch('/api/admin/kyc-documents/:id/status', isAuthenticated, requirePermission('users.manage'), async (req: any, res) => {
+  app.patch('/api/admin/kyc-documents/:id/status', isAuthenticated, requirePermission('user:edit'), async (req: any, res) => {
     try {
       const { id: docId } = req.params;
       const adminId = getUserIdFromRequest(req);
@@ -8711,7 +8711,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/admin/kyc-documents/:id/download - Download a KYC document
-  app.get('/api/admin/kyc-documents/:id/download', isAuthenticated, requirePermission('users.view'), async (req: any, res) => {
+  app.get('/api/admin/kyc-documents/:id/download', isAuthenticated, requirePermission('user:view'), async (req: any, res) => {
     try {
       const { id: docId } = req.params;
       
