@@ -17,7 +17,7 @@ declare global {
         id: string;
         role: string;
         permissions: any;
-        active: boolean;
+        active: boolean | null;
       };
     }
   }

@@ -1,4 +1,4 @@
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import {
@@ -77,7 +77,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       items: [
         {
           title: t('sidebar.dashboard'),
-          url: '/admin/dashboard',
+          url: '/dashboard',
           icon: LayoutDashboard,
           testId: 'nav-dashboard',
         },
@@ -88,67 +88,67 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       items: [
         {
           title: t('sidebar.users'),
-          url: '/admin/users',
+          url: '/users',
           icon: Users,
           testId: 'nav-users',
         },
         {
           title: 'Profile Approvals',
-          url: '/admin/profile-approvals',
+          url: '/profile-approvals',
           icon: CheckCircle,
           testId: 'nav-profile-approvals',
         },
         {
           title: t('sidebar.vendorDirectory'),
-          url: '/admin/vendors',
+          url: '/vendors',
           icon: UserCheck,
           testId: 'nav-vendors',
         },
         {
           title: t('sidebar.categories'),
-          url: '/admin/categories',
+          url: '/categories',
           icon: FolderTree,
           testId: 'nav-categories',
         },
         {
           title: 'Category Requests',
-          url: '/admin/category-requests',
+          url: '/category-requests',
           icon: CheckCircle,
           testId: 'nav-category-requests',
         },
         {
           title: t('sidebar.vendorRequests'),
-          url: '/admin/vendor-requests',
+          url: '/vendor-requests',
           icon: UserCog,
           testId: 'nav-vendor-requests',
         },
         {
           title: t('sidebar.requirements'),
-          url: '/admin/requirements',
+          url: '/requirements',
           icon: FileText,
           testId: 'nav-requirements',
         },
         {
           title: t('sidebar.bids'),
-          url: '/admin/bids',
+          url: '/bids',
           icon: MessageSquare,
           testId: 'nav-bids',
         },
         {
           title: t('sidebar.messages'),
-          url: '/admin/messages',
+          url: '/messages',
           icon: MessageSquare,
           testId: 'nav-messages',
         },
         {
           title: t('sidebar.reviews'),
-          url: '/admin/reviews',
+          url: '/reviews',
           icon: Star,
           testId: 'nav-reviews',
         },
         {
           title: t('sidebar.notifications'),
-          url: '/admin/notifications',
+          url: '/notifications',
           icon: Bell,
           testId: 'nav-notifications',
         },
@@ -159,25 +159,25 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       items: [
         {
           title: t('sidebar.subscriptionPlans'),
-          url: '/admin/subscription-plans',
+          url: '/subscription-plans',
           icon: Layers,
           testId: 'nav-subscription-plans',
         },
         {
           title: t('sidebar.contracts'),
-          url: '/admin/contracts',
+          url: '/contracts',
           icon: FileSignature,
           testId: 'nav-contracts',
         },
         {
           title: t('sidebar.payments'),
-          url: '/admin/payments',
+          url: '/payments',
           icon: CreditCard,
           testId: 'nav-payments',
         },
         {
           title: t('sidebar.refunds'),
-          url: '/admin/refunds',
+          url: '/refunds',
           icon: RotateCcw,
           testId: 'nav-refunds',
         },
@@ -188,19 +188,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       items: [
         {
           title: 'Content Pages',
-          url: '/admin/content-pages',
+          url: '/content-pages',
           icon: FileText,
           testId: 'nav-content-pages',
         },
         {
           title: 'Footer Links',
-          url: '/admin/footer-links',
+          url: '/footer-links',
           icon: LinkIcon,
           testId: 'nav-footer-links',
         },
         {
           title: 'Home Sections',
-          url: '/admin/home-sections',
+          url: '/home-sections',
           icon: LayoutGrid,
           testId: 'nav-home-sections',
         },
@@ -211,43 +211,43 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       items: [
         {
           title: t('sidebar.disputes'),
-          url: '/admin/disputes',
+          url: '/disputes',
           icon: Scale,
           testId: 'nav-disputes',
         },
         {
           title: 'Security Dashboard',
-          url: '/admin/security',
+          url: '/security',
           icon: Shield,
           testId: 'nav-security',
         },
         {
           title: t('sidebar.activityLogs'),
-          url: '/admin/activity-logs',
+          url: '/activity-logs',
           icon: Activity,
           testId: 'nav-activity-logs',
         },
         {
           title: t('sidebar.analytics'),
-          url: '/admin/analytics',
+          url: '/analytics',
           icon: BarChart3,
           testId: 'nav-analytics',
         },
         {
           title: t('sidebar.settings'),
-          url: '/admin/settings',
+          url: '/settings',
           icon: Settings,
           testId: 'nav-settings',
         },
         {
           title: t('sidebar.emailTemplates'),
-          url: '/admin/email-templates',
+          url: '/email-templates',
           icon: Mail,
           testId: 'nav-email-templates',
         },
         {
           title: t('sidebar.rolesPermissions'),
-          url: '/admin/roles',
+          url: '/roles',
           icon: Shield,
           testId: 'nav-roles',
         },
@@ -283,13 +283,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                       <SidebarMenuItem key={item.url}>
                         <SidebarMenuButton
                           asChild
-                          isActive={location === item.url}
+                          isActive={location === `/admin${item.url}`}
                           data-testid={item.testId}
                         >
-                          <a href={item.url}>
+                          <Link href={item.url}>
                             <item.icon className="h-4 w-4" />
                             <span>{item.title}</span>
-                          </a>
+                          </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     ))}

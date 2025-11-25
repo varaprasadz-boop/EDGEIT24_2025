@@ -151,7 +151,7 @@ export default function AdminConversationViewer() {
                 <p className="text-muted-foreground">Conversation not found</p>
               </>
             )}
-            <Button className="w-full mt-4" onClick={() => setLocation("/admin/messages")}>
+            <Button className="w-full mt-4" onClick={() => setLocation("/messages")}>
               Back to Messages
             </Button>
           </CardContent>
@@ -200,7 +200,7 @@ export default function AdminConversationViewer() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
-        <Button variant="ghost" onClick={() => setLocation("/admin/messages")} data-testid="button-back">
+        <Button variant="ghost" onClick={() => setLocation("/messages")} data-testid="button-back">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Messages
         </Button>

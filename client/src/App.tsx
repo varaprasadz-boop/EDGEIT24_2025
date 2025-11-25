@@ -116,7 +116,7 @@ function Router() {
       <Route path="/legal/:slug" component={LegalPage} />
       <Route path="/mock-payment" component={MockPaymentGateway} />
       <Route path="/admin/login" component={AdminLogin} />
-      <Route path="/admin/:rest*" component={AdminRouter} />
+      <Route path="/admin" nest component={AdminRouter} />
       <Route component={NotFound} />
     </Switch>
   );

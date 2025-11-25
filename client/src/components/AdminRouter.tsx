@@ -54,35 +54,35 @@ export function AdminRouter() {
   return (
     <AdminLayout>
       <Switch>
-        <Route path="/admin" component={() => <Redirect to="/admin/dashboard" />} />
-        <Route path="/admin/dashboard" component={AdminDashboard} />
-        <Route path="/admin/users/:id" component={AdminUserDetail} />
-        <Route path="/admin/users" component={AdminUsers} />
-        <Route path="/admin/approval-queue" component={AdminApprovalQueue} />
-        <Route path="/admin/profile-approvals" component={AdminProfileApprovals} />
-        <Route path="/admin/categories" component={AdminCategories} />
-        <Route path="/admin/category-requests" component={AdminCategoryRequests} />
-        <Route path="/admin/vendor-requests" component={AdminVendorRequests} />
-        <Route path="/admin/requirements" component={AdminRequirements} />
-        <Route path="/admin/bids" component={AdminBids} />
-        <Route path="/admin/messages/:id" component={AdminConversationViewer} />
-        <Route path="/admin/messages" component={AdminMessages} />
-        <Route path="/admin/security" component={AdminSecurityDashboard} />
-        <Route path="/admin/payments" component={AdminPayments} />
-        <Route path="/admin/refunds" component={AdminRefunds} />
-        <Route path="/admin/payment-analytics" component={AdminPaymentAnalytics} />
-        <Route path="/admin/analytics" component={PlatformAnalytics} />
-        <Route path="/admin/contracts" component={AdminContracts} />
-        <Route path="/admin/subscription-plans" component={AdminSubscriptionPlans} />
-        <Route path="/admin/disputes" component={AdminDisputes} />
-        <Route path="/admin/vendors" component={AdminVendors} />
-        <Route path="/admin/settings" component={AdminSettings} />
-        <Route path="/admin/email-templates" component={AdminEmailTemplates} />
-        <Route path="/admin/content-pages" component={AdminContentPages} />
-        <Route path="/admin/footer-links" component={AdminFooterLinks} />
-        <Route path="/admin/home-sections" component={AdminHomeSections} />
-        <Route path="/admin/support-tickets" component={AdminSupportTickets} />
-        <Route path="/admin/feedback" component={AdminFeedback} />
+        <Route path="/" component={() => <Redirect to="/dashboard" />} />
+        <Route path="/dashboard" component={AdminDashboard} />
+        <Route path="/users/:id" component={AdminUserDetail} />
+        <Route path="/users" component={AdminUsers} />
+        <Route path="/approval-queue" component={AdminApprovalQueue} />
+        <Route path="/profile-approvals" component={AdminProfileApprovals} />
+        <Route path="/categories" component={AdminCategories} />
+        <Route path="/category-requests" component={AdminCategoryRequests} />
+        <Route path="/vendor-requests" component={AdminVendorRequests} />
+        <Route path="/requirements" component={AdminRequirements} />
+        <Route path="/bids" component={AdminBids} />
+        <Route path="/messages/:id" component={AdminConversationViewer} />
+        <Route path="/messages" component={AdminMessages} />
+        <Route path="/security" component={AdminSecurityDashboard} />
+        <Route path="/payments" component={AdminPayments} />
+        <Route path="/refunds" component={AdminRefunds} />
+        <Route path="/payment-analytics" component={AdminPaymentAnalytics} />
+        <Route path="/analytics" component={PlatformAnalytics} />
+        <Route path="/contracts" component={AdminContracts} />
+        <Route path="/subscription-plans" component={AdminSubscriptionPlans} />
+        <Route path="/disputes" component={AdminDisputes} />
+        <Route path="/vendors" component={AdminVendors} />
+        <Route path="/settings" component={AdminSettings} />
+        <Route path="/email-templates" component={AdminEmailTemplates} />
+        <Route path="/content-pages" component={AdminContentPages} />
+        <Route path="/footer-links" component={AdminFooterLinks} />
+        <Route path="/home-sections" component={AdminHomeSections} />
+        <Route path="/support-tickets" component={AdminSupportTickets} />
+        <Route path="/feedback" component={AdminFeedback} />
       </Switch>
     </AdminLayout>
   );

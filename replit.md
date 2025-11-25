@@ -6,15 +6,21 @@ EDGEIT24 is a B2B marketplace connecting businesses with IT service vendors. It 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (Nov 24, 2025)
+## Recent Changes (Nov 25, 2025)
+**Admin Portal Wouter Nested Routing Fix:**
+- Fixed admin routing to properly use Wouter v3's `nest` prop for nested routes
+- App.tsx: Changed `/admin/:rest*` wildcard route to `/admin` with `nest` prop
+- AdminRouter: Changed all routes from absolute paths (`/admin/users/:id`) to relative paths (`/users/:id`)
+- AdminLayout: Updated all sidebar navigation URLs from absolute to relative paths (e.g., `/users` instead of `/admin/users`)
+- AdminLayout: Changed sidebar links from `<a href>` to `<Link to>` from wouter to properly handle nested routing
+- All admin pages: Updated setLocation calls to use relative paths (e.g., `setLocation("/users/${id}")` instead of `setLocation("/admin/users/${id}")`)
+- Fixed duplicate `/admin/admin/...` path bug that was preventing proper navigation
+- With nested routing, all paths are now relative to the `/admin` base and automatically resolve correctly
+
+## Previous Changes (Nov 24, 2025)
 **User Approval System Status Synchronization:**
 - Fixed critical bug where users.accountStatus and profile.approvalStatus were not synchronized during admin approval/rejection actions
-- All 5 user approval storage methods now use database transactions to ensure atomicity:
-  - `approveUser()` - Atomically updates users.accountStatus='active' AND profile.approvalStatus='approved'
-  - `rejectUser()` - Atomically updates users.accountStatus='rejected' AND profile.approvalStatus='rejected'
-  - `requestUserInfo()` - Atomically updates users.accountStatus='pending_info' AND profile.approvalStatus='changes_requested'
-  - `bulkApproveUsers()` - Transactional bulk approval of multiple users
-  - `bulkRejectUsers()` - Transactional bulk rejection of multiple users
+- All 5 user approval storage methods now use database transactions to ensure atomicity
 - Methods now handle missing profiles by creating them during approval/rejection (edge case for test users)
 - Fixed RBAC permission strings from `users.*` format to correct `user:*` format (user:approve, user:ban, user:view, user:edit)
 - Added Approve/Reject actions to AdminUsers dropdown menu for pending users

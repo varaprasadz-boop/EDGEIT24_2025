@@ -182,7 +182,7 @@ export default function AdminUserDetail() {
               </p>
               <Button
                 variant="outline"
-                onClick={() => setLocation("/admin/users")}
+                onClick={() => setLocation("/users")}
                 className="mt-4"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
@@ -207,7 +207,7 @@ export default function AdminUserDetail() {
         <div className="flex items-center justify-between">
           <Button
             variant="ghost"
-            onClick={() => setLocation("/admin/users")}
+            onClick={() => setLocation("/users")}
             data-testid="button-back"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />

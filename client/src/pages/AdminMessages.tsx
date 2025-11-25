@@ -287,7 +287,7 @@ export default function AdminMessages() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setLocation(`/admin/messages/${conv.id}`)}
+                        onClick={() => setLocation(`/messages/${conv.id}`)}
                         data-testid={`button-view-conversation-${conv.id}`}
                       >
                         View
