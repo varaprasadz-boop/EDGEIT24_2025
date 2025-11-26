@@ -211,6 +211,8 @@ export default function ClientProfile() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/profile/client'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/profile/status'] });
+      setIsEditing(false); // Exit edit mode after submission
       toast({
         title: t('common.success'),
         description: t('clientProfile.submission.successMessage'),
@@ -780,6 +782,56 @@ export default function ClientProfile() {
         </Card>
       ) : (
         <div className="space-y-4">
+          {/* Pending Approval Banner */}
+          {profile?.approvalStatus === 'pending' && (
+            <Alert className="border-amber-500 bg-amber-500/5" data-testid="alert-pending-approval">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription>
+                <div className="font-medium text-amber-700 dark:text-amber-500">
+                  {t('clientProfile.approval.pendingTitle')}
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  {t('clientProfile.approval.pendingMessage')}
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Approval Rejected Banner */}
+          {profile?.approvalStatus === 'rejected' && (
+            <Alert className="border-destructive bg-destructive/5" data-testid="alert-rejected-approval">
+              <AlertCircle className="h-4 w-4 text-destructive" />
+              <AlertDescription>
+                <div className="font-medium text-destructive">
+                  {t('clientProfile.approval.rejectedTitle')}
+                </div>
+                {profile?.adminNotes && (
+                  <div className="text-sm text-muted-foreground mt-1">
+                    {t('clientProfile.approval.rejectedReason', { notes: profile.adminNotes })}
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Submit for Review Prompt - Shows when draft and complete */}
+          {!isEditing && isProfileComplete() && getProfileStatus(profile) === 'draft' && profile?.approvalStatus !== 'pending' && (
+            <Alert className="border-primary bg-primary/5" data-testid="alert-submit-prompt-view">
+              <Send className="h-4 w-4 text-primary" />
+              <AlertDescription className="flex items-center justify-between">
+                <span className="text-primary font-medium">{t('clientProfile.submission.promptMessage')}</span>
+                <Button
+                  onClick={() => submitMutation.mutate()}
+                  disabled={submitMutation.isPending}
+                  size="sm"
+                  data-testid="button-submit-for-review-view"
+                >
+                  {submitMutation.isPending ? t('form.submitting') : t('clientProfile.submission.submitButton')}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
