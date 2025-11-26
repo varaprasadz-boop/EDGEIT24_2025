@@ -263,7 +263,7 @@ import {
   disputeMessages,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, ne, sql, desc, inArray } from "drizzle-orm";
+import { eq, and, ne, sql, desc, asc, inArray } from "drizzle-orm";
 import { nanoid } from 'nanoid';
 import { emailService } from './email';
 
