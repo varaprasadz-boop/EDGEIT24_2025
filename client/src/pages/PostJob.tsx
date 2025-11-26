@@ -138,8 +138,11 @@ export default function PostJob() {
   });
 
   const onSubmit = (data: PostJobFormData) => {
+    console.log('[PostJob] onSubmit called', { isClient, termsAccepted, data });
+    
     // Guard against submission if not client
     if (!isClient) {
+      console.log('[PostJob] Blocked: User is not a client');
       toast({
         title: t('postJob.toast.authRequired'),
         description: t('postJob.toast.authRequiredDesc'),
@@ -149,6 +152,7 @@ export default function PostJob() {
     }
     // Check if terms are accepted
     if (!termsAccepted) {
+      console.log('[PostJob] Blocked: Terms not accepted');
       toast({
         title: t('postJob.toast.termsRequired'),
         description: t('postJob.toast.termsRequiredDesc'),
@@ -156,6 +160,8 @@ export default function PostJob() {
       });
       return;
     }
+    
+    console.log('[PostJob] Calling createJobMutation.mutate');
     createJobMutation.mutate(data);
   };
 

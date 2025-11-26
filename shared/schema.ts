@@ -2040,6 +2040,7 @@ export type WarrantyConfig = z.infer<typeof warrantyConfigSchema>;
 // Jobs
 export const insertJobSchema = createInsertSchema(jobs).omit({
   id: true,
+  clientId: true, // Set server-side from authenticated user
   viewCount: true,
   bidCount: true,
   createdAt: true,
