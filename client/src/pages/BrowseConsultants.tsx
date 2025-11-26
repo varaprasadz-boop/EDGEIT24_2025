@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Header } from "@/components/Header";
+import { UserLayout } from "@/components/UserLayout";
 import { SavedSearches } from "@/components/SavedSearches";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -179,9 +179,8 @@ export default function BrowseConsultants() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Header />
-      <main className="flex-1 container mx-auto px-4 md:px-6 py-8">
+    <UserLayout>
+      <div className="container mx-auto px-4 md:px-6 py-8">
         <div className="space-y-6">
           <div>
             <div className="flex items-center justify-between gap-4 mb-4">
