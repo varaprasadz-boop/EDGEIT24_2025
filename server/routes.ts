@@ -1600,8 +1600,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const conditions = [eq(subscriptionPlans.status, 'active')];
       
       // Add audience filter if provided
+      // Return plans where audience matches the requested role OR is 'both'
       if (audience && (audience === 'client' || audience === 'consultant')) {
-        conditions.push(eq(subscriptionPlans.audience, audience));
+        conditions.push(
+          or(
+            eq(subscriptionPlans.audience, audience),
+            eq(subscriptionPlans.audience, 'both')
+          )
+        );
       }
 
       // Execute query with all conditions and ordering

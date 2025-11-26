@@ -57,10 +57,15 @@ export default function Register() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Fetch subscription plans
+  // Fetch subscription plans filtered by selected role
   const { data: plans, isLoading: plansLoading } = useQuery<any[]>({
-    queryKey: ['/api/subscription-plans'],
-    enabled: step === 'basic', // Only fetch when on basic step
+    queryKey: ['/api/subscription-plans', selectedRole],
+    enabled: step === 'basic' && !!selectedRole, // Only fetch when on basic step and role is selected
+    queryFn: async () => {
+      const response = await fetch(`/api/subscription-plans?audience=${selectedRole}`);
+      if (!response.ok) throw new Error('Failed to fetch plans');
+      return response.json();
+    }
   });
 
   useEffect(() => {

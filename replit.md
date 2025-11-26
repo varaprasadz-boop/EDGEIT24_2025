@@ -6,14 +6,23 @@ EDGEIT24 is a B2B marketplace connecting businesses with IT service vendors. It 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (Nov 25, 2025)
-**Admin Portal Wouter Nested Routing Fix:**
+## Recent Changes (Nov 26, 2025)
+**Subscription Plan Role-Based Filtering:**
+- Fixed registration flow to show only role-appropriate subscription plans
+- Backend: Updated `/api/subscription-plans` endpoint to use OR logic for audience filtering
+- Now returns plans where `audience = {requested_role}` OR `audience = 'both'`
+- Frontend: Updated Register.tsx to pass `audience` query parameter based on selected role
+- Query key includes role for proper cache segmentation
+- Clients now see only client plans + shared plans (audience='both')
+- Consultants now see only consultant plans + shared plans (audience='both')
+- End-to-end tested with both role signup flows
+
+**Admin Portal Wouter Nested Routing Fix (Nov 25):**
 - Fixed admin routing to properly use Wouter v3's `nest` prop for nested routes
-- App.tsx: Changed `/admin/:rest*` wildcard route to `/admin` with `nest` prop
-- AdminRouter: Changed all routes from absolute paths (`/admin/users/:id`) to relative paths (`/users/:id`)
-- AdminLayout: Updated all sidebar navigation URLs from absolute to relative paths (e.g., `/users` instead of `/admin/users`)
-- AdminLayout: Changed sidebar links from `<a href>` to `<Link to>` from wouter to properly handle nested routing
-- All admin pages: Updated setLocation calls to use relative paths (e.g., `setLocation("/users/${id}")` instead of `setLocation("/admin/users/${id}")`)
+- App.tsx: Changed `/admin/:rest*` wildcard route to `/admin` with `nest` prop and updated root redirect to use relative path
+- AdminRouter: Changed all routes from absolute paths to relative paths + fixed root redirect to `/dashboard`
+- AdminLayout: Updated all sidebar navigation URLs to relative paths + changed links from `<a href>` to `<Link to>`
+- All admin pages: Updated setLocation calls to use relative paths
 - Fixed duplicate `/admin/admin/...` path bug that was preventing proper navigation
 - With nested routing, all paths are now relative to the `/admin` base and automatically resolve correctly
 
