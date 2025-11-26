@@ -20,6 +20,7 @@ import { Briefcase, ArrowLeft, UserCircle, Clock, AlertCircle, Users, Layers } f
 import { insertJobSchema, type CustomField, type Category } from "@shared/schema";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Progress } from "@/components/ui/progress";
+import { UserLayout } from "@/components/UserLayout";
 
 // Extend schema with validation and custom field data
 const postJobSchema = insertJobSchema.extend({
@@ -168,95 +169,103 @@ export default function PostJob() {
   // Show loading state
   if (isLoading || profileLoading) {
     return (
-      <div className="container max-w-4xl mx-auto p-6">
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">{t('postJob.loading')}</p>
+      <UserLayout>
+        <div className="container max-w-4xl mx-auto p-6">
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">{t('postJob.loading')}</p>
+          </div>
         </div>
-      </div>
+      </UserLayout>
     );
   }
 
   // Show login prompt if not authenticated
   if (!user) {
     return (
-      <div className="container max-w-4xl mx-auto p-6 space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('postJob.loginRequired')}</CardTitle>
-            <CardDescription>
-              {t('postJob.loginRequiredDesc')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {t('postJob.loginWithClient')}
-            </p>
-            <div className="flex gap-2">
-              <Button 
-                onClick={() => setLocation(`/login?redirect=${encodeURIComponent('/post-job')}`)}
-                data-testid="button-login"
-              >
-                {t('postJob.loginButton')}
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setLocation('/register')}
-                data-testid="button-register"
-              >
-                {t('postJob.createAccount')}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <UserLayout>
+        <div className="container max-w-4xl mx-auto p-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('postJob.loginRequired')}</CardTitle>
+              <CardDescription>
+                {t('postJob.loginRequiredDesc')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {t('postJob.loginWithClient')}
+              </p>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => setLocation(`/login?redirect=${encodeURIComponent('/post-job')}`)}
+                  data-testid="button-login"
+                >
+                  {t('postJob.loginButton')}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setLocation('/register')}
+                  data-testid="button-register"
+                >
+                  {t('postJob.createAccount')}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </UserLayout>
     );
   }
 
   // Show message if user is not a client
   if (!isClient) {
     return (
-      <div className="container max-w-4xl mx-auto p-6 space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('postJob.clientProfileRequired')}</CardTitle>
-            <CardDescription>
-              {t('postJob.clientProfileRequiredDesc')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {t('postJob.clientProfileBenefit')}
-            </p>
-            <Button onClick={() => setLocation('/profile/client')} data-testid="button-create-profile">
-              {t('postJob.createClientProfile')}
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <UserLayout>
+        <div className="container max-w-4xl mx-auto p-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('postJob.clientProfileRequired')}</CardTitle>
+              <CardDescription>
+                {t('postJob.clientProfileRequiredDesc')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {t('postJob.clientProfileBenefit')}
+              </p>
+              <Button onClick={() => setLocation('/profile/client')} data-testid="button-create-profile">
+                {t('postJob.createClientProfile')}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </UserLayout>
     );
   }
 
   // No profile exists (403 from API) - show create profile message
   if (profileStatus === null) {
     return (
-      <div className="container max-w-4xl mx-auto p-6 space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('postJob.clientProfileRequired')}</CardTitle>
-            <CardDescription>
-              {t('postJob.clientProfileRequiredDesc')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {t('postJob.clientProfileBenefit')}
-            </p>
-            <Button onClick={() => setLocation('/profile/client')} data-testid="button-create-profile">
-              {t('postJob.createClientProfile')}
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <UserLayout>
+        <div className="container max-w-4xl mx-auto p-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('postJob.clientProfileRequired')}</CardTitle>
+              <CardDescription>
+                {t('postJob.clientProfileRequiredDesc')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {t('postJob.clientProfileBenefit')}
+              </p>
+              <Button onClick={() => setLocation('/profile/client')} data-testid="button-create-profile">
+                {t('postJob.createClientProfile')}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </UserLayout>
     );
   }
 
@@ -265,163 +274,172 @@ export default function PostJob() {
     // Profile is incomplete - needs completion
     if (profileStatus.profileStatus === 'draft' && profileStatus.completionPercentage < 100) {
       return (
-        <div className="container max-w-4xl mx-auto p-6 space-y-6">
-          <Card className="border-blue-500 bg-blue-500/5" data-testid="card-profile-incomplete">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UserCircle className="h-5 w-5 text-blue-600" />
-                {t('postJob.completeYourProfile')}
-              </CardTitle>
-              <CardDescription>
-                {t('postJob.completeProfileDesc')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{t('postJob.profileCompletion')}</span>
-                  <span className="font-medium">{profileStatus.completionPercentage}%</span>
+        <UserLayout>
+          <div className="container max-w-4xl mx-auto p-6 space-y-6">
+            <Card className="border-blue-500 bg-blue-500/5" data-testid="card-profile-incomplete">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserCircle className="h-5 w-5 text-blue-600" />
+                  {t('postJob.completeYourProfile')}
+                </CardTitle>
+                <CardDescription>
+                  {t('postJob.completeProfileDesc')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{t('postJob.profileCompletion')}</span>
+                    <span className="font-medium">{profileStatus.completionPercentage}%</span>
+                  </div>
+                  <Progress value={profileStatus.completionPercentage} className="h-2" />
                 </div>
-                <Progress value={profileStatus.completionPercentage} className="h-2" />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {t('postJob.completeAllFields')}
-              </p>
-              <Button 
-                onClick={() => setLocation('/profile/client')} 
-                data-testid="button-complete-profile"
-              >
-                {t('postJob.completeProfile')}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+                <p className="text-sm text-muted-foreground">
+                  {t('postJob.completeAllFields')}
+                </p>
+                <Button 
+                  onClick={() => setLocation('/profile/client')} 
+                  data-testid="button-complete-profile"
+                >
+                  {t('postJob.completeProfile')}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </UserLayout>
       );
     }
 
     // Profile is pending approval
     if (profileStatus.approvalStatus === 'pending' && profileStatus.profileStatus === 'submitted') {
       return (
-        <div className="container max-w-4xl mx-auto p-6 space-y-6">
-          <Card className="border-amber-500 bg-amber-500/5" data-testid="card-profile-pending">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-amber-600" />
-                {t('postJob.profileUnderReview')}
-              </CardTitle>
-              <CardDescription>
-                {t('postJob.profileUnderReviewDesc')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                {t('postJob.profileUnderReviewNote')}
-              </p>
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => setLocation('/browse-consultants')} 
-                  data-testid="button-browse-consultants"
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  {t('postJob.browseConsultants')}
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => setLocation('/dashboard')} 
-                  data-testid="button-dashboard"
-                >
-                  {t('postJob.goToDashboard')}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <UserLayout>
+          <div className="container max-w-4xl mx-auto p-6 space-y-6">
+            <Card className="border-amber-500 bg-amber-500/5" data-testid="card-profile-pending">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-amber-600" />
+                  {t('postJob.profileUnderReview')}
+                </CardTitle>
+                <CardDescription>
+                  {t('postJob.profileUnderReviewDesc')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  {t('postJob.profileUnderReviewNote')}
+                </p>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => setLocation('/browse-consultants')} 
+                    data-testid="button-browse-consultants"
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    {t('postJob.browseConsultants')}
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setLocation('/dashboard')} 
+                    data-testid="button-dashboard"
+                  >
+                    {t('postJob.goToDashboard')}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </UserLayout>
       );
     }
 
     // Profile was rejected
     if (profileStatus.approvalStatus === 'rejected') {
       return (
-        <div className="container max-w-4xl mx-auto p-6 space-y-6">
-          <Card className="border-destructive bg-destructive/5" data-testid="card-profile-rejected">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-destructive" />
-                {t('postJob.profileRejected')}
-              </CardTitle>
-              <CardDescription>
-                {t('postJob.profileRejectedDesc')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {profileStatus.adminNotes && (
-                <div className="p-3 rounded-md bg-muted">
-                  <p className="text-sm font-medium mb-1">{t('postJob.adminFeedback')}</p>
-                  <p className="text-sm text-muted-foreground">{profileStatus.adminNotes}</p>
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground">
-                {t('postJob.updateProfileNote')}
-              </p>
-              <Button 
-                onClick={() => setLocation('/profile/client')} 
-                data-testid="button-update-profile"
-              >
-                {t('postJob.updateAndResubmit')}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+        <UserLayout>
+          <div className="container max-w-4xl mx-auto p-6 space-y-6">
+            <Card className="border-destructive bg-destructive/5" data-testid="card-profile-rejected">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-destructive" />
+                  {t('postJob.profileRejected')}
+                </CardTitle>
+                <CardDescription>
+                  {t('postJob.profileRejectedDesc')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {profileStatus.adminNotes && (
+                  <div className="p-3 rounded-md bg-muted">
+                    <p className="text-sm font-medium mb-1">{t('postJob.adminFeedback')}</p>
+                    <p className="text-sm text-muted-foreground">{profileStatus.adminNotes}</p>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  {t('postJob.updateProfileNote')}
+                </p>
+                <Button 
+                  onClick={() => setLocation('/profile/client')} 
+                  data-testid="button-update-profile"
+                >
+                  {t('postJob.updateAndResubmit')}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </UserLayout>
       );
     }
 
     // Profile exists but not approved - catch any other states
     if (profileStatus.approvalStatus !== 'approved') {
       return (
-        <div className="container max-w-4xl mx-auto p-6 space-y-6">
-          <Card className="border-amber-500 bg-amber-500/5" data-testid="card-profile-not-approved">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-amber-600" />
-                {t('postJob.profileApprovalRequired')}
-              </CardTitle>
-              <CardDescription>
-                {t('postJob.profileApprovalRequiredDesc')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                {t('postJob.completeAndSubmit')}
-              </p>
-              <Button onClick={() => setLocation('/profile/client')} data-testid="button-view-profile">
-                {t('postJob.viewProfile')}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+        <UserLayout>
+          <div className="container max-w-4xl mx-auto p-6 space-y-6">
+            <Card className="border-amber-500 bg-amber-500/5" data-testid="card-profile-not-approved">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-600" />
+                  {t('postJob.profileApprovalRequired')}
+                </CardTitle>
+                <CardDescription>
+                  {t('postJob.profileApprovalRequiredDesc')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  {t('postJob.completeAndSubmit')}
+                </p>
+                <Button onClick={() => setLocation('/profile/client')} data-testid="button-view-profile">
+                  {t('postJob.viewProfile')}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </UserLayout>
       );
     }
   }
 
   // Only render job posting form if profile is approved
   return (
-    <div className="container max-w-4xl mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setLocation('/dashboard')}
-          data-testid="button-back"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">{t('postJob.title')}</h1>
-          <p className="text-muted-foreground">
-            {t('postJob.subtitle')}
-          </p>
+    <UserLayout>
+      <div className="container max-w-4xl mx-auto p-6 space-y-6">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setLocation('/dashboard')}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">{t('postJob.title')}</h1>
+            <p className="text-muted-foreground">
+              {t('postJob.subtitle')}
+            </p>
+          </div>
         </div>
-      </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -617,6 +635,7 @@ export default function PostJob() {
           </div>
         </form>
       </Form>
-    </div>
+      </div>
+    </UserLayout>
   );
 }
