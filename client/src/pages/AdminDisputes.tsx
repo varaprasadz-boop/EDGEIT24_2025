@@ -102,10 +102,7 @@ export default function AdminDisputes() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ disputeId, status, resolution }: { disputeId: string; status: string; resolution?: string }) => {
-      return apiRequest(`/api/admin/disputes/${disputeId}/status`, {
-        method: 'PUT',
-        body: JSON.stringify({ status, resolution }),
-      });
+      return apiRequest('PUT', `/api/admin/disputes/${disputeId}/status`, { status, resolution });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/disputes'] });
@@ -226,11 +223,10 @@ export default function AdminDisputes() {
 
   const filterConfigs: FilterConfig[] = [
     {
-      id: "status",
+      key: "status",
       label: "Status",
       type: "select",
       options: [
-        { label: "All", value: "all" },
         { label: "Pending", value: "pending" },
         { label: "Under Review", value: "under_review" },
         { label: "Resolved", value: "resolved" },
@@ -238,11 +234,10 @@ export default function AdminDisputes() {
       ],
     },
     {
-      id: "disputeType",
+      key: "disputeType",
       label: "Type",
       type: "select",
       options: [
-        { label: "All", value: "all" },
         { label: "Payment", value: "payment_dispute" },
         { label: "Quality", value: "quality_dispute" },
         { label: "Delivery", value: "delivery_dispute" },
@@ -261,19 +256,18 @@ export default function AdminDisputes() {
       />
 
       <FilterBar
-        filters={filters}
+        filters={filterConfigs}
         onFiltersChange={handleFiltersChange}
-        filterConfigs={filterConfigs}
       />
 
       <DataTable
         columns={columns}
         data={data?.disputes || []}
-        loading={isLoading}
+        isLoading={isLoading}
         pagination={pagination}
         onPaginationChange={setPagination}
         pageCount={Math.ceil((data?.total || 0) / pagination.pageSize)}
-        emptyMessage="No disputes found"
+        manualPagination={true}
       />
 
       <Dialog open={resolveDialogOpen} onOpenChange={setResolveDialogOpen}>
