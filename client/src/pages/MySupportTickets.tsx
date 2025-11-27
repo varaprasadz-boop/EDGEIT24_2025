@@ -29,12 +29,12 @@ export default function MySupportTickets() {
   const [ratingComment, setRatingComment] = useState("");
 
   // Fetch user's tickets
-  const { data: tickets, isLoading } = useQuery({
+  const { data: tickets = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/support-tickets'],
   });
 
   // Fetch messages for selected ticket
-  const { data: messages } = useQuery({
+  const { data: messages = [] } = useQuery<any[]>({
     queryKey: ['/api/support-tickets', selectedTicket?.id, 'messages'],
     enabled: !!selectedTicket,
   });
@@ -42,11 +42,7 @@ export default function MySupportTickets() {
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async (message: string) => {
-      return await apiRequest(`/api/support-tickets/${selectedTicket.id}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
+      return await apiRequest("POST", `/api/support-tickets/${selectedTicket.id}/messages`, { message });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/support-tickets', selectedTicket.id, 'messages'] });
@@ -69,11 +65,7 @@ export default function MySupportTickets() {
   // Rate ticket mutation
   const rateTicketMutation = useMutation({
     mutationFn: async ({ rating, comment }: { rating: number; comment: string }) => {
-      return await apiRequest(`/api/support-tickets/${selectedTicket.id}/rate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating, comment }),
-      });
+      return await apiRequest("POST", `/api/support-tickets/${selectedTicket.id}/rate`, { rating, comment });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/support-tickets'] });

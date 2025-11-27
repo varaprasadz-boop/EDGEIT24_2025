@@ -68,10 +68,13 @@ export default function ContactSupport() {
         formData.append("attachments", file);
       });
       
-      return await apiRequest("/api/support-tickets", {
+      const res = await fetch("/api/support-tickets", {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
+      if (!res.ok) throw new Error("Failed to create support ticket");
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/support-tickets'] });

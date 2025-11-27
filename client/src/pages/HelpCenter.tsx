@@ -22,7 +22,7 @@ export default function HelpCenter() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch popular help articles from CMS
-  const { data: popularArticles } = useQuery({
+  const { data: popularArticles = [] } = useQuery<any[]>({
     queryKey: ['/api/content/pages', { tags: 'help,faq' }],
   });
 

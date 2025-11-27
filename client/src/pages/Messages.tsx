@@ -174,7 +174,7 @@ export default function Messages() {
 
   // Fetch message files for the conversation
   // Include messages in query key so it refetches when messages change
-  const messageIds = messages?.map(m => m.id) || [];
+  const messageIds = messages?.map((m: Message) => m.id) || [];
   const { data: messageFilesMap = {} } = useQuery<Record<string, MessageFile[]>>({
     queryKey: ["/api/conversations", selectedConversationId, "files", messageIds.join(",")],
     queryFn: async () => {
@@ -193,7 +193,7 @@ export default function Messages() {
       const filesMap: Record<string, MessageFile[]> = {};
       
       // Initialize all message IDs with empty arrays
-      messageIds.forEach(id => {
+      messageIds.forEach((id: string) => {
         filesMap[id] = [];
       });
       
@@ -761,7 +761,7 @@ export default function Messages() {
                       </div>
                     )}
                     
-                    {messages.map((message) => {
+                    {messages.map((message: Message) => {
                       const isOwnMessage = message.senderId === user?.id;
                       return (
                         <div

@@ -54,10 +54,7 @@ export default function RaiseDispute() {
   });
 
   const createDisputeMutation = useMutation({
-    mutationFn: (data: DisputeFormValues) => apiRequest('/api/disputes', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    mutationFn: (data: DisputeFormValues) => apiRequest('POST', '/api/disputes', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/disputes'] });
       toast({

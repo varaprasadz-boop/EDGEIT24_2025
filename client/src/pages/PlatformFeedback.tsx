@@ -79,23 +79,19 @@ export default function PlatformFeedback() {
   });
 
   // Fetch feature suggestions
-  const { data: featureSuggestions } = useQuery({
+  const { data: featureSuggestions = [] } = useQuery<any[]>({
     queryKey: ['/api/feature-suggestions'],
   });
 
   // Fetch active surveys
-  const { data: activeSurveys } = useQuery({
+  const { data: activeSurveys = [] } = useQuery<any[]>({
     queryKey: ['/api/surveys/active'],
   });
 
   // Submit feedback mutation
   const submitFeedbackMutation = useMutation({
     mutationFn: async (data: FeedbackForm) => {
-      return await apiRequest("/api/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("POST", "/api/feedback", data);
     },
     onSuccess: () => {
       toast({
@@ -117,11 +113,7 @@ export default function PlatformFeedback() {
   // Submit feature suggestion mutation
   const submitFeatureMutation = useMutation({
     mutationFn: async (data: FeatureSuggestionForm) => {
-      return await apiRequest("/api/feature-suggestions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("POST", "/api/feature-suggestions", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/feature-suggestions'] });
@@ -143,9 +135,7 @@ export default function PlatformFeedback() {
   // Vote mutation
   const voteMutation = useMutation({
     mutationFn: async (suggestionId: string) => {
-      return await apiRequest(`/api/feature-suggestions/${suggestionId}/vote`, {
-        method: "POST",
-      });
+      return await apiRequest("POST", `/api/feature-suggestions/${suggestionId}/vote`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/feature-suggestions'] });

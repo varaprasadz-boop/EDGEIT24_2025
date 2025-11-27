@@ -6,7 +6,27 @@ EDGEIT24 is a B2B marketplace connecting businesses with IT service vendors. It 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (Nov 26, 2025)
+## Recent Changes (Nov 27, 2025)
+**UserLayout Unified Navigation System:**
+- Implemented consistent role-based left navigation across 19 authenticated pages
+- **Pages with UserLayout** (role-based nav with notifications, theme toggle, language switcher, user avatar):
+  - Critical pages: Dashboard, PostJob, BrowseJobs, BrowseConsultants, ClientProfile
+  - Consultant pages: FindProjectsPage, CreateInvoicePage, SavedRequirementsPage
+  - Client pages: FindConsultantsPage, VendorListsPage, CompareConsultantsPage
+  - Dispute pages: RaiseDispute, MyDisputes
+  - Support pages: MySupportTickets, PlatformFeedback
+  - Help pages: HelpCenter, FAQPage, KnowledgeBase, ContactSupport
+- **Intentional Exceptions** (no UserLayout by design):
+  - ProfileCompletion: Onboarding wizard with custom progress nav and "Skip for Now" button
+  - Messages: Full-screen messaging interface with its own conversation sidebar (avoid double-sidebar confusion)
+- **Code Quality Improvements:**
+  - Fixed apiRequest usage across all modified pages (correct signature: method, url, data)
+  - Added proper TypeScript typing to all useQuery hooks with default empty arrays
+  - Fixed FormData upload in ContactSupport to use raw fetch instead of apiRequest
+  - All LSP errors resolved (21 diagnostics fixed across 6 files)
+- **Architecture:** UserLayout component provides consistent left navigation, replacing previous Header component pattern on many pages while preserving special-purpose layouts where appropriate
+
+## Previous Changes (Nov 26, 2025)
 **Subscription Plan Role-Based Filtering:**
 - Fixed registration flow to show only role-appropriate subscription plans
 - Backend: Updated `/api/subscription-plans` endpoint to use OR logic for audience filtering
