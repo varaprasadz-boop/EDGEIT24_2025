@@ -568,7 +568,7 @@ export default function BrowseConsultants() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </UserLayout>
   );
 }
