@@ -342,7 +342,8 @@ export function buildEscrowRouter(deps: RouteBuilderDeps) {
       }
 
       // Refund from escrow (ownership verification happens in storage layer)
-      await storage.refundFromEscrow(escrowAccount.id, amount, reason, userId);
+      // Parameters: (accountId, amount, createdBy, description)
+      await storage.refundFromEscrow(escrowAccount.id, amount, userId, reason);
 
       res.json({ 
         message: "Refund processed successfully",
