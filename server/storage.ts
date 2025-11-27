@@ -713,7 +713,7 @@ export interface IStorage {
   getClientProjects(clientId: string, filters?: { status?: string; categoryId?: string; limit?: number; offset?: number }): Promise<{ projects: Project[]; total: number }>;
   updateProject(projectId: string, data: Partial<InsertProject>): Promise<Project>;
   updateProjectStatus(projectId: string, status: string, userId: string): Promise<Project>;
-  updateMilestoneStatus(projectId: string, milestoneIndex: number, status: string, progress?: number): Promise<Project>;
+  updateMilestoneStatus(projectId: string, milestoneIndex: number, status: string, progress?: number, userId?: string): Promise<Project>;
   extendProjectDeadline(projectId: string, newEndDate: Date, reason: string, userId: string): Promise<Project>;
   
   // Milestone Comment operations
@@ -827,6 +827,7 @@ export interface IStorage {
   getEscrowBalance(accountId: string): Promise<{ totalAmount: string; availableBalance: string; onHoldAmount: string; releasedAmount: string; refundedAmount: string }>;
   updateEscrowStatus(accountId: string, status: string): Promise<EscrowAccount>;
   getEscrowAnalytics(): Promise<{ totalEscrow: string; activeProjects: number; pendingReleases: number }>;
+  getProjectPaymentStatus(projectId: string): Promise<{ escrowFunded: boolean; escrowBalance: string; projectBudget: string; releasedAmount: string; milestonesStatus: Array<{ index: number; amount: string; funded: boolean; title: string; status: string }> }>;
 
   // 8.2 Payment Milestone operations (8 methods)
   createPaymentMilestone(milestone: InsertPaymentMilestone): Promise<PaymentMilestone>;
@@ -5393,6 +5394,56 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateProjectStatus(projectId: string, status: string, userId: string): Promise<Project> {
+    // PAYMENT VALIDATION: Check escrow balance before consultant can start project
+    if (status === 'in_progress') {
+      const project = await this.getProjectById(projectId);
+      if (!project) {
+        throw new Error('Project not found');
+      }
+      
+      // Get user to verify role
+      const user = await this.getUser(userId);
+      
+      // Only validate payment when consultant starts work
+      if (user?.role === 'consultant' && project.consultantId === userId) {
+        const escrowAccount = await this.getEscrowAccountByProject(projectId);
+        
+        if (!escrowAccount) {
+          throw new Error('Escrow account not found. Client must set up escrow before project can start.');
+        }
+        
+        const availableBalance = parseFloat(escrowAccount.availableBalance || '0');
+        
+        // For multi-milestone projects: only require first milestone to be funded
+        // For single milestone or no milestones: require full budget to be funded
+        const milestones = project.milestones && Array.isArray(project.milestones) ? project.milestones as any[] : [];
+        let requiredAmount: number;
+        let errorContext: string;
+        
+        if (milestones.length > 1) {
+          // Multi-milestone project: require first milestone amount
+          const firstMilestone = milestones.find(m => m.status !== 'completed') || milestones[0];
+          const amount = firstMilestone?.amount;
+          requiredAmount = amount && !isNaN(parseFloat(amount)) ? parseFloat(amount) : 0;
+          errorContext = `the first milestone (${firstMilestone?.title || 'Milestone 1'})`;
+        } else if (milestones.length === 1) {
+          // Single milestone: require that milestone amount (which should equal budget)
+          const amount = milestones[0]?.amount || project.budget || '0';
+          requiredAmount = !isNaN(parseFloat(amount)) ? parseFloat(amount) : 0;
+          errorContext = 'the project milestone';
+        } else {
+          // No milestones: require full budget
+          requiredAmount = !isNaN(parseFloat(project.budget || '0')) ? parseFloat(project.budget || '0') : 0;
+          errorContext = 'the project';
+        }
+        
+        if (requiredAmount > 0 && availableBalance < requiredAmount) {
+          const shortfall = (requiredAmount - availableBalance).toFixed(2);
+          throw new Error(`Insufficient escrow balance for ${errorContext}. Client must deposit SAR ${shortfall} before you can start work. Required: SAR ${requiredAmount.toFixed(2)}, Available: SAR ${availableBalance.toFixed(2)}`);
+        }
+      }
+    }
+    
     const [updated] = await db.update(projects)
       .set({ status, updatedAt: new Date() })
       .where(eq(projects.id, projectId))
@@ -5412,13 +5463,38 @@ export class DatabaseStorage implements IStorage {
     projectId: string,
     milestoneIndex: number,
     status: string,
-    progress?: number
+    progress?: number,
+    userId?: string
   ): Promise<Project> {
     const project = await this.getProjectById(projectId);
     if (!project || !project.milestones) throw new Error('Project not found');
     
     const milestones = project.milestones as any[];
     if (milestoneIndex >= milestones.length) throw new Error('Invalid milestone index');
+    
+    // MILESTONE PAYMENT VALIDATION: Check escrow balance before consultant can start milestone
+    if (status === 'in_progress' && userId) {
+      const user = await this.getUser(userId);
+      
+      // Only validate payment when consultant starts milestone work
+      if (user?.role === 'consultant' && project.consultantId === userId) {
+        const escrowAccount = await this.getEscrowAccountByProject(projectId);
+        
+        if (!escrowAccount) {
+          throw new Error('Escrow account not found. Client must set up escrow before milestone can start.');
+        }
+        
+        const milestone = milestones[milestoneIndex];
+        const amount = milestone?.amount || '0';
+        const requiredAmount = !isNaN(parseFloat(amount)) ? parseFloat(amount) : 0;
+        const availableBalance = parseFloat(escrowAccount.availableBalance || '0');
+        
+        if (requiredAmount > 0 && availableBalance < requiredAmount) {
+          const shortfall = (requiredAmount - availableBalance).toFixed(2);
+          throw new Error(`Insufficient escrow balance for Milestone ${milestoneIndex + 1}. Client must deposit SAR ${shortfall} before you can start work. Required: SAR ${requiredAmount.toFixed(2)}, Available: SAR ${availableBalance.toFixed(2)}`);
+        }
+      }
+    }
     
     milestones[milestoneIndex].status = status;
     if (progress !== undefined) {
@@ -6674,6 +6750,53 @@ export class DatabaseStorage implements IStorage {
     }).length;
     
     return { totalEscrow, activeProjects, pendingReleases };
+  }
+
+  async getProjectPaymentStatus(projectId: string): Promise<{ 
+    escrowFunded: boolean; 
+    escrowBalance: string; 
+    projectBudget: string; 
+    releasedAmount: string; 
+    milestonesStatus: Array<{ index: number; amount: string; funded: boolean; title: string; status: string }> 
+  }> {
+    const project = await this.getProjectById(projectId);
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    const escrowAccount = await this.getEscrowAccountByProject(projectId);
+    const projectBudget = project.budget || '0.00';
+    const escrowBalance = escrowAccount?.availableBalance || '0.00';
+    const releasedAmount = escrowAccount?.releasedAmount || '0.00';
+    
+    const budgetAmount = parseFloat(projectBudget);
+    const availableAmount = parseFloat(escrowBalance);
+    const escrowFunded = availableAmount >= budgetAmount;
+
+    // Process milestones if they exist
+    const milestonesStatus: Array<{ index: number; amount: string; funded: boolean; title: string; status: string }> = [];
+    if (project.milestones && Array.isArray(project.milestones)) {
+      const milestones = project.milestones as any[];
+      milestones.forEach((milestone, index) => {
+        const milestoneAmount = parseFloat(milestone.amount || '0');
+        const funded = availableAmount >= milestoneAmount;
+        milestonesStatus.push({
+          index,
+          amount: milestone.amount || '0.00',
+          funded,
+          title: milestone.title || `Milestone ${index + 1}`,
+          status: milestone.status || 'not_started'
+        });
+      });
+    }
+
+    return {
+      escrowFunded,
+      escrowBalance,
+      projectBudget,
+      releasedAmount,
+      milestonesStatus
+    };
   }
 
   // 8.2 PAYMENT MILESTONE OPERATIONS (8 methods)

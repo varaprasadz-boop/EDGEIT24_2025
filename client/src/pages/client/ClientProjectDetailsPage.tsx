@@ -13,6 +13,7 @@ import { ProjectStatusBadge } from "@/components/ProjectStatusBadge";
 import { ProjectProgressBar } from "@/components/ProjectProgressBar";
 import { MilestoneCard } from "@/components/MilestoneCard";
 import { ProjectDeliveryTab } from "@/components/delivery/ProjectDeliveryTab";
+import { EscrowBalanceCard } from "@/components/EscrowBalanceCard";
 import { ArrowLeft, CheckCircle, XCircle, Calendar as CalendarIcon, DollarSign, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -26,6 +27,11 @@ export default function ClientProjectDetailsPage() {
 
   const { data: project, isLoading } = useQuery({
     queryKey: [`/api/projects/${id}`],
+    enabled: !!id,
+  });
+
+  const { data: paymentStatus } = useQuery({
+    queryKey: [`/api/projects/${id}/payment-status`],
     enabled: !!id,
   });
 
@@ -225,6 +231,15 @@ export default function ClientProjectDetailsPage() {
               />
             </CardContent>
           </Card>
+
+          {paymentStatus && (
+            <EscrowBalanceCard 
+              projectBudget={paymentStatus.projectBudget}
+              escrowBalance={paymentStatus.escrowBalance}
+              releasedAmount={paymentStatus.releasedAmount}
+              currency={project.currency || 'SAR'}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="milestones" className="space-y-4">

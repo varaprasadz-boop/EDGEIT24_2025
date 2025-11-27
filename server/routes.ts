@@ -2587,6 +2587,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/projects/:id/payment-status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const project = await storage.getProjectById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Verify user is part of this project
+      const isClient = project.clientId === userId;
+      const isConsultant = project.consultantId === userId;
+      if (!isClient && !isConsultant) {
+        return res.status(403).json({ message: "Unauthorized: You must be part of this project" });
+      }
+
+      const paymentStatus = await storage.getProjectPaymentStatus(req.params.id);
+      res.json(paymentStatus);
+    } catch (error) {
+      console.error("Error fetching payment status:", error);
+      res.status(500).json({ message: "Failed to fetch payment status" });
+    }
+  });
+
   app.patch('/api/projects/:id/status', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserIdFromRequest(req);
@@ -2668,7 +2695,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const milestoneIndex = parseInt(req.params.index);
       const { status, progress } = req.body;
 
-      const updatedProject = await storage.updateMilestoneStatus(req.params.id, milestoneIndex, status, progress);
+      const updatedProject = await storage.updateMilestoneStatus(req.params.id, milestoneIndex, status, progress, userId);
       
       // Notify client when milestone is completed
       if (status === 'completed') {
