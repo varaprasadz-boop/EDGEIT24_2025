@@ -2346,7 +2346,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/bids/:id/accept', isAuthenticated, async (req: any, res) => {
+  // Helper function for bid acceptance logic
+  const handleBidAccept = async (req: any, res: any) => {
     try {
       const userId = getUserIdFromRequest(req);
       if (!userId) {
@@ -2405,6 +2406,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         signedAt: null,
       });
 
+      // Verify project was created
+      if (!project || !project.id) {
+        console.error("Project creation failed - no project returned");
+        return res.status(500).json({ message: "Failed to create project from bid" });
+      }
+
       // Now send bid awarded notification with project ID
       if (awardedNotificationPending) {
         try {
@@ -2423,7 +2430,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error accepting bid:", error);
       res.status(500).json({ message: "Failed to accept bid" });
     }
-  });
+  };
+
+  // Support both POST and PATCH for accepting bids
+  app.post('/api/bids/:id/accept', isAuthenticated, handleBidAccept);
+  app.patch('/api/bids/:id/accept', isAuthenticated, handleBidAccept);
 
   app.post('/api/bids/:id/decline', isAuthenticated, async (req: any, res) => {
     try {
@@ -7944,6 +7955,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error listing jobs:", error);
       res.status(500).json({ message: "Failed to list jobs" });
+    }
+  });
+
+  // Get single job by ID
+  app.get('/api/jobs/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const job = await storage.getJobById(req.params.id);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Get category path label (with fallback if category doesn't exist)
+      let categoryPathLabel = '';
+      try {
+        if (job.categoryId) {
+          const categoryPath = await storage.getCategoryPath(job.categoryId);
+          categoryPathLabel = categoryPath.map((c: any) => c.name).join(' > ');
+        }
+      } catch (catError) {
+        console.error("Error fetching category path:", catError);
+        categoryPathLabel = 'Unknown Category';
+      }
+
+      // Get client info (if available, with fallback)
+      let clientName = 'Anonymous';
+      let clientCompany = null;
+      try {
+        const client = await storage.getUserById(job.clientId);
+        if (client) {
+          clientName = client.displayName || client.firstName || 'Anonymous';
+          const clientProfile = await storage.getClientProfile(client.id);
+          clientCompany = clientProfile?.companyName || null;
+        }
+      } catch (clientError) {
+        console.error("Error fetching client info:", clientError);
+      }
+
+      res.json({
+        ...job,
+        categoryPathLabel,
+        clientName,
+        clientCompany,
+      });
+    } catch (error) {
+      console.error("Error fetching job:", error);
+      res.status(500).json({ message: "Failed to fetch job" });
+    }
+  });
+
+  // Get consultant's bid for a specific job
+  app.get('/api/jobs/:id/my-bid', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const bids = await storage.getBidsByJobId(req.params.id);
+      const myBid = bids.find((b: any) => b.consultantId === userId);
+
+      if (!myBid) {
+        return res.json(null);
+      }
+
+      res.json({ id: myBid.id, status: myBid.status });
+    } catch (error) {
+      console.error("Error fetching my bid:", error);
+      res.status(500).json({ message: "Failed to fetch bid" });
     }
   });
 

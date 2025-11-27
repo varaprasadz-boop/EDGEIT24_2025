@@ -58,6 +58,7 @@ import ContactSupport from "@/pages/ContactSupport";
 import MySupportTickets from "@/pages/MySupportTickets";
 import PlatformFeedback from "@/pages/PlatformFeedback";
 import NotFound from "@/pages/not-found";
+import JobDetailPage from "@/pages/JobDetailPage";
 
 function Router() {
   return (
@@ -73,6 +74,9 @@ function Router() {
       <Route path="/post-job" component={PostJob} />
       <Route path="/my-jobs" component={MyJobs} />
       <Route path="/browse-jobs" component={BrowseJobs} />
+      <Route path="/jobs" component={BrowseJobs} />
+      <Route path="/jobs/:id" component={JobDetailPage} />
+      <Route path="/consultant/browse-jobs" component={BrowseJobs} />
       <Route path="/browse-consultants" component={BrowseConsultants} />
       <Route path="/profile/complete" component={ProfileCompletion} />
       <Route path="/profile/client" component={ClientProfile} />
