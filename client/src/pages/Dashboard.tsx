@@ -1488,8 +1488,9 @@ export default function Dashboard() {
           {reviewProject && reviewProject.consultantId && (
             <ReviewForm
               projectId={reviewProject.id}
-              consultantId={reviewProject.consultantId}
-              consultantName={reviewProject.consultantName || "Consultant"}
+              revieweeId={reviewProject.consultantId}
+              revieweeName={reviewProject.consultantName || "Consultant"}
+              reviewType="for_consultant"
               onSuccess={() => {
                 setReviewDialogOpen(false);
                 setReviewProject(null);
