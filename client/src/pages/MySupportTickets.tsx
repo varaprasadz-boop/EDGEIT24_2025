@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
+import { UserLayout } from "@/components/UserLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -140,7 +141,8 @@ export default function MySupportTickets() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <UserLayout>
+      <div className="container mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold mb-2" data-testid="text-my-tickets-title">
@@ -355,6 +357,7 @@ export default function MySupportTickets() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </UserLayout>
   );
 }

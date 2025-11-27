@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { UserLayout } from "@/components/UserLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,7 +117,8 @@ export default function ContactSupport() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <UserLayout>
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2" data-testid="text-contact-support-title">
           Contact Support
@@ -369,6 +371,7 @@ export default function ContactSupport() {
           </Card>
         </div>
       </div>
-    </div>
+      </div>
+    </UserLayout>
   );
 }

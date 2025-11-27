@@ -1,3 +1,4 @@
+import { UserLayout } from "@/components/UserLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
@@ -98,7 +99,8 @@ export default function HelpCenter() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <UserLayout>
+      <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-b">
         <div className="container mx-auto px-4 py-12 md:py-20">
@@ -213,6 +215,7 @@ export default function HelpCenter() {
           </CardContent>
         </Card>
       </div>
-    </div>
+      </div>
+    </UserLayout>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { UserLayout } from "@/components/UserLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -49,7 +50,8 @@ export default function FAQPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <UserLayout>
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2" data-testid="text-faq-title">
           Frequently Asked Questions
@@ -142,6 +144,7 @@ export default function FAQPage() {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </UserLayout>
   );
 }

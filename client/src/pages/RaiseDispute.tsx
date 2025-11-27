@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { z } from "zod";
+import { UserLayout } from "@/components/UserLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -79,7 +80,8 @@ export default function RaiseDispute() {
   };
 
   return (
-    <div className="container max-w-4xl py-8">
+    <UserLayout>
+      <div className="container max-w-4xl py-8">
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -230,6 +232,7 @@ export default function RaiseDispute() {
           </Form>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </UserLayout>
   );
 }

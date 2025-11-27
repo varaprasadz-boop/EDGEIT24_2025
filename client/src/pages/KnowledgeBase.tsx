@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { UserLayout } from "@/components/UserLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +52,8 @@ export default function KnowledgeBase() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <UserLayout>
+      <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2" data-testid="text-kb-title">
           Knowledge Base
@@ -153,6 +155,7 @@ export default function KnowledgeBase() {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </UserLayout>
   );
 }

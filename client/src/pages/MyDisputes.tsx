@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { UserLayout } from "@/components/UserLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +44,8 @@ export default function MyDisputes() {
   const disputes = data?.disputes || [];
 
   return (
-    <div className="container max-w-6xl py-8">
+    <UserLayout>
+      <div className="container max-w-6xl py-8">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <AlertCircle className="h-6 w-6 text-destructive" />
@@ -125,6 +127,7 @@ export default function MyDisputes() {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </UserLayout>
   );
 }
