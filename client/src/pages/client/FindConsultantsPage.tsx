@@ -9,7 +9,7 @@ import { SaveToListDialog } from '@/components/SaveToListDialog';
 import { InviteToBidDialog } from '@/components/InviteToBidDialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import type { ConsultantProfile } from '@db/schema';
+import type { ConsultantProfile } from '@shared/schema';
 import {
   Select,
   SelectContent,

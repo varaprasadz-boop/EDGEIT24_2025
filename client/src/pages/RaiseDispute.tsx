@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { AlertCircle, FileText } from "lucide-react";
-import type { Project } from "@db/schema";
+import type { Project } from "@shared/schema";
 
 const disputeFormSchema = z.object({
   projectId: z.string().uuid({ message: "Please select a project" }),

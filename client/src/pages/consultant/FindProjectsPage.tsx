@@ -7,7 +7,7 @@ import { SearchFilters, SearchFilterValues } from '@/components/SearchFilters';
 import { ProjectSearchCard } from '@/components/ProjectSearchCard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import type { Job } from '@db/schema';
+import type { Job } from '@shared/schema';
 import {
   Select,
   SelectContent,
