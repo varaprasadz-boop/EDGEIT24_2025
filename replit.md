@@ -7,7 +7,7 @@ EDGEIT24 is a B2B marketplace connecting businesses with IT service vendors. It 
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (Nov 27, 2025)
-**UserLayout Unified Navigation System:**
+**UserLayout Unified Navigation System - COMPLETED:**
 - Implemented consistent role-based left navigation across 19 authenticated pages
 - **Pages with UserLayout** (role-based nav with notifications, theme toggle, language switcher, user avatar):
   - Critical pages: Dashboard, PostJob, BrowseJobs, BrowseConsultants, ClientProfile
@@ -19,11 +19,20 @@ Preferred communication style: Simple, everyday language.
 - **Intentional Exceptions** (no UserLayout by design):
   - ProfileCompletion: Onboarding wizard with custom progress nav and "Skip for Now" button
   - Messages: Full-screen messaging interface with its own conversation sidebar (avoid double-sidebar confusion)
+- **Critical Bug Fix - FindProjectsPage SelectItem Crash:**
+  - **Root Cause:** SearchFilters.tsx used empty-string SelectItem values (`value=""`), which Radix UI treats as invalid/missing, causing React runtime error
+  - **Solution:** Replaced empty strings with sentinel values ("all"/"any") that map to undefined in onValueChange handlers
+  - **Files Modified:** client/src/components/SearchFilters.tsx (3 SelectItem instances fixed)
+  - **Impact:** FindProjectsPage and FindConsultantsPage now render correctly with fully functional Select dropdowns
+- **Provider Context Fix:**
+  - Moved TooltipProvider above AuthProvider in App.tsx to ensure Select components have context during route redirects
+  - Removed redundant TooltipProvider from Sidebar component
 - **Code Quality Improvements:**
   - Fixed apiRequest usage across all modified pages (correct signature: method, url, data)
   - Added proper TypeScript typing to all useQuery hooks with default empty arrays
   - Fixed FormData upload in ContactSupport to use raw fetch instead of apiRequest
   - All LSP errors resolved (21 diagnostics fixed across 6 files)
+  - E2E tested with Playwright: All pages render, all Select dropdowns functional
 - **Architecture:** UserLayout component provides consistent left navigation, replacing previous Header component pattern on many pages while preserving special-purpose layouts where appropriate
 
 ## Previous Changes (Nov 26, 2025)

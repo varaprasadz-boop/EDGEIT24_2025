@@ -154,14 +154,14 @@ export function SearchFilters({ searchType, filters, onFiltersChange, onClearAll
         <div>
           <Label htmlFor="filter-category">Category</Label>
           <Select
-            value={filters.category || ''}
-            onValueChange={(value) => updateFilter('category', value || undefined)}
+            value={filters.category || 'all'}
+            onValueChange={(value) => updateFilter('category', value === 'all' ? undefined : value)}
           >
             <SelectTrigger id="filter-category" data-testid="select-category">
               <SelectValue placeholder="All categories" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All categories</SelectItem>
+              <SelectItem value="all">All categories</SelectItem>
               {categories.map(cat => (
                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
               ))}
@@ -173,14 +173,14 @@ export function SearchFilters({ searchType, filters, onFiltersChange, onClearAll
           <div>
             <Label htmlFor="filter-status">Status</Label>
             <Select
-              value={filters.status || ''}
-              onValueChange={(value) => updateFilter('status', value || undefined)}
+              value={filters.status || 'all'}
+              onValueChange={(value) => updateFilter('status', value === 'all' ? undefined : value)}
             >
               <SelectTrigger id="filter-status" data-testid="select-status">
                 <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All statuses</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="open">Open</SelectItem>
                 <SelectItem value="in_progress">In Progress</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
@@ -251,14 +251,14 @@ export function SearchFilters({ searchType, filters, onFiltersChange, onClearAll
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-2">
             <Select
-              value={filters.location || ''}
-              onValueChange={(value) => updateFilter('location', value || undefined)}
+              value={filters.location || 'any'}
+              onValueChange={(value) => updateFilter('location', value === 'any' ? undefined : value)}
             >
               <SelectTrigger data-testid="select-location">
                 <SelectValue placeholder="Any location" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Any location</SelectItem>
+                <SelectItem value="any">Any location</SelectItem>
                 {locations.map(loc => (
                   <SelectItem key={loc} value={loc}>{loc}</SelectItem>
                 ))}
