@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { z } from "zod";
+import { UserLayout } from "@/components/UserLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -127,7 +128,8 @@ export default function CreateInvoicePage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <UserLayout>
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-6">
         <Link href="/consultant/invoices">
           <Button variant="ghost" size="sm" data-testid="button-back">
@@ -341,6 +343,7 @@ export default function CreateInvoicePage() {
           </form>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </UserLayout>
   );
 }

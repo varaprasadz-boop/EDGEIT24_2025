@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { UserLayout } from '@/components/UserLayout';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
@@ -147,7 +148,8 @@ export default function VendorListsPage() {
   };
 
   return (
-    <div className="container mx-auto py-6 px-4">
+    <UserLayout>
+      <div className="container mx-auto py-6 px-4">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold mb-2" data-testid="page-title">My Vendor Lists</h1>
@@ -289,7 +291,8 @@ export default function VendorListsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </UserLayout>
   );
 }
 

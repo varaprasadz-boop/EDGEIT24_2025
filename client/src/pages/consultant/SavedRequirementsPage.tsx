@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { UserLayout } from '@/components/UserLayout';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -175,7 +176,8 @@ export default function SavedRequirementsPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 px-4">
+    <UserLayout>
+      <div className="container mx-auto py-6 px-4">
       <div className="mb-6">
         <h1 className="text-3xl font-bold" data-testid="heading-saved-requirements">Saved Jobs</h1>
         <p className="text-muted-foreground">
@@ -368,6 +370,7 @@ export default function SavedRequirementsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </UserLayout>
   );
 }

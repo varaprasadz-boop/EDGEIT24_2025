@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useSearch } from 'wouter';
+import { UserLayout } from '@/components/UserLayout';
 import { GlobalSearchBar } from '@/components/GlobalSearchBar';
 import { SearchFilters, SearchFilterValues } from '@/components/SearchFilters';
 import { ProjectSearchCard } from '@/components/ProjectSearchCard';
@@ -67,7 +68,8 @@ export default function FindProjectsPage() {
   };
 
   return (
-    <div className="container mx-auto py-6 px-4">
+    <UserLayout>
+      <div className="container mx-auto py-6 px-4">
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2" data-testid="page-title">Find Projects</h1>
         <p className="text-muted-foreground">
@@ -161,6 +163,7 @@ export default function FindProjectsPage() {
           )}
         </main>
       </div>
-    </div>
+      </div>
+    </UserLayout>
   );
 }

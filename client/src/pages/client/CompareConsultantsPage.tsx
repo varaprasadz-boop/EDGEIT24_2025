@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useSearch, useLocation } from 'wouter';
+import { UserLayout } from '@/components/UserLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,16 +21,18 @@ export default function CompareConsultantsPage() {
 
   if (consultantIds.length === 0) {
     return (
-      <div className="container mx-auto py-6 px-4">
-        <Card className="p-12 text-center">
-          <p className="text-muted-foreground">
-            No consultants selected for comparison. Please select consultants from the search page.
-          </p>
-          <Button onClick={() => navigate('/client/find-consultants')} className="mt-4">
-            Find Consultants
-          </Button>
-        </Card>
-      </div>
+      <UserLayout>
+        <div className="container mx-auto py-6 px-4">
+          <Card className="p-12 text-center">
+            <p className="text-muted-foreground">
+              No consultants selected for comparison. Please select consultants from the search page.
+            </p>
+            <Button onClick={() => navigate('/client/find-consultants')} className="mt-4">
+              Find Consultants
+            </Button>
+          </Card>
+        </div>
+      </UserLayout>
     );
   }
 
@@ -44,7 +47,8 @@ export default function CompareConsultantsPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 px-4">
+    <UserLayout>
+      <div className="container mx-auto py-6 px-4">
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2" data-testid="page-title">Compare Consultants</h1>
         <p className="text-muted-foreground">
@@ -190,7 +194,8 @@ export default function CompareConsultantsPage() {
           </tbody>
         </table>
       </div>
-    </div>
+      </div>
+    </UserLayout>
   );
 }
 
