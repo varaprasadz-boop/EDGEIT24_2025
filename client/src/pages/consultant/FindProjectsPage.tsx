@@ -7,6 +7,7 @@ import { SearchFilters, SearchFilterValues } from '@/components/SearchFilters';
 import { ProjectSearchCard } from '@/components/ProjectSearchCard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import type { Job } from '@db/schema';
 import {
   Select,
   SelectContent,
@@ -44,12 +45,12 @@ export default function FindProjectsPage() {
     return params.toString();
   };
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<{ jobs: Job[]; total: number }>({
     queryKey: ['/api/jobs/search', buildSearchParams()],
   });
 
-  const jobs = (data as any)?.jobs || [];
-  const total = (data as any)?.total || 0;
+  const jobs = data?.jobs ?? [];
+  const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / limit);
 
   const handleSearch = (searchQuery: string) => {

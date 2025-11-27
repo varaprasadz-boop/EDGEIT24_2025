@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { AlertCircle, FileText } from "lucide-react";
+import type { Project } from "@db/schema";
 
 const disputeFormSchema = z.object({
   projectId: z.string().uuid({ message: "Please select a project" }),
@@ -42,7 +43,7 @@ export default function RaiseDispute() {
   });
 
   // Fetch user's active projects
-  const { data: projects, isLoading: projectsLoading } = useQuery({
+  const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ['/api/projects/my-projects'],
     queryFn: async () => {
       const res = await fetch('/api/projects/my-projects?status=in_progress', {

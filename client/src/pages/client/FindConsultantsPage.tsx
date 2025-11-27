@@ -9,6 +9,7 @@ import { SaveToListDialog } from '@/components/SaveToListDialog';
 import { InviteToBidDialog } from '@/components/InviteToBidDialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import type { ConsultantProfile } from '@db/schema';
 import {
   Select,
   SelectContent,
@@ -52,12 +53,12 @@ export default function FindConsultantsPage() {
     return params.toString();
   };
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<{ consultants: ConsultantProfile[]; total: number }>({
     queryKey: ['/api/consultants/search', buildSearchParams()],
   });
 
-  const consultants = (data as any)?.consultants || [];
-  const total = (data as any)?.total || 0;
+  const consultants = data?.consultants ?? [];
+  const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / limit);
 
   const handleSearch = (searchQuery: string) => {
