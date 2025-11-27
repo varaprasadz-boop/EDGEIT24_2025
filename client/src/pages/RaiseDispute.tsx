@@ -43,7 +43,7 @@ export default function RaiseDispute() {
   });
 
   // Fetch user's active projects
-  const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
+  const { data, isLoading: projectsLoading } = useQuery<{ projects: Project[]; total: number }>({
     queryKey: ['/api/projects/my-projects'],
     queryFn: async () => {
       const res = await fetch('/api/projects/my-projects?status=in_progress', {
@@ -53,6 +53,8 @@ export default function RaiseDispute() {
       return res.json();
     },
   });
+  
+  const projects = data?.projects ?? [];
 
   const createDisputeMutation = useMutation({
     mutationFn: (data: DisputeFormValues) => apiRequest('POST', '/api/disputes', data),
@@ -112,7 +114,7 @@ export default function RaiseDispute() {
                         {projectsLoading && (
                           <SelectItem value="loading" disabled>Loading projects...</SelectItem>
                         )}
-                        {projects?.projects?.map((project: any) => (
+                        {projects.map((project: Project) => (
                           <SelectItem 
                             key={project.id} 
                             value={project.id}
