@@ -6591,8 +6591,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Advanced consultant search
-  app.get('/api/consultants/search', isAuthenticated, async (req: any, res) => {
+  // Advanced consultant search (public access for browsing)
+  app.get('/api/consultants/search', async (req: any, res) => {
     try {
       // Strict string preprocessor - rejects non-strings with z.NEVER to prevent filter bypass
       const strictOptionalString = z.preprocess(

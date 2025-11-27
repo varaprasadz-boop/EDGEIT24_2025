@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { Link } from "wouter";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { UserLayout } from "@/components/UserLayout";
+import { PublicLayout } from "@/components/PublicLayout";
 import { SavedSearches } from "@/components/SavedSearches";
+import { AuthGateDialog } from "@/components/AuthGateDialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Star, MapPin, DollarSign, Users, Filter, X, Search, CheckCircle } from "lucide-react";
+import { Star, MapPin, DollarSign, Users, Filter, X, Search, CheckCircle, MessageSquare } from "lucide-react";
 import { VerificationBadge } from "@/components/VerificationBadge";
 
 interface CategoryNode {
@@ -60,6 +64,8 @@ interface SearchFilters {
 
 export default function BrowseConsultants() {
   const { t } = useTranslation();
+  const { isAuthenticated } = useAuthContext();
+  const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({
     search: "",
     categoryId: null,
@@ -178,8 +184,11 @@ export default function BrowseConsultants() {
     );
   };
 
+  // Conditional layout wrapper based on authentication
+  const Layout = isAuthenticated ? UserLayout : PublicLayout;
+
   return (
-    <UserLayout>
+    <Layout>
       <div className="container mx-auto px-4 md:px-6 py-8">
         <div className="space-y-6">
           <div>
@@ -193,11 +202,13 @@ export default function BrowseConsultants() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <SavedSearches
-                  searchType="consultant"
-                  currentFilters={filters}
-                  onLoadSearch={(loadedFilters) => setFilters({ ...filters, ...loadedFilters, offset: 0 })}
-                />
+                {isAuthenticated && (
+                  <SavedSearches
+                    searchType="consultant"
+                    currentFilters={filters}
+                    onLoadSearch={(loadedFilters) => setFilters({ ...filters, ...loadedFilters, offset: 0 })}
+                  />
+                )}
                 <Button
                   variant="outline"
                   onClick={() => setShowFilters(!showFilters)}
@@ -505,10 +516,37 @@ export default function BrowseConsultants() {
                               </div>
                             )}
 
-                            <div className="flex items-center gap-3">
-                              <Button className="flex-1 bg-primary text-primary-foreground" data-testid={`button-view-profile-${consultant.id}`}>
-                                {t('browseConsultants.consultantCard.viewProfile')}
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <Button 
+                                className="flex-1 bg-primary text-primary-foreground" 
+                                data-testid={`button-view-profile-${consultant.id}`}
+                                asChild
+                              >
+                                <Link href={`/profile/consultant/${consultant.id}`}>
+                                  {t('browseConsultants.consultantCard.viewProfile')}
+                                </Link>
                               </Button>
+                              {isAuthenticated ? (
+                                <Button 
+                                  variant="outline"
+                                  data-testid={`button-connect-${consultant.id}`}
+                                  asChild
+                                >
+                                  <Link href={`/messages?newChat=${consultant.id}`}>
+                                    <MessageSquare className="h-4 w-4 mr-2" />
+                                    {t('browseConsultants.consultantCard.connect', { defaultValue: 'Connect' })}
+                                  </Link>
+                                </Button>
+                              ) : (
+                                <Button 
+                                  variant="outline"
+                                  onClick={() => setShowAuthDialog(true)}
+                                  data-testid={`button-connect-${consultant.id}`}
+                                >
+                                  <MessageSquare className="h-4 w-4 mr-2" />
+                                  {t('browseConsultants.consultantCard.connect', { defaultValue: 'Connect' })}
+                                </Button>
+                              )}
                               {consultant.availability === 'available' && (
                                 <Badge variant="outline" className="border-green-500 text-green-600 dark:text-green-400">
                                   {t('browseConsultants.consultantCard.available')}
@@ -569,6 +607,13 @@ export default function BrowseConsultants() {
           </div>
         </div>
       </div>
-    </UserLayout>
+
+      <AuthGateDialog
+        open={showAuthDialog}
+        onOpenChange={setShowAuthDialog}
+        title={t('authGate.connectTitle', { defaultValue: 'Sign In to Connect' })}
+        description={t('authGate.connectDescription', { defaultValue: 'Create an account or sign in to connect with consultants, send messages, and access all platform features.' })}
+      />
+    </Layout>
   );
 }

@@ -492,16 +492,20 @@ export default function Home() {
                         </Badge>
                       ))}
                     </div>
-                    <Button className="w-full mt-4" variant="outline" data-testid={`button-view-profile-${idx}`}>
-                      {t('home.vendors.viewProfile')}
+                    <Button className="w-full mt-4" variant="outline" asChild data-testid={`button-view-profile-${idx}`}>
+                      <Link href="/browse-consultants">
+                        {t('home.vendors.viewProfile')}
+                      </Link>
                     </Button>
                   </CardContent>
                 </Card>
               ))}
             </div>
             <div className="text-center mt-8">
-              <Button size="lg" variant="outline" data-testid="button-view-all-vendors">
-                {t('home.vendors.viewAll')} <ArrowRight className="ml-2 h-5 w-5" />
+              <Button size="lg" variant="outline" asChild data-testid="button-view-all-vendors">
+                <Link href="/browse-consultants">
+                  {t('home.vendors.viewAll')} <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
               </Button>
             </div>
           </div>
