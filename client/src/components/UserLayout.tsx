@@ -13,6 +13,14 @@ import {
   Users,
   PlusCircle,
   RefreshCw,
+  Receipt,
+  Wallet,
+  BarChart3,
+  Bookmark,
+  Folder,
+  HelpCircle,
+  Scale,
+  ListChecks,
 } from "lucide-react";
 import {
   Sidebar,
@@ -115,11 +123,56 @@ export function UserLayout({ children }: UserLayoutProps) {
           icon: FolderKanban,
           testId: "nav-my-projects",
         },
+      ],
+    },
+    {
+      label: "Find Talent",
+      items: [
         {
           title: "Browse Consultants",
           url: "/browse-consultants",
           icon: Users,
           testId: "nav-browse-consultants",
+        },
+        {
+          title: "Vendor Lists",
+          url: "/client/vendor-lists",
+          icon: ListChecks,
+          testId: "nav-vendor-lists",
+        },
+        {
+          title: "Compare Consultants",
+          url: "/client/compare-consultants",
+          icon: Scale,
+          testId: "nav-compare-consultants",
+        },
+      ],
+    },
+    {
+      label: "Finance",
+      items: [
+        {
+          title: "Invoices",
+          url: "/client/invoices",
+          icon: Receipt,
+          testId: "nav-invoices",
+        },
+        {
+          title: "Wallet",
+          url: "/wallet",
+          icon: Wallet,
+          testId: "nav-wallet",
+        },
+      ],
+    },
+    {
+      label: "Performance",
+      items: [
+        {
+          title: "Analytics",
+          url: "/client/analytics",
+          icon: BarChart3,
+          testId: "nav-analytics",
         },
       ],
     },
@@ -131,6 +184,23 @@ export function UserLayout({ children }: UserLayoutProps) {
           url: "/messages",
           icon: MessageSquare,
           testId: "nav-messages",
+        },
+      ],
+    },
+    {
+      label: "Support",
+      items: [
+        {
+          title: "Help Center",
+          url: "/help",
+          icon: HelpCircle,
+          testId: "nav-help",
+        },
+        {
+          title: "My Disputes",
+          url: "/my-disputes",
+          icon: Scale,
+          testId: "nav-disputes",
         },
       ],
     },
@@ -187,6 +257,46 @@ export function UserLayout({ children }: UserLayoutProps) {
           icon: FolderKanban,
           testId: "nav-my-projects",
         },
+        {
+          title: "Portfolio",
+          url: "/portfolio",
+          icon: Folder,
+          testId: "nav-portfolio",
+        },
+        {
+          title: "Saved Jobs",
+          url: "/consultant/saved-requirements",
+          icon: Bookmark,
+          testId: "nav-saved-jobs",
+        },
+      ],
+    },
+    {
+      label: "Finance",
+      items: [
+        {
+          title: "Invoices",
+          url: "/consultant/invoices",
+          icon: Receipt,
+          testId: "nav-invoices",
+        },
+        {
+          title: "Wallet",
+          url: "/wallet",
+          icon: Wallet,
+          testId: "nav-wallet",
+        },
+      ],
+    },
+    {
+      label: "Performance",
+      items: [
+        {
+          title: "Analytics",
+          url: "/consultant/analytics",
+          icon: BarChart3,
+          testId: "nav-analytics",
+        },
       ],
     },
     {
@@ -197,6 +307,23 @@ export function UserLayout({ children }: UserLayoutProps) {
           url: "/messages",
           icon: MessageSquare,
           testId: "nav-messages",
+        },
+      ],
+    },
+    {
+      label: "Support",
+      items: [
+        {
+          title: "Help Center",
+          url: "/help",
+          icon: HelpCircle,
+          testId: "nav-help",
+        },
+        {
+          title: "My Disputes",
+          url: "/my-disputes",
+          icon: Scale,
+          testId: "nav-disputes",
         },
       ],
     },
