@@ -19,6 +19,7 @@ export function getSession() {
   });
   
   const isProduction = process.env.NODE_ENV === 'production';
+  const isReplit = !!process.env.REPL_ID || !!process.env.REPLIT_DEV_DOMAIN;
   
   return session({
     secret: process.env.SESSION_SECRET!,
@@ -27,8 +28,8 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: isProduction, // true in production, false in development
-      sameSite: isProduction ? 'strict' : 'lax', // strict in production, lax in development
+      secure: isProduction || isReplit,
+      sameSite: isReplit ? 'none' : (isProduction ? 'strict' : 'lax'),
       maxAge: sessionTtl,
     },
   });
